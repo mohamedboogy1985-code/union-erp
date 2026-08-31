@@ -1,0 +1,991 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Union Financial ERP — فيديو ترويجي</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800;900&display=swap');
+
+* { margin:0; padding:0; box-sizing:border-box; }
+
+:root {
+  --brand-900: #0f172a;
+  --brand-800: #1e293b;
+  --brand-700: #1d4ed8;
+  --brand-600: #2563eb;
+  --brand-500: #3b82f6;
+  --brand-400: #60a5fa;
+  --brand-300: #93c5fd;
+  --gold: #B8874B;
+  --gold-light: #D9AE73;
+  --emerald: #10b981;
+  --amber: #f59e0b;
+  --red: #ef4444;
+  --surface: #f8fafc;
+}
+
+body {
+  font-family: 'Cairo', sans-serif;
+  background: #000;
+  color: #fff;
+  overflow: hidden;
+  height: 100vh;
+  width: 100vw;
+}
+
+#app {
+  position: relative;
+  width: 100vw;
+  height: 100vh;
+  overflow: hidden;
+}
+
+/* ── Scenes ── */
+.scene {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 1s ease, transform 1s ease;
+  transform: scale(0.98);
+}
+.scene.active {
+  opacity: 1;
+  pointer-events: auto;
+  transform: scale(1);
+}
+
+/* ── Scene1: Hook ── */
+#scene1 {
+  background: radial-gradient(ellipse at 50% 50%, #0a1628 0%, #000 100%);
+}
+
+.grid-lines {
+  position: absolute;
+  inset: 0;
+  background-image:
+    linear-gradient(rgba(37,99,235,0.06) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(37,99,235,0.06) 1px, transparent 1px);
+  background-size: 60px 60px;
+  animation: gridMove 4s linear infinite;
+}
+@keyframes gridMove {
+  0% { transform: perspective(500px) rotateX(60deg) translateY(0); }
+  100% { transform: perspective(500px) rotateX(60deg) translateY(60px); }
+}
+
+.neural-ring {
+  position: absolute;
+  border: 2px solid rgba(37,99,235,0.2);
+  border-radius: 50%;
+  animation: pulse 3s ease-in-out infinite;
+}
+.neural-ring:nth-child(1) { width: 300px; height: 300px; animation-delay: 0s; }
+.neural-ring:nth-child(2) { width: 400px; height: 400px; animation-delay: 0.5s; }
+.neural-ring:nth-child(3) { width: 500px; height: 500px; animation-delay: 1s; }
+@keyframes pulse { 0%,100%{opacity:0.1;transform:scale(1)} 50%{opacity:0.25;transform:scale(1.05)} }
+
+.hook-text {
+  font-size: 3.2rem;
+  font-weight: 900;
+  text-align: center;
+  opacity: 0;
+  transform: translateY(50px) scale(0.9);
+  animation: hookReveal 1.2s cubic-bezier(0.16, 1, 0.3, 1) 2s forwards;
+  text-shadow: 0 0 80px rgba(37,99,235,0.4), 0 4px 20px rgba(0,0,0,0.5);
+  z-index: 2;
+  line-height: 1.5;
+  letter-spacing: -0.02em;
+}
+@keyframes hookReveal {
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+.code-rain {
+  position: absolute;
+  font-family: 'Courier New', monospace;
+  font-size: 0.65rem;
+  color: rgba(37,99,235,0.15);
+  white-space: pre;
+  animation: rain 4s linear infinite;
+}
+@keyframes rain { 0%{transform:translateY(-100%)} 100%{transform:translateY(100vh)} }
+
+.particle {
+  position: absolute;
+  width: 3px;
+  height: 3px;
+  background: rgba(37,99,235,0.5);
+  border-radius: 50%;
+  box-shadow: 0 0 6px rgba(37,99,235,0.4);
+  animation: float linear infinite;
+}
+@keyframes float {
+  0% { transform: translateY(100vh) scale(0); opacity: 0; }
+  10% { opacity: 1; }
+  90% { opacity: 1; }
+  100% { transform: translateY(-10vh) scale(1); opacity: 0; }
+}
+
+/* ── Scene2: Product ── */
+#scene2 {
+  background: linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #0f172a 100%);
+}
+
+.laptop-mockup {
+  width: 780px;
+  background: #111827;
+  border-radius: 18px;
+  border: 3px solid #374151;
+  overflow: hidden;
+  box-shadow: 0 30px 100px rgba(0,0,0,0.7), 0 0 40px rgba(37,99,235,0.1);
+  transform: translateY(60px) scale(0.9);
+  opacity: 0;
+  animation: laptopReveal 1s cubic-bezier(0.16, 1, 0.3, 1) 0.5s forwards;
+}
+@keyframes laptopReveal {
+  to { transform: translateY(0) scale(1); opacity: 1; }
+}
+
+.laptop-screen {
+  background: linear-gradient(180deg, #0f172a 0%, #1e293b 100%);
+  padding: 30px;
+  min-height: 380px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+
+.logo-reveal {
+  font-size: 2.4rem;
+  font-weight: 900;
+  background: linear-gradient(135deg, #2563eb, #60a5fa, #93c5fd);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  opacity: 0;
+  animation: logoGlow 0.8s ease 1.2s forwards;
+}
+@keyframes logoGlow {
+  0% { opacity: 0; filter: blur(10px); }
+  100% { opacity: 1; filter: blur(0); }
+}
+
+.login-form {
+  margin-top: 25px;
+  width: 280px;
+  opacity: 0;
+  transform: translateY(20px);
+  animation: slideUp 0.6s ease 2s forwards;
+}
+@keyframes slideUp { to { opacity: 1; transform: translateY(0); } }
+
+.login-input {
+  width: 100%;
+  padding: 11px 15px;
+  margin-bottom: 10px;
+  border-radius: 10px;
+  border: 1px solid #374151;
+  background: #1f2937;
+  color: #e5e7eb;
+  font-family: 'Cairo';
+  font-size: 0.85rem;
+  outline: none;
+  transition: border-color 0.3s;
+}
+.login-input:focus { border-color: #2563eb; }
+
+.login-btn {
+  width: 100%;
+  padding: 11px;
+  border-radius: 10px;
+  border: none;
+  background: linear-gradient(135deg, #2563eb, #1d4ed8);
+  color: #fff;
+  font-family: 'Cairo';
+  font-weight: 700;
+  font-size: 0.95rem;
+  cursor: pointer;
+  transition: transform 0.2s, box-shadow 0.2s;
+  box-shadow: 0 4px 15px rgba(37,99,235,0.3);
+}
+.login-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 25px rgba(37,99,235,0.5);
+}
+
+.lower-third {
+  position: absolute;
+  bottom: 90px;
+  left: 50%;
+  transform: translateX(-50%) translateY(30px);
+  background: rgba(15,23,42,0.92);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(37,99,235,0.25);
+  border-radius: 14px;
+  padding: 14px 35px;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  opacity: 0;
+  animation: lowerThirdIn 0.7s cubic-bezier(0.16, 1, 0.3, 1) 3.5s forwards;
+}
+@keyframes lowerThirdIn { to { opacity: 1; transform: translateX(-50%) translateY(0); } }
+
+.lower-third .dot {
+  width: 8px;
+  height: 8px;
+  background: #2563eb;
+  border-radius: 50%;
+  box-shadow: 0 0 10px rgba(37,99,235,0.6);
+  animation: blink 1.5s ease-in-out infinite;
+}
+@keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.3} }
+
+.lower-third span {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: #e2e8f0;
+}
+
+/* ── Scene3: Sponsor ── */
+#scene3 {
+  background: linear-gradient(135deg, #0a0f1a 0%, #111827 40%, #0a0f1a 100%);
+}
+
+.sponsor-card {
+  width: 680px;
+  background: linear-gradient(145deg, rgba(15,23,42,0.97), rgba(17,24,39,0.97));
+  border: 1px solid rgba(184,135,75,0.25);
+  border-radius: 28px;
+  padding: 50px 45px;
+  text-align: center;
+  box-shadow: 0 0 100px rgba(184,135,75,0.1), 0 30px 60px rgba(0,0,0,0.5);
+  transform: translateY(40px) scale(0.95);
+  opacity: 0;
+  animation: cardIn 1s cubic-bezier(0.16, 1, 0.3, 1) 0.3s forwards;
+}
+@keyframes cardIn { to { transform: translateY(0) scale(1); opacity: 1; } }
+
+.sponsor-card .crown {
+  font-size: 2rem;
+  margin-bottom: 10px;
+  opacity: 0;
+  animation: fadeIn 0.5s ease 0.8s forwards;
+}
+@keyframes fadeIn { to { opacity: 1; } }
+
+.sponsor-card .prep {
+  font-size: 1rem;
+  color: #94a3b8;
+  margin-bottom: 12px;
+  opacity: 0;
+  animation: fadeIn 0.5s ease 1s forwards;
+}
+
+.sponsor-card .name {
+  font-size: 2.6rem;
+  font-weight: 900;
+  background: linear-gradient(135deg, #B8874B, #D9AE73, #B8874B);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  margin-bottom: 30px;
+  opacity: 0;
+  transform: scale(0.9);
+  animation: nameReveal 0.8s cubic-bezier(0.16, 1, 0.3, 1) 1.3s forwards;
+  text-shadow: none;
+  filter: drop-shadow(0 0 20px rgba(184,135,75,0.2));
+}
+@keyframes nameReveal { to { opacity: 1; transform: scale(1); } }
+
+.sponsor-card .titles {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.sponsor-card .title-item {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  font-size: 1rem;
+  color: #e2e8f0;
+  opacity: 0;
+  transform: translateX(30px);
+}
+.sponsor-card .title-item:nth-child(1) { animation: titleSlide 0.5s ease 1.8s forwards; }
+.sponsor-card .title-item:nth-child(2) { animation: titleSlide 0.5s ease 2.1s forwards; }
+.sponsor-card .title-item:nth-child(3) { animation: titleSlide 0.5s ease 2.4s forwards; }
+.sponsor-card .title-item:nth-child(4) { animation: titleSlide 0.5s ease 2.7s forwards; }
+@keyframes titleSlide { to { opacity: 1; transform: translateX(0); } }
+
+.sponsor-card .star {
+  color: #B8874B;
+  font-size: 1.1rem;
+  filter: drop-shadow(0 0 4px rgba(184,135,75,0.5));
+}
+
+/* ── Scene4: Features ── */
+#scene4 {
+  background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+}
+
+.features-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+  width: 780px;
+}
+
+.feature-card {
+  background: rgba(30,41,59,0.7);
+  border: 1px solid #374151;
+  border-radius: 18px;
+  padding: 28px;
+  text-align: center;
+  opacity: 0;
+  transform: translateY(40px) scale(0.95);
+  transition: transform 0.3s, box-shadow 0.3s, border-color 0.3s;
+}
+.feature-card:hover {
+  transform: translateY(-4px) scale(1.02) !important;
+  box-shadow: 0 12px 40px rgba(0,0,0,0.4);
+  border-color: #2563eb;
+}
+.feature-card:nth-child(1) { animation: cardUp 0.7s cubic-bezier(0.16, 1, 0.3, 1) 0.4s forwards; }
+.feature-card:nth-child(2) { animation: cardUp 0.7s cubic-bezier(0.16, 1, 0.3, 1) 0.8s forwards; }
+.feature-card:nth-child(3) { animation: cardUp 0.7s cubic-bezier(0.16, 1, 0.3, 1) 1.2s forwards; }
+.feature-card:nth-child(4) { animation: cardUp 0.7s cubic-bezier(0.16, 1, 0.3, 1) 1.6s forwards; }
+@keyframes cardUp { to { opacity: 1; transform: translateY(0) scale(1); } }
+
+.feature-card .icon {
+  font-size: 2.5rem;
+  margin-bottom: 12px;
+  filter: drop-shadow(0 0 8px rgba(37,99,235,0.3));
+}
+
+.feature-card h3 {
+  font-size: 1.05rem;
+  font-weight: 700;
+  margin-bottom: 8px;
+  color: #60a5fa;
+}
+
+.feature-card p {
+  font-size: 0.8rem;
+  color: #94a3b8;
+  line-height: 1.6;
+}
+
+.status-badges {
+  display: flex;
+  gap: 8px;
+  justify-content: center;
+  margin-top: 12px;
+}
+.badge {
+  padding: 5px 14px;
+  border-radius: 20px;
+  font-size: 0.7rem;
+  font-weight: 600;
+  transition: box-shadow 0.3s;
+}
+.badge.green { background: rgba(16,185,129,0.12); color: #10b981; border: 1px solid rgba(16,185,129,0.3); box-shadow: 0 0 12px rgba(16,185,129,0.2); }
+.badge.amber { background: rgba(245,158,11,0.12); color: #f59e0b; border: 1px solid rgba(245,158,11,0.3); box-shadow: 0 0 12px rgba(245,158,11,0.2); }
+.badge.red { background: rgba(239,68,68,0.12); color: #ef4444; border: 1px solid rgba(239,68,68,0.3); box-shadow: 0 0 12px rgba(239,68,68,0.2); }
+
+/* ── Scene5: AI & Outro ── */
+#scene5 {
+  background: radial-gradient(ellipse at 50% 40%, #0a1628 0%, #000 100%);
+}
+
+.ai-section {
+  text-align: center;
+  opacity: 0;
+  animation: fadeIn 1s ease 0.3s forwards;
+}
+
+.ai-section .ai-title {
+  font-size: 2.2rem;
+  font-weight: 900;
+  margin-bottom: 25px;
+  background: linear-gradient(135deg, #2563eb, #60a5fa, #93c5fd);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  filter: drop-shadow(0 0 30px rgba(37,99,235,0.3));
+}
+
+.ai-features {
+  display: flex;
+  gap: 25px;
+  margin-bottom: 40px;
+  justify-content: center;
+}
+
+.ai-feature {
+  background: rgba(37,99,235,0.08);
+  border: 1px solid rgba(37,99,235,0.25);
+  border-radius: 18px;
+  padding: 24px 20px;
+  width: 170px;
+  text-align: center;
+  opacity: 0;
+  transform: translateY(30px);
+  transition: transform 0.3s, box-shadow 0.3s, border-color 0.3s;
+}
+.ai-feature:hover {
+  transform: translateY(-4px) !important;
+  box-shadow: 0 10px 30px rgba(37,99,235,0.15);
+  border-color: #3b82f6;
+}
+.ai-feature:nth-child(1) { animation: cardUp 0.6s ease 0.6s forwards; }
+.ai-feature:nth-child(2) { animation: cardUp 0.6s ease 0.9s forwards; }
+.ai-feature:nth-child(3) { animation: cardUp 0.6s ease 1.2s forwards; }
+.ai-feature:nth-child(4) { animation: cardUp 0.6s ease 1.5s forwards; }
+
+.ai-feature .icon {
+  font-size: 2.2rem;
+  margin-bottom: 10px;
+  filter: drop-shadow(0 0 10px rgba(37,99,235,0.4));
+  animation: glow 2s ease-in-out infinite alternate;
+}
+@keyframes glow {
+  from { filter: drop-shadow(0 0 8px rgba(37,99,235,0.3)); }
+  to { filter: drop-shadow(0 0 16px rgba(37,99,235,0.6)); }
+}
+.ai-feature h4 { font-size: 0.9rem; color: #60a5fa; margin-bottom: 5px; font-weight: 700; }
+.ai-feature p { font-size: 0.72rem; color: #94a3b8; line-height: 1.5; }
+
+.outro {
+  text-align: center;
+  opacity: 0;
+  animation: fadeIn 1s ease 2.5s forwards;
+}
+
+.outro .logo {
+  font-size: 2.6rem;
+  font-weight: 900;
+  background: linear-gradient(135deg, #2563eb, #60a5fa);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  margin-bottom: 8px;
+}
+
+.outro .slogan {
+  font-size: 1.15rem;
+  color: #94a3b8;
+  margin-bottom: 25px;
+  font-weight: 600;
+}
+
+.outro .divider {
+  width: 80px;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, #B8874B, transparent);
+  margin: 0 auto 15px;
+}
+
+.outro .credit {
+  font-size: 0.95rem;
+  color: #B8874B;
+  font-weight: 700;
+}
+
+.outro .sponsor-line {
+  font-size: 0.85rem;
+  color: #64748b;
+  margin-top: 8px;
+}
+
+/* ── Controls ── */
+#controls {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: rgba(10,15,26,0.95);
+  backdrop-filter: blur(12px);
+  border-top: 1px solid rgba(37,99,235,0.15);
+  padding: 14px 30px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  z-index: 100;
+}
+
+#controls button {
+  background: none;
+  border: 1px solid transparent;
+  color: #e2e8f0;
+  cursor: pointer;
+  font-size: 1.15rem;
+  padding: 8px 14px;
+  border-radius: 10px;
+  transition: all 0.2s;
+}
+#controls button:hover { background: rgba(37,99,235,0.15); border-color: rgba(37,99,235,0.3); }
+
+#progress-bar {
+  flex: 1;
+  height: 4px;
+  background: #1e293b;
+  border-radius: 4px;
+  overflow: hidden;
+}
+#progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #2563eb, #60a5fa);
+  width: 0%;
+  transition: width 0.3s;
+  box-shadow: 0 0 10px rgba(37,99,235,0.4);
+}
+
+#time-display {
+  font-size: 0.8rem;
+  color: #64748b;
+  font-variant-numeric: tabular-nums;
+  min-width: 80px;
+  text-align: center;
+}
+
+#scene-label {
+  font-size: 0.8rem;
+  color: #60a5fa;
+  font-weight: 600;
+  min-width: 120px;
+}
+
+/* ── Narration Overlay ── */
+#narration {
+  position: fixed;
+  bottom: 75px;
+  left: 50%;
+  transform: translateX(-50%) translateY(10px);
+  background: rgba(10,15,26,0.88);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(37,99,235,0.15);
+  border-radius: 14px;
+  padding: 14px 28px;
+  max-width: 680px;
+  text-align: center;
+  font-size: 0.92rem;
+  color: #cbd5e1;
+  line-height: 1.7;
+  z-index: 90;
+  opacity: 0;
+  transition: opacity 0.6s, transform 0.6s;
+}
+#narration.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+/* ── Sound Indicator ── */
+#sound-indicator {
+  position: fixed;
+  top: 20px;
+  left: 20px;
+  background: rgba(10,15,26,0.8);
+  backdrop-filter: blur(8px);
+  border: 1px solid rgba(37,99,235,0.2);
+  border-radius: 10px;
+  padding: 8px 16px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.75rem;
+  color: #60a5fa;
+  z-index: 100;
+  opacity: 0;
+  transition: opacity 0.3s;
+}
+#sound-indicator.show { opacity: 1; }
+
+#sound-bars {
+  display: flex;
+  gap: 2px;
+  align-items: flex-end;
+  height: 16px;
+}
+#sound-bars span {
+  width: 3px;
+  background: #2563eb;
+  border-radius: 2px;
+  animation: soundBar 0.8s ease-in-out infinite;
+}
+#sound-bars span:nth-child(1) { height: 6px; animation-delay: 0s; }
+#sound-bars span:nth-child(2) { height: 10px; animation-delay: 0.1s; }
+#sound-bars span:nth-child(3) { height: 14px; animation-delay: 0.2s; }
+#sound-bars span:nth-child(4) { height: 8px; animation-delay: 0.3s; }
+@keyframes soundBar {
+  0%,100% { transform: scaleY(0.5); }
+  50% { transform: scaleY(1); }
+}
+
+/* ── Responsive ── */
+@media (max-width: 900px) {
+  .hook-text { font-size: 2rem; }
+  .laptop-mockup { width: 95%; }
+  .sponsor-card { width: 95%; padding: 30px 20px; }
+  .sponsor-card .name { font-size: 1.8rem; }
+  .features-grid { grid-template-columns: 1fr; width: 95%; }
+  .ai-features { flex-direction: column; align-items: center; }
+}
+</style>
+</head>
+<body>
+
+<div id="app">
+
+  <!-- ===== مشهد 1: الخطاف ===== -->
+  <div id="scene1" class="scene active">
+    <div class="grid-lines"></div>
+    <div class="neural-ring"></div>
+    <div class="neural-ring"></div>
+    <div class="neural-ring"></div>
+    <div class="code-rain" style="left:5%;">import { SmartOCR } from './ai';</div>
+    <div class="code-rain" style="left:20%; animation-delay:1s;">const entry = await parseJournal(text);</div>
+    <div class="code-rain" style="left:35%; animation-delay:0.5s;">function analyzeVoucher(image) {</div>
+    <div class="code-rain" style="left:50%; animation-delay:1.5s;">  return gemini.chat(entries);</div>
+    <div class="code-rain" style="left:65%; animation-delay:0.8s;">}</div>
+    <div class="code-rain" style="left:80%; animation-delay:1.2s;">export default SmartAccounting;</div>
+    <div class="hook-text">كيف ستُدار أموالك<br>في المستقبل؟</div>
+    <div class="particle" style="left:10%; animation-duration:7s; animation-delay:0s;"></div>
+    <div class="particle" style="left:30%; animation-duration:9s; animation-delay:1s;"></div>
+    <div class="particle" style="left:50%; animation-duration:6s; animation-delay:0.5s;"></div>
+    <div class="particle" style="left:70%; animation-duration:8s; animation-delay:2s;"></div>
+    <div class="particle" style="left:90%; animation-duration:7s; animation-delay:1.5s;"></div>
+  </div>
+
+  <!-- ===== مشهد 2: الحل ===== -->
+  <div id="scene2" class="scene">
+    <div class="laptop-mockup">
+      <div class="laptop-screen">
+        <div class="logo-reveal">Union Financial ERP</div>
+        <div class="login-form">
+          <input class="login-input" value="محمد عبد الله أحمد" readonly>
+          <input class="login-input" type="password" value="password" readonly>
+          <button class="login-btn">دخول</button>
+        </div>
+      </div>
+    </div>
+    <div class="lower-third">
+      <div class="dot"></div>
+      <span>إنشاء وتنفيذ: أ. محمد عبد الله</span>
+    </div>
+  </div>
+
+  <!-- ===== مشهد 3: الراعي ===== -->
+  <div id="scene3" class="scene">
+    <div class="sponsor-card">
+      <div class="crown">👑</div>
+      <div class="prep">تحت رعاية وتحفيز كريم من</div>
+      <div class="name">السيد الأستاذ / عبد المنعم الجمل</div>
+      <div class="titles">
+        <div class="title-item"><span class="star">★</span> رئيس اتحاد عمال مصر</div>
+        <div class="title-item"><span class="star">★</span> رئيس النقابة العامة للبناء والأخشاب</div>
+        <div class="title-item"><span class="star">★</span> رئيس مجلس إدارة مركز التدريب المهني</div>
+        <div class="title-item"><span class="star">★</span> رئيس لجنة القاهرة الكبرى للبناء والأخشاب</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== مشهد 4: المزايا ===== -->
+  <div id="scene4" class="scene">
+    <div class="features-grid">
+      <div class="feature-card">
+        <div class="icon">🌐</div>
+        <h3>دعم ثنائي اللغة</h3>
+        <p>تبديل فوري بين العربية والإنجليزية مع دعم RTL/LTR</p>
+      </div>
+      <div class="feature-card">
+        <div class="icon">👥</div>
+        <h3>كشف المديونيات</h3>
+        <p>إدارة متكاملة للسلف والمديونيات مع حالة كل عامل</p>
+        <div class="status-badges">
+          <span class="badge green">مكتمل</span>
+          <span class="badge amber">معلق</span>
+        </div>
+      </div>
+      <div class="feature-card">
+        <div class="icon">🏦</div>
+        <h3>التسوية البنكية</h3>
+        <p>بنك مصر + بنك العمال مع مطابقة آلية</p>
+        <div class="status-badges">
+          <span class="badge green">✅ مكتمل</span>
+          <span class="badge amber">⏳ معلق</span>
+          <span class="badge red">❌ رفض</span>
+        </div>
+      </div>
+      <div class="feature-card">
+        <div class="icon">📊</div>
+        <h3>تصدير وطباعة</h3>
+        <p>Excel + PDF + طباعة مباشرة بنقرة واحدة</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== مشهد 5: AI والخاتمة ===== -->
+  <div id="scene5" class="scene">
+    <div class="ai-section">
+      <div class="ai-title">قوة الذكاء الاصطناعي</div>
+      <div class="ai-features">
+        <div class="ai-feature">
+          <div class="icon">🤖</div>
+          <h4>مساعد محاسبي</h4>
+          <p>محادثة ذكية لتحليل البيانات</p>
+        </div>
+        <div class="ai-feature">
+          <div class="icon">📷</div>
+          <h4>تقنية OCR</h4>
+          <p>قراءة الصور واستخراج البيانات</p>
+        </div>
+        <div class="ai-feature">
+          <div class="icon">🎤</div>
+          <h4>أوامر صوتية</h4>
+          <p>إدخال القيود بالصوت</p>
+        </div>
+        <div class="ai-feature">
+          <div class="icon">📈</div>
+          <h4>تحليلات فورية</h4>
+          <p>توصيات مالية لاتخاذ القرار</p>
+        </div>
+      </div>
+    </div>
+    <div class="outro">
+      <div class="logo">Union Financial ERP</div>
+      <div class="slogan">خيارك الذكي لإدارة مالية متطورة</div>
+      <div class="divider"></div>
+      <div class="credit">إنشاء وتنفيذ: أ. محمد عبد الله</div>
+      <div class="sponsor-line">تحت رعاية السيد الأستاذ عبد المنعم الجمل — رئيس اتحاد عمال مصر</div>
+    </div>
+  </div>
+
+  <!-- ===== Narration Overlay ===== -->
+  <div id="narration"></div>
+
+  <!-- ===== Sound Indicator ===== -->
+  <div id="sound-indicator">
+    <div id="sound-bars"><span></span><span></span><span></span><span></span></div>
+    <span id="sound-text">صوت التعليق</span>
+  </div>
+
+  <!-- ===== Controls ===== -->
+  <div id="controls">
+    <button id="btn-prev" title="المشهد السابق">⏮</button>
+    <button id="btn-play" title="تشغيل / إيقاف">▶️</button>
+    <button id="btn-mute" title="كتم / تشغيل الصوت (M)">🔊</button>
+    <button id="btn-next" title="المشهد التالي">⏭</button>
+    <div id="progress-bar"><div id="progress-fill"></div></div>
+    <div id="time-display">0:00 / 1:20</div>
+    <div id="scene-label">المشهد 1/5</div>
+  </div>
+
+</div>
+
+<script>
+// ── Audio Context for SFX ──
+const AudioCtx = window.AudioContext || window.webkitAudioContext;
+let audioCtx;
+function getAudioCtx() { if (!audioCtx) audioCtx = new AudioCtx(); return audioCtx; }
+
+function playTone(freq, dur, vol = 0.08, type = 'sine') {
+  try {
+    const ctx = getAudioCtx();
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.type = type;
+    osc.frequency.value = freq;
+    gain.gain.setValueAtTime(vol, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + dur);
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.start();
+    osc.stop(ctx.currentTime + dur);
+  } catch(e) {}
+}
+
+function sfxClick() { playTone(800, 0.08, 0.06); setTimeout(() => playTone(1200, 0.06, 0.04), 50); }
+function sfxWhoosh() { playTone(300, 0.3, 0.05, 'sawtooth'); playTone(200, 0.2, 0.03, 'sine'); }
+function sfxSuccess() { playTone(523, 0.15, 0.06); setTimeout(() => playTone(659, 0.15, 0.06), 100); setTimeout(() => playTone(784, 0.2, 0.06), 200); }
+function sfxReveal() { playTone(440, 0.4, 0.05, 'triangle'); }
+
+// ── Voiceover ──
+const scenes = [
+  {
+    id: 'scene1',
+    label: 'المشهد 1: الخطاف',
+    narration: 'كيف ستُدار أموالك في المستقبل؟... مع Union Financial ERP... إدارتك المالية اليوم، بتقنيات الغد!',
+    duration: 10,
+  },
+  {
+    id: 'scene2',
+    label: 'المشهد 2: إطلاق الحل',
+    narration: 'نقدم لك Union Financial ERP... الجيل الجديد من برامج المحاسبة المكتبيّة الذكية، من إنشاء وتنفيذ الأستاذ محمد عبد الله.',
+    duration: 15,
+  },
+  {
+    id: 'scene3',
+    label: 'المشهد 3: التنويه بالراعي',
+    narration: 'هذا العمل المتميز يأتي تحت رعاية وتحفيز كريم من السيد الأستاذ عبد المنعم الجمل... رئيس اتحاد عمال مصر، رئيس النقابة العامة للبناء والأخشاب، إيماناً بدعم الكوادر وتطوير المنظومة الرقمية.',
+    duration: 15,
+  },
+  {
+    id: 'scene4',
+    label: 'المشهد 4: استعراض المزايا',
+    narration: 'منظومة متكاملة تمنحك كشوف مديونيات دقيقة للسُلف والعمال، وتسوية بنكية آلية لبنك مصر وبنك العمال، مع دعم كامل للغتين العربية والإنجليزية، وإمكانية تصدير البيانات وطباعتها بنقرة واحدة.',
+    duration: 20,
+  },
+  {
+    id: 'scene5',
+    label: 'المشهد 5: AI والخاتمة',
+    narration: 'ولأن المستقبل هنا... يوفر لك البرنامج مساعداً محاسبياً بالذكاء الاصطناعي، تقنية OCR لقراءة الصور، أوامر صوتية للقيود، وتحليلات مالية فورية تُساعدك في اتخاذ القرار. Union Financial ERP... خيارك الذكي لإدارة مالية متطورة.',
+    duration: 20,
+  },
+];
+
+const TOTAL_DURATION = scenes.reduce((s, sc) => s + sc.duration, 0);
+let currentScene = 0;
+let isPlaying = false;
+let playTimer = null;
+let elapsed = 0;
+let sceneElapsed = 0;
+let isMuted = false;
+
+const $narration = document.getElementById('narration');
+const $progressFill = document.getElementById('progress-fill');
+const $timeDisplay = document.getElementById('time-display');
+const $sceneLabel = document.getElementById('scene-label');
+const $btnPlay = document.getElementById('btn-play');
+const $btnPrev = document.getElementById('btn-prev');
+const $btnNext = document.getElementById('btn-next');
+const $btnMute = document.getElementById('btn-mute');
+const $soundIndicator = document.getElementById('sound-indicator');
+const $soundText = document.getElementById('sound-text');
+
+function speak(text) {
+  if (isMuted) return;
+  window.speechSynthesis.cancel();
+  const u = new SpeechSynthesisUtterance(text);
+  u.lang = 'ar-SA';
+  u.rate = 0.88;
+  u.pitch = 1.0;
+  u.volume = 1.0;
+  const voices = window.speechSynthesis.getVoices();
+  const arVoice = voices.find(v => v.lang.startsWith('ar'));
+  if (arVoice) u.voice = arVoice;
+  u.onstart = () => { $soundIndicator.classList.add('show'); $soundText.textContent = 'جاري التعليق...'; };
+  u.onend = () => { $soundIndicator.classList.remove('show'); };
+  window.speechSynthesis.speak(u);
+}
+
+function stopSpeech() {
+  window.speechSynthesis.cancel();
+  $soundIndicator.classList.remove('show');
+}
+
+function toggleMute() {
+  isMuted = !isMuted;
+  $btnMute.textContent = isMuted ? '🔇' : '🔊';
+  if (isMuted) stopSpeech();
+  else if (isPlaying) speak(scenes[currentScene].narration);
+}
+
+function showScene(idx) {
+  document.querySelectorAll('.scene').forEach(s => s.classList.remove('active'));
+  const sc = scenes[idx];
+  document.getElementById(sc.id).classList.add('active');
+  $sceneLabel.textContent = `${sc.label} (${idx + 1}/${scenes.length})`;
+  $narration.textContent = sc.narration;
+  $narration.classList.add('show');
+  updateProgress();
+  sfxWhoosh();
+  if (isPlaying && !isMuted) {
+    stopSpeech();
+    setTimeout(() => speak(sc.narration), 400);
+  }
+}
+
+function updateProgress() {
+  const done = scenes.slice(0, currentScene).reduce((s, sc) => s + sc.duration, 0) + sceneElapsed;
+  const pct = Math.min((done / TOTAL_DURATION) * 100, 100);
+  $progressFill.style.width = pct + '%';
+  const m = Math.floor(done / 60);
+  const sec = Math.floor(done % 60);
+  $timeDisplay.textContent = `${m}:${String(sec).padStart(2, '0')} / 1:20`;
+}
+
+function play() {
+  if (isPlaying) return pause();
+  isPlaying = true;
+  $btnPlay.textContent = '⏸️';
+  sfxClick();
+  if (!isMuted) speak(scenes[currentScene].narration);
+  tick();
+}
+
+function pause() {
+  isPlaying = false;
+  $btnPlay.textContent = '▶️';
+  clearTimeout(playTimer);
+  stopSpeech();
+}
+
+function tick() {
+  if (!isPlaying) return;
+  const sc = scenes[currentScene];
+  sceneElapsed += 0.5;
+  elapsed += 0.5;
+  updateProgress();
+
+  if (sceneElapsed >= sc.duration) {
+    sceneElapsed = 0;
+    currentScene++;
+    if (currentScene >= scenes.length) {
+      currentScene = scenes.length - 1;
+      pause();
+      sfxSuccess();
+      return;
+    }
+    showScene(currentScene);
+  }
+
+  playTimer = setTimeout(tick, 500);
+}
+
+function nextScene() {
+  pause();
+  sceneElapsed = 0;
+  currentScene = Math.min(currentScene + 1, scenes.length - 1);
+  showScene(currentScene);
+}
+
+function prevScene() {
+  pause();
+  sceneElapsed = 0;
+  currentScene = Math.max(currentScene - 1, 0);
+  showScene(currentScene);
+}
+
+$btnPlay.addEventListener('click', play);
+$btnNext.addEventListener('click', nextScene);
+$btnPrev.addEventListener('click', prevScene);
+$btnMute.addEventListener('click', toggleMute);
+
+document.addEventListener('keydown', e => {
+  if (e.code === 'Space') { e.preventDefault(); play(); }
+  if (e.code === 'ArrowRight') prevScene();
+  if (e.code === 'ArrowLeft') nextScene();
+  if (e.code === 'KeyM') toggleMute();
+});
+
+window.speechSynthesis.onvoiceschanged = () => window.speechSynthesis.getVoices();
+
+showScene(0);
+$narration.classList.add('show');
+</script>
+</body>
+</html>

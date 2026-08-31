@@ -1,0 +1,7 @@
+{
+  "name": "Union Financial ERP",
+  "description": "النظام المالي والمحاسبي والإداري المتكامل للنقابة العامة واللجان المهنية ولجان الشركات",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
+
