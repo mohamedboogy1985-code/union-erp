@@ -17,6 +17,7 @@ import {
 } from 'lucide-react';
 import { Account } from '../types/erp.js';
 import { getCurrentUserId } from '../services/api.js';
+import { streamGlobalAiChat } from '../services/ai-stream.js';
 
 interface JournalAiAssistantProps {
   organizationId: string;
@@ -126,38 +127,17 @@ export const JournalAiAssistant: React.FC<JournalAiAssistantProps> = ({
     setFilled(false);
     try {
       const history = messages.map((m) => ({ role: m.role, text: m.text }));
-      const res = await fetch('/api/ai/global-chat/stream', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'x-user-id': getCurrentUserId() },
-        body: JSON.stringify({ message: bodyText, organizationId: organizationId || undefined, history }),
-      });
-      if (!res.ok || !res.body) {
-        const data = await res.json().catch(() => ({}));
-        throw new Error(data.error || 'تعذر الاتصال بالمساعد.');
-      }
-      const reader = res.body.getReader();
-      const decoder = new TextDecoder();
-      let buffer = '';
-      let assistantText = '';
       let finalProposedEntry: any = null;
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        buffer += decoder.decode(value, { stream: true });
-        const parts = buffer.split('\n\n');
-        buffer = parts.pop() || '';
-        for (const part of parts) {
-          const line = part.split('\n').find((l) => l.startsWith('data: '));
-          if (!line) continue;
-          const evt = JSON.parse(line.slice(6));
-          if (evt.error) throw new Error(evt.error || 'خطأ في المساعد.');
-          if (evt.chunk) assistantText += evt.chunk;
-          if (evt.done && evt.proposedEntry && Array.isArray(evt.proposedEntry.lines)) {
-            finalProposedEntry = evt.proposedEntry;
-          }
+      const answer = await streamGlobalAiChat(
+        { message: bodyText, organizationId: organizationId || undefined, history },
+        {
+          onDone: (evt) => {
+            if (evt.proposedEntry && Array.isArray(evt.proposedEntry.lines)) {
+              finalProposedEntry = evt.proposedEntry;
+            }
+          },
         }
-      }
-      const answer = assistantText || 'تمت المعالجة.';
+      );
       addAssistant(answer);
       if (finalProposedEntry) {
         setProposedEntry(finalProposedEntry);

@@ -44,8 +44,8 @@
 
 - أُضيف مسار SSE في `server/routes/ai-core.routes.ts`.
 - يبثّ `evt.chunk` ثم `evt.done` مع `proposedEntry` و`confidence` و`sources`.
-- `GlobalAiWidget.tsx` أصبح يقرأ `ReadableStream` مباشرة.
-- `JournalAiAssistant.tsx` تحوّل أيضاً إلى نفس المسار المُتدفق بدل الانتظار الكامل.
+- `GlobalAiWidget.tsx` و`JournalAiAssistant.tsx` يقرآن الـ `ReadableStream`.
+- أُضيف عميل موحّد `src/services/ai-stream.ts` (`streamGlobalAiChat`) يستخدمه كلا المكوّنين، في وحّد السلوك والتهيئة.
 
 ## 6. حذف الميزة الميتة `src/features/ai-support-agent`
 

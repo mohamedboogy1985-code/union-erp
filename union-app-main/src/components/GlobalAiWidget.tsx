@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { Bot, X, Send, Loader2, ShieldCheck, Sparkles, CheckCircle2, AlertTriangle, Mic, Square } from 'lucide-react';
 import { User } from '../types/erp.js';
 import { getCurrentUserId } from '../services/api.js';
+import { streamGlobalAiChat } from '../services/ai-stream.js';
 
 interface MessageItem {
   role: 'user' | 'assistant';
@@ -89,21 +90,6 @@ export const GlobalAiWidget: React.FC<GlobalAiWidgetProps> = ({ currentTab, sele
     setPostError(null);
     try {
       const history = messages.map((m) => ({ role: m.role, text: m.text }));
-      const res = await fetch('/api/ai/global-chat/stream', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-user-id': getCurrentUserId(),
-        },
-        body: JSON.stringify({ message: bodyText, organizationId: selectedOrgId || undefined, history }),
-      });
-      if (!res.ok || !res.body) {
-        const data = await res.json().catch(() => ({}));
-        throw new Error(data.error || 'تعذر الاتصال بالمساعد.');
-      }
-      const reader = res.body.getReader();
-      const decoder = new TextDecoder();
-      let buffer = '';
       let assistantText = '';
       const updateAssistant = () => {
         setMessages((m) => {
@@ -118,28 +104,20 @@ export const GlobalAiWidget: React.FC<GlobalAiWidgetProps> = ({ currentTab, sele
         });
       };
       updateAssistant();
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        buffer += decoder.decode(value, { stream: true });
-        const parts = buffer.split('\n\n');
-        buffer = parts.pop() || '';
-        for (const part of parts) {
-          const line = part.split('\n').find((l) => l.startsWith('data: '));
-          if (!line) continue;
-          const evt = JSON.parse(line.slice(6));
-          if (evt.error) throw new Error(evt.error || 'خطأ في المساعد.');
-          if (evt.chunk) {
-            assistantText += evt.chunk;
+      await streamGlobalAiChat(
+        { message: bodyText, organizationId: selectedOrgId || undefined, history },
+        {
+          onChunk: (_chunk, fullText) => {
+            assistantText = fullText;
             updateAssistant();
-          }
-          if (evt.done) {
+          },
+          onDone: (evt) => {
             if (evt.proposedEntry && Array.isArray(evt.proposedEntry.lines)) {
               setProposedEntry(evt.proposedEntry);
             }
-          }
+          },
         }
-      }
+      );
       if (!assistantText) assistantText = 'تمت المعالجة.';
       updateAssistant();
     } catch (err: any) {
