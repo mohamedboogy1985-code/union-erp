@@ -288,7 +288,7 @@ export class AdvancedVoiceProcessor {
     // تحديد الحساب النقدي/البنكي (الطرف الدافع أو المستلم) — محلل دلالي يعمل مع أي دليل
     const bankPreference = this.bankContextPreference;
     let treasuryAccount =
-      findTreasuryAccount(bankPreference) ||
+      findTreasuryAccount(bankPreference || undefined) ||
       erpStore.accounts.find((a) => !a.isParent && a.isActive) ||
       erpStore.accounts[0];
     if (paymentMethod === 'CASH' && !bankPreference) {
@@ -297,20 +297,32 @@ export class AdvancedVoiceProcessor {
 
     // تحديد الحساب المقابل (مصروف/إيراد) — كود القالب أولاً ثم محلل دلالي
     const template = erpStore.journalTemplates.find((t) => t.id === intention.matchedTemplateId);
-    let counterpartAccount: typeof treasuryAccount;
+    if (!treasuryAccount) {
+      throw new Error('تعذر تحديد حساب نقدي/بنكي في دليل الحسابات لإنشاء القيد.');
+    }
+    let counterpartAccount: typeof treasuryAccount | undefined;
     if (intent === 'INCOME') {
+      const creditCode = template?.creditAccountCode && erpStore.accounts.find((a) => a.code === template.creditAccountCode && a.type === 'REVENUE')
+        ? template.creditAccountCode
+        : undefined;
       counterpartAccount =
-        findAccountByCodeOrName(template?.creditAccountCode && erpStore.accounts.find((a) => a.code === template.creditAccountCode && a.type === 'REVENUE') ? template.creditAccountCode : undefined) ||
+        findAccountByCodeOrName(creditCode || undefined) ||
         findRevenueAccount('اشتراك') ||
         findRevenueAccount();
       if (counterpartAccount && counterpartAccount.type !== 'REVENUE') counterpartAccount = findRevenueAccount() || counterpartAccount;
     } else {
       const kw = template?.category === 'صيانة' ? 'صيان' : undefined;
+      const debitCode = template?.debitAccountCode && erpStore.accounts.find((a) => a.code === template.debitAccountCode && a.type === 'EXPENSE')
+        ? template.debitAccountCode
+        : undefined;
       counterpartAccount =
-        findAccountByCodeOrName(template?.debitAccountCode && erpStore.accounts.find((a) => a.code === template.debitAccountCode && a.type === 'EXPENSE') ? template.debitAccountCode : undefined) ||
+        findAccountByCodeOrName(debitCode || undefined) ||
         findExpenseAccount(kw) ||
         findExpenseAccount();
       if (counterpartAccount && counterpartAccount.type !== 'EXPENSE') counterpartAccount = findExpenseAccount() || counterpartAccount;
+    }
+    if (!counterpartAccount) {
+      throw new Error('تعذر تحديد الحساب المقابل (مصروف/إيراد) في دليل الحسابات لإنشاء القيد.');
     }
 
     if (intent === 'INCOME') {
@@ -344,7 +356,7 @@ export class AdvancedVoiceProcessor {
   private bankContextPreference: string | null = null;
 
   public setBankContext(transcription: string) {
-    this.bankContextPreference = detectBankPreference(transcription);
+    this.bankContextPreference = detectBankPreference(transcription) || null;
   }
 
   private matchTemplate(normalizedText: string) {

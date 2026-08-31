@@ -16,6 +16,8 @@ interface ChatMessage {
   sender: 'user' | 'bot';
   text: string;
   timestamp: string;
+  confidence?: number;
+  sources?: { type?: string; reference?: string }[];
 }
 
 interface AccountingChatProps {
@@ -85,6 +87,7 @@ export const AccountingChat: React.FC<AccountingChatProps> = ({
 
     try {
       const res = await api.askAccountantExpert(message, history, organizationId);
+      const sources = Array.isArray(res.sources) ? res.sources : [];
       setMessages((prev) => [
         ...prev,
         {
@@ -92,6 +95,8 @@ export const AccountingChat: React.FC<AccountingChatProps> = ({
           sender: 'bot',
           text: res.answer || 'لا يوجد رد متاح حالياً.',
           timestamp: new Date().toLocaleString('ar-EG'),
+          confidence: res.confidence,
+          sources,
         },
       ]);
     } catch (err: any) {
@@ -182,6 +187,20 @@ export const AccountingChat: React.FC<AccountingChatProps> = ({
               }`}
             >
               <div>{m.text}</div>
+              {m.sender === 'bot' && (m.confidence !== undefined || (m.sources && m.sources.length > 0)) && (
+                <div className="mt-2 flex flex-wrap items-center gap-1.5 text-[9px]">
+                  {m.confidence !== undefined && (
+                    <span className="px-2 py-0.5 rounded-full bg-emerald-950/80 border border-emerald-800 text-emerald-300 font-bold">
+                      ثقة {Math.round(m.confidence * 100)}%
+                    </span>
+                  )}
+                  {(m.sources || []).slice(0, 2).map((s, i) => (
+                    <span key={i} className="px-2 py-0.5 rounded-full bg-slate-900 border border-slate-700 text-slate-400">
+                      {s.reference || s.type || 'مصدر'}
+                    </span>
+                  ))}
+                </div>
+              )}
               <div className="text-[9px] text-slate-500 mt-2 font-mono text-left">{m.timestamp}</div>
             </div>
           </div>

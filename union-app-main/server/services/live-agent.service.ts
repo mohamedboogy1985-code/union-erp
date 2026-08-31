@@ -250,7 +250,7 @@ export function attachLiveAgentWebSocketServer(httpServer: any): WebSocketServer
     const url = new URL(request.url || '/', `http://${request.headers.host || 'localhost'}`);
     if (url.pathname !== '/api/live-agent') return;
 
-    wss.handleUpgrade(request, socket, head, (clientWs) => {
+    wss.handleUpgrade(request, socket, head, (clientWs: WebSocket) => {
       const userName = url.searchParams.get('userName') || 'المستخدم';
       const organizationId = url.searchParams.get('organizationId') || undefined;
       attachLiveAgentSession(clientWs, decodeURIComponent(userName), organizationId);

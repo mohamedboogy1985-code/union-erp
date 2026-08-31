@@ -75,6 +75,8 @@ interface ChatMessage {
   text: string;
   timestamp: string;
   suggestedAction?: any;
+  confidence?: number;
+  sources?: { type?: string; reference?: string }[];
 }
 
 export const AIAssistant: React.FC<AIAssistantProps> = ({
@@ -188,6 +190,8 @@ export const AIAssistant: React.FC<AIAssistantProps> = ({
         sender: 'ai',
         text: res.answer,
         suggestedAction: res.suggestedAction,
+        confidence: res.confidence,
+        sources: Array.isArray(res.sources) ? res.sources : [],
         timestamp: new Date().toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' }),
       };
       setMessages((prev) => [...prev, aiMsg]);
@@ -545,6 +549,20 @@ export const AIAssistant: React.FC<AIAssistantProps> = ({
                     }`}
                   >
                     <div>{m.text}</div>
+                    {m.sender === 'ai' && (m.confidence !== undefined || (m.sources && m.sources.length > 0)) && (
+                      <div className="mt-2 flex flex-wrap gap-1.5 text-[9px]">
+                        {m.confidence !== undefined && (
+                          <span className="px-2 py-0.5 rounded-full bg-purple-950/80 border border-purple-700 text-purple-300 font-bold">
+                            ثقة {Math.round(m.confidence * 100)}%
+                          </span>
+                        )}
+                        {(m.sources || []).slice(0, 2).map((s, i) => (
+                          <span key={i} className="px-2 py-0.5 rounded-full bg-slate-900 border border-slate-700 text-slate-400">
+                            {s.reference || s.type || 'مصدر'}
+                          </span>
+                        ))}
+                      </div>
+                    )}
                     <div className="text-[9px] text-slate-500 mt-2 font-mono text-left">{m.timestamp}</div>
                   </div>
                 </div>

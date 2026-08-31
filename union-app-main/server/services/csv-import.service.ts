@@ -12,7 +12,7 @@ import type { Account, JournalEntry, JournalEntryLine, SubledgerParty, User } fr
  * - قيود_اليومية_2024.csv → شاشة قيود اليومية (قيود مرحّلة بأرصدتها وأستاذها المساعد)
  */
 
-const MODULE_DIR = moduleDir(typeof import.meta !== 'undefined' ? import.meta.url : undefined);
+const MODULE_DIR = moduleDir(typeof import.meta !== 'undefined' ? import.meta.url : undefined) || process.cwd();
 
 /** مجلد بيانات CSV: يدعم التطوير وحزمة الإنتاج وتطبيق Electron */
 export const CSV_DATA_DIR =
@@ -479,9 +479,11 @@ export class CsvImportService {
       const chartPath = this.findDataFile(/دليل_الحسابات|chart/i);
       if (chartPath) {
         const csv = fs.readFileSync(chartPath, 'utf-8');
-        summary.chart = this.applyUnifiedChartOfAccounts(csv, admin);
+        const chartSummary = this.applyUnifiedChartOfAccounts(csv, admin);
+        if (!chartSummary) throw new Error('لم يتم إرجاع خلاصة صالحة من دليل الحسابات.');
+        summary.chart = chartSummary;
         summary.loaded = true;
-        console.log(`📊 تم تحميل الدليل الموحد: ${summary.chart.accountsImported} حساباً في ${summary.chart.groupsCreated} قسماً`);
+        console.log(`📊 تم تحميل الدليل الموحد: ${chartSummary.accountsImported} حساباً في ${chartSummary.groupsCreated} قسماً`);
       }
 
       const entriesPaths = this.findAllDataFiles(/قيود|journal/i);
@@ -500,6 +502,7 @@ export class CsvImportService {
             ? 'يومية لجان الشركات'
             : 'يومية النقابة';
           const fileSummary = this.importJournalEntriesCsv(fs.readFileSync(ep, 'utf-8'), admin, journalName);
+          if (!fileSummary) throw new Error(`لم يتم إرجاع خلاصة صالحة من ملف ${path.basename(ep)}.`);
           agg.imported += fileSummary.imported;
           agg.posted += fileSummary.posted;
           agg.totalDebit += fileSummary.totalDebit;

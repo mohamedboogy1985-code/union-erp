@@ -10,7 +10,9 @@ import { reportsService } from './reports.service.js';
 import { accountQueryService } from './account-query.service.js';
 import { smartAgentEnhancer } from './smart-agent.service.js';
 import { regulationService } from './regulation.service.js';
+import { cacheService, CACHE_KEYS } from './cache.service.js';
 import { advancedVoiceProcessor } from './voice.processor.js';
+import { calculateSimilarity, normalizeArabicText } from '../utils/arabic.js';
 import {
   findDebtorsAccount,
   findExpenseAccount,
@@ -31,6 +33,32 @@ export const MAX_OCR_IMAGE_BYTES = Number(process.env.MAX_OCR_IMAGE_BYTES || 8 *
 
 let aiClient: GoogleGenAI | null = null;
 
+/**
+ * تحقق صارم من استجابة Gemini بصيغة JSON بدل الاعتماد على `response.text || '{}'`.
+ * يُعيد كائناً محللاً إن نجح، أو null إن كان غير صالح ليستخدم المتصل المسار الاحتياطي.
+ */
+function parseGeminiJsonResponse(response: any): any {
+  const raw = response?.text || '';
+  if (!raw.trim()) return null;
+  try {
+    const parsed = JSON.parse(raw);
+    if (!parsed || typeof parsed !== 'object') return null;
+    return parsed;
+  } catch {
+    // أحياناً يلفّ النموذج الـ JSON داخل نص markdown؛ نحاول استخلاص أول كتلة JSON.
+    const wrapped = raw.match(/```(?:json)?\s*([\s\S]*?)```/);
+    if (wrapped?.[1]) {
+      try {
+        const parsed = JSON.parse(wrapped[1].trim());
+        return parsed && typeof parsed === 'object' ? parsed : null;
+      } catch {
+        return null;
+      }
+    }
+    return null;
+  }
+}
+
 function getAIClient(): GoogleGenAI | null {
   if (!aiClient && process.env.GEMINI_API_KEY) {
     try {
@@ -49,6 +77,116 @@ function getAIClient(): GoogleGenAI | null {
   return aiClient;
 }
 
+interface AIContextBundle {
+  orgId?: string;
+  trialBalance: any;
+  incomeExpense: any;
+  debtors: any[];
+  latestReceipts: any[];
+  pendingEntries: any;
+  availableAccounts: any[];
+  regulationSummary: any;
+  accountsListStr: string;
+  snapshot: any;
+}
+
+function buildAIContext(contextOrgId?: string): AIContextBundle {
+  const tb = reportsService.getTrialBalance({ organizationId: contextOrgId });
+  const ie = reportsService.getIncomeExpenseReport({ organizationId: contextOrgId });
+  const debtorsAccount = findDebtorsAccount();
+  const debtors = debtorsAccount ? erpStore.getSubledgerPartiesForAccount(debtorsAccount.id) : [];
+  const latestReceipts = accountQueryService.getLatestReceipts(contextOrgId, 5);
+  const pendingEntries = accountQueryService.getPendingEntries(contextOrgId);
+  const availableAccounts = erpStore.accounts.filter((a) => !a.isParent && a.isActive);
+  const regStatus = regulationService.getStatus();
+  const snapshot = accountQueryService.getFinancialSnapshot(contextOrgId);
+
+  const accountsListStr = availableAccounts
+    .map((a) => `[كود: ${a.code} | اسم: ${a.name} | نوع: ${a.type} | أستاذ مساعد: ${a.requiresSubledger ? 'نعم' : 'لا'}]`)
+    .join('\n');
+
+  return {
+    orgId: contextOrgId,
+    trialBalance: tb,
+    incomeExpense: ie,
+    debtors,
+    latestReceipts,
+    pendingEntries,
+    availableAccounts,
+    regulationSummary: { articlesCount: regStatus.articlesCount, activeRules: regStatus.activeRules },
+    accountsListStr,
+    snapshot,
+  };
+}
+
+function getAIContext(contextOrgId?: string): AIContextBundle {
+  return cacheService.wrapSync(CACHE_KEYS.aiFinancialContext(contextOrgId), () => buildAIContext(contextOrgId), 30);
+}
+
+function lookupAccounts(query: string, limit = 8): { code: string; name: string; type: string; requiresSubledger: boolean; score: number }[] {
+  const q = normalizeArabicText(query);
+  if (!q) return [];
+  const tokens = q.split(/\s+/).filter((t) => t.length > 1);
+  return erpStore.accounts
+    .filter((a) => !a.isParent && a.isActive && (a.code || a.name))
+    .map((a) => {
+      const name = normalizeArabicText(a.name);
+      const code = String(a.code || '');
+      let score = 0;
+      if (code.includes(q)) score += 5;
+      if (name.includes(q)) score += 5;
+      for (const token of tokens) {
+        if (name.includes(token)) score += 2;
+        if (code.includes(token)) score += 3;
+      }
+      score += calculateSimilarity(query, a.name) * 3;
+      return { code, name: a.name, type: a.type, requiresSubledger: Boolean(a.requiresSubledger), score };
+    })
+    .filter((r) => r.score > 0)
+    .sort((a, b) => b.score - a.score)
+    .slice(0, limit);
+}
+
+function validateDraftEntry(draft: any, availableAccounts: any[]): { ok: boolean; errors: string[]; draft?: any } {
+  const errors: string[] = [];
+  if (!draft || !Array.isArray(draft.lines) || draft.lines.length < 2) {
+    errors.push('القيد غير مكتمل: يجب أن يحتوي سطرين على الأقل.');
+    return { ok: false, errors };
+  }
+  let totalDebit = 0;
+  let totalCredit = 0;
+  const lines = draft.lines.map((l: any) => {
+    const code = String(l.accountCode || l.code || '').trim();
+    const acc = erpStore.getAccountByCode(code) || (availableAccounts.find((a) => a.code === code) as any);
+    if (!acc) {
+      errors.push(`كود الحساب ${code || '(فارغ)'} غير موجود في دليل الحسابات.`);
+      return l;
+    }
+    const debit = Number(l.debit) || 0;
+    const credit = Number(l.credit) || 0;
+    totalDebit += debit;
+    totalCredit += credit;
+    const requiresSubledger = Boolean(acc.requiresSubledger) || acc.code === '1301' || acc.code === '1101';
+    const partyHint = String(l.partyName || l.subledgerPartyName || l.subledgerPartyNameInput || (requiresSubledger ? l.description : '') || '').trim();
+    if (requiresSubledger && !partyHint) {
+      errors.push(`الحساب ${acc.code} يتطلب اسم طرف (أستاذ مساعد).`);
+    }
+    return {
+      ...l,
+      accountCode: acc.code,
+      accountName: acc.name,
+      debit,
+      credit,
+      partyName: requiresSubledger ? partyHint : l.partyName,
+    };
+  });
+  if (Math.abs(totalDebit - totalCredit) > 0.01) {
+    errors.push(`القيد غير متوازن: المدين ${totalDebit} والدائن ${totalCredit}.`);
+  }
+  if (errors.length > 0) return { ok: false, errors };
+  return { ok: true, errors: [], draft: { ...draft, lines, totalDebit, totalCredit, balanced: true } };
+}
+
 export class AIService {
   /**
    * Financial Copilot: Answers questions, suggests journal entries, analyzes debtors (1301) and cash flow
@@ -56,18 +194,15 @@ export class AIService {
   public async queryFinancialAssistant(prompt: string, contextOrgId?: string): Promise<{ answer: string; suggestedAction?: any }> {
     const ai = getAIClient();
 
-    // Prepare current ERP context
-    const tb = reportsService.getTrialBalance({ organizationId: contextOrgId });
-    const ie = reportsService.getIncomeExpenseReport({ organizationId: contextOrgId });
-    const debtorsAccount = findDebtorsAccount();
-    const debtors = debtorsAccount ? erpStore.getSubledgerPartiesForAccount(debtorsAccount.id) : [];
-    const availableAccounts = erpStore.accounts.filter((a) => !a.isParent && a.isActive);
-
-    // ===== IMPROVEMENTS 2.2: ربط مباشر بالبيانات الحية (إيصالات + قيود معلقة) =====
-    const latestReceipts = accountQueryService.getLatestReceipts(contextOrgId, 5);
-    const pendingEntries = accountQueryService.getPendingEntries(contextOrgId);
-
-    const accountsListStr = availableAccounts.map((a) => `[كود: ${a.code} | اسم: ${a.name} | نوع: ${a.type} | أستاذ مساعد: ${a.requiresSubledger ? 'نعم (1301)' : 'لا'}]`).join('\n');
+    // Prepare current ERP context (cached 30s)
+    const ctx = getAIContext(contextOrgId);
+    const tb = ctx.trialBalance;
+    const ie = ctx.incomeExpense;
+    const debtors = ctx.debtors;
+    const availableAccounts = ctx.availableAccounts;
+    const latestReceipts = ctx.latestReceipts;
+    const pendingEntries = ctx.pendingEntries;
+    const accountsListStr = ctx.accountsListStr;
 
     const systemSummary = `
 أنت المساعد المالي والمحاسبي الذكي وروبوت الرد التلقائي لنظام "Union Financial ERP" للنقابة العامة واللجان المهنية ولجان الشركات.
@@ -109,17 +244,12 @@ ${accountsListStr}
     }
 
     try {
-      const response = await ai.models.generateContent({
-        model: AI_PRIMARY_MODEL,
-        contents: prompt,
-        config: {
-          systemInstruction: systemSummary,
-          temperature: 0.3,
-        },
-      });
-
+      const result = await this.globalAssistantChat(prompt, contextOrgId, undefined, 'general');
       return {
-        answer: response.text || 'تم معالجة الطلب المالي بنجاح.',
+        answer: result.answer || 'تم معالجة الطلب المالي بنجاح.',
+        suggestedAction: result.proposedEntry
+          ? { type: 'PROPOSED_ENTRY', entry: result.proposedEntry }
+          : undefined,
       };
     } catch (err: any) {
       console.error('Gemini API query error:', err);
@@ -248,12 +378,46 @@ ${accountsListStr}
         contents: contentsPayload,
         config: {
           responseMimeType: 'application/json',
+          responseJsonSchema: {
+            type: Type.OBJECT,
+            properties: {
+              documentInfo: {
+                type: Type.OBJECT,
+                properties: {
+                  invoiceNumber: { type: Type.STRING },
+                  date: { type: Type.STRING },
+                  vendorName: { type: Type.STRING },
+                  subtotal: { type: Type.NUMBER },
+                  taxAmount: { type: Type.NUMBER },
+                  totalAmount: { type: Type.NUMBER },
+                },
+                required: ['date', 'totalAmount'],
+              },
+              description: { type: Type.STRING },
+              lines: {
+                type: Type.ARRAY,
+                items: {
+                  type: Type.OBJECT,
+                  properties: {
+                    accountCode: { type: Type.STRING },
+                    accountName: { type: Type.STRING },
+                    partyName: { type: Type.STRING },
+                    debit: { type: Type.NUMBER },
+                    credit: { type: Type.NUMBER },
+                    description: { type: Type.STRING },
+                  },
+                  required: ['accountCode', 'debit', 'credit'],
+                },
+              },
+            },
+            required: ['description', 'lines'],
+          },
           temperature: 0.2,
         },
       });
 
-      const parsed = JSON.parse(response.text || '{}');
-      if (parsed.lines && Array.isArray(parsed.lines)) {
+      const parsed = parseGeminiJsonResponse(response);
+      if (parsed?.lines && Array.isArray(parsed.lines)) {
         parsed.lines = parsed.lines.map((line: any) => {
           const matchedAcc = erpStore.getAccountByCode(String(line.accountCode)) ||
                              erpStore.getAccountById(String(line.accountId)) ||
@@ -481,11 +645,46 @@ ${accountsListStr}
 }`,
         config: {
           responseMimeType: 'application/json',
+          responseJsonSchema: {
+            type: Type.OBJECT,
+            properties: {
+              intent: { type: Type.STRING, enum: ['RECEIPT', 'JOURNAL_ENTRY'] },
+              confidence: { type: Type.NUMBER },
+              structuredData: {
+                type: Type.OBJECT,
+                properties: {
+                  payerName: { type: Type.STRING },
+                  amount: { type: Type.NUMBER },
+                  revenueTypeName: { type: Type.STRING },
+                  paymentMethod: { type: Type.STRING },
+                  description: { type: Type.STRING },
+                  lines: {
+                    type: Type.ARRAY,
+                    items: {
+                      type: Type.OBJECT,
+                      properties: {
+                        accountCode: { type: Type.STRING },
+                        accountName: { type: Type.STRING },
+                        debit: { type: Type.NUMBER },
+                        credit: { type: Type.NUMBER },
+                        description: { type: Type.STRING },
+                      },
+                      required: ['accountCode', 'debit', 'credit'],
+                    },
+                  },
+                },
+                required: ['amount'],
+              },
+              summary: { type: Type.STRING },
+            },
+            required: ['intent', 'structuredData', 'summary'],
+          },
           temperature: 0.1,
         },
       });
 
-      const parsed = JSON.parse(response.text || '{}');
+      const parsed = parseGeminiJsonResponse(response);
+      if (!parsed) return fallbackParser(spokenText);
       const struct = parsed.structuredData || {};
       if (struct.lines && Array.isArray(struct.lines)) {
         struct.lines = struct.lines.map((line: any) => {
@@ -595,11 +794,21 @@ ${accountsListStr}
 }`,
         config: {
           responseMimeType: 'application/json',
+          responseJsonSchema: {
+            type: Type.OBJECT,
+            properties: {
+              strategicAdvice: { type: Type.STRING },
+              riskFactors: { type: Type.ARRAY, items: { type: Type.STRING } },
+              growthOpportunities: { type: Type.ARRAY, items: { type: Type.STRING } },
+            },
+            required: ['strategicAdvice'],
+          },
           temperature: 0.2,
         },
       });
 
-      const parsed = JSON.parse(response.text || '{}');
+      const parsed = parseGeminiJsonResponse(response);
+      if (!parsed) return fallbackResult;
       return {
         ...fallbackResult,
         strategicAdvice: parsed.strategicAdvice || fallbackResult.strategicAdvice,
@@ -623,17 +832,17 @@ ${accountsListStr}
   ) {
     const ai = getAIClient();
 
-    const ie = reportsService.getIncomeExpenseReport({ organizationId });
-    const debtorsAccount = findDebtorsAccount();
-    const debtors = debtorsAccount ? erpStore.getSubledgerPartiesForAccount(debtorsAccount.id) : [];
-    const latestReceipts = accountQueryService.getLatestReceipts(organizationId, 5);
-    const pendingEntries = accountQueryService.getPendingEntries(organizationId);
-    const availableAccounts = erpStore.accounts.filter((a) => !a.isParent && a.isActive);
-    const regStatus = regulationService.getStatus();
+    const ctx = getAIContext(organizationId);
+    const ie = ctx.incomeExpense;
+    const debtors = ctx.debtors;
+    const latestReceipts = ctx.latestReceipts;
+    const pendingEntries = ctx.pendingEntries;
+    const availableAccounts = ctx.availableAccounts;
+    const regStatus = ctx.regulationSummary;
 
     const regRulesStr = regStatus.activeRules.length
       ? regStatus.activeRules
-          .map((r) => `- ${r.ruleId}: ${r.descriptionAr} (م${r.articleNo || '—'}) = ${r.value === null || r.value === '' ? '—' : typeof r.value === 'number' ? r.value.toLocaleString() : r.value}`)
+          .map((r: any) => `- ${r.ruleId}: ${r.descriptionAr} (م${r.articleNo || '—'}) = ${r.value === null || r.value === '' ? '—' : typeof r.value === 'number' ? r.value.toLocaleString() : r.value}`)
           .join('\n')
       : '- لا توجد قواعد نافذة حالياً';
 
@@ -698,12 +907,13 @@ ${accountsListStr}
     }
 
     try {
-      const response = await ai.models.generateContent({
-        model: AI_PRIMARY_MODEL,
-        contents: conversation,
-        config: { systemInstruction, temperature: 0.3 },
-      });
-      return { answer: response.text || 'تمت الإجابة.' };
+      const chatHistory: { role: 'user' | 'model'; text: string }[] = (history || []).map((h) => ({ role: h.role === 'model' ? ('model' as const) : ('user' as const), text: h.text }));
+      const result = await this.globalAssistantChat(message, organizationId, chatHistory, 'accounting');
+      return {
+        answer: result.answer || 'تمت الإجابة.',
+        confidence: result.confidence,
+        sources: result.sources,
+      };
     } catch (err: any) {
       return {
         answer: `تعذر الاتصال بمحرك الخبير المحاسبي: ${err.message || 'خطأ غير معروف'}. يرجى التحقق من GEMINI_API_KEY.`,
@@ -721,19 +931,14 @@ ${accountsListStr}
   public async globalAssistantChat(
     message: string,
     contextOrgId?: string,
-    history?: { role: 'user' | 'model'; text: string }[]
-  ): Promise<{ answer: string; proposedEntry?: any; postedEntry?: any }> {
+    history?: { role: 'user' | 'model'; text: string }[],
+    mode: 'global' | 'accounting' | 'general' = 'global'
+  ): Promise<{ answer: string; proposedEntry?: any; postedEntry?: any; confidence?: number; sources?: any[] }> {
     const ai = getAIClient();
 
-    const availableAccounts = erpStore.accounts.filter((a) => !a.isParent && a.isActive);
-    const accountsListStr = availableAccounts
-      .map(
-        (a) =>
-          `[كود: ${a.code} | اسم: ${a.name} | نوع: ${a.type}${
-            a.requiresSubledger ? ' | يتطلب أستاذاً مساعداً' : ''
-          }]`
-      )
-      .join('\n');
+    const ctx = getAIContext(contextOrgId);
+    const availableAccounts = ctx.availableAccounts;
+    const accountsListStr = ctx.accountsListStr;
 
     const systemInstruction = `
 أنت "مساعد الذكاء الاصطناعي" العام العائم في نظام "Union Financial ERP".
@@ -761,6 +966,13 @@ ${accountsListStr}
 إن طلب المستخدم الترحيل المباشر صراحةً ("رحّل مباشرةً") فاستخدم أداة post_journal_entry بعد
 create_journal_entry. وإن لم يطلب الترحيل المباشر فدع القيد مسودة يُراجعها المستخدم ويؤكدها؛
 الترحيل الفعلي يتم فقط بتأكيد المستخدم في الواجهة.
+
+وضع التشغيل الحالي: ${mode === 'accounting' ? 'الخبير المحاسبي واللائحة المالية' : mode === 'general' ? 'المساعد المالي العام' : 'المساعد العائم العام'}.
+استخدم أداة lookup_accounts قبل اختيار أي كود حساب إن كنت غير متأكد، وتأكد أن كل كود تعيده موجود في النتائج.
+عند الإجابة عن أسئلة الأرصدة/القيود/المصروفات/الإيرادات استخدم query_erp_data أولاً ولا تتخيل أرقاماً.
+
+اللائحة المالية النافذة (${ctx.regulationSummary.articlesCount} مادة):
+${ctx.regulationSummary.activeRules.length ? ctx.regulationSummary.activeRules.map((r: any) => `- ${r.ruleId}: ${r.descriptionAr} (م${r.articleNo || '—'})`).join('\n') : '- لا توجد قواعد مفعّلة.'}
 
 دليل الحسابات الفعلي النشط في النظام:
 ${accountsListStr || 'لا توجد حسابات نشطة حالياً.'}
@@ -842,7 +1054,21 @@ ${accountsListStr || 'لا توجد حسابات نشطة حالياً.'}
       },
     };
 
-    const tools = [{ functionDeclarations: [createJournalTool, postJournalTool, queryErpTool] }];
+    const lookupAccountsTool = {
+      name: 'lookup_accounts',
+      description:
+        'البحث في دليل الحسابات الفعلي بكلمات أرابية أو كود حساب وإرجاع أفضل الحسابات المناسبة (تقيّد بصحة الحسابات ولا تخترع أكواداً).',
+      parameters: {
+        type: Type.OBJECT,
+        properties: {
+          query: { type: Type.STRING, description: 'كلمة البحث العربية أو الكود (مثال: "مصروف إيجار" أو "1201")' },
+          limit: { type: Type.NUMBER, description: 'عدد النتائج (اختياري، افتراضي 8)' },
+        },
+        required: ['query'],
+      },
+    };
+
+    const tools = [{ functionDeclarations: [createJournalTool, postJournalTool, queryErpTool, lookupAccountsTool] }];
 
     // موقّت لتخزين المسودة أثناء دورة الاستدعاء
     let pendingDraft: any = null;
@@ -891,7 +1117,7 @@ ${accountsListStr || 'لا توجد حسابات نشطة حالياً.'}
                 setTimeout(() => rej(new Error('503 REQUEST_TIMEOUT (استغرقت الاستجابة وقتاً طويلاً)')), AI_REQUEST_TIMEOUT_MS)
               ),
             ]);
-            const res = await timedRequest;
+            const res = (await timedRequest) as any;
             // رصد خطأ 503/429/404 وردّ النموذج نصاً مضمّناً (لا استثناء): جرب النموذج الاحتياطي
             const errMatch = String(res?.text || '').match(/"code":\s*(\d+)[\s\S]*?"status":\s*"([A-Z_]+)"/);
             if (
@@ -934,6 +1160,14 @@ ${accountsListStr || 'لا توجد حسابات نشطة حالياً.'}
         // ردّ النص النهائي إن لم يُطلب استدعاء دالة
         if (!response.functionCalls || response.functionCalls.length === 0) {
           finalText = response.text || 'تمت المعالجة.';
+          // تحقق إضافي: إن أعاد النموذج JSON (مثل {answer, proposedEntry}) نستقبلها ونمررها
+          const maybeJson = parseGeminiJsonResponse(response);
+          if (maybeJson && typeof maybeJson.answer === 'string' && maybeJson.answer.trim()) {
+            finalText = maybeJson.answer;
+            if (maybeJson.proposedEntry && Array.isArray(maybeJson.proposedEntry.lines)) {
+              pendingDraft = maybeJson.proposedEntry;
+            }
+          }
           break;
         }
 
@@ -991,6 +1225,16 @@ ${accountsListStr || 'لا توجد حسابات نشطة حالياً.'}
                   note: directPost
                     ? 'تم تسجيل طلب الترحيل؛ أعد المسودة للمستخدم لتأكيدها ثم يُرحَّل عبر تنفيذ القيد المؤكد.'
                     : 'لم يؤكّد المستخدم الترحيل بعد؛ سيبقى القيد مسودة للمراجعة.',
+                })
+              );
+            } else if (call.name === 'lookup_accounts') {
+              const query = String((call.args as any)?.query || '');
+              const limit = Number((call.args as any)?.limit) || 8;
+              const suggestions = lookupAccounts(query, limit);
+              toolResponses.push(
+                createPartFromFunctionResponse(call.id, call.name, {
+                  suggestions,
+                  note: suggestions.length ? 'استخدم فقط أكواد الحسابات المذكورة.' : 'لم نجد حسابات مطابقة; ابحث بمرادفات أخرى.',
                 })
               );
             } else if (call.name === 'query_erp_data') {
@@ -1095,7 +1339,25 @@ ${accountsListStr || 'لا توجد حسابات نشطة حالياً.'}
         };
       }
 
-      return { answer: finalText, proposedEntry: pendingDraft };
+      let validatedDraft: any = pendingDraft;
+      let validationNotice = '';
+      if (pendingDraft && Array.isArray(pendingDraft.lines)) {
+        const validation = validateDraftEntry(pendingDraft, availableAccounts);
+        if (validation.draft) validatedDraft = validation.draft;
+        if (!validation.ok) {
+          validatedDraft.validationErrors = validation.errors;
+          validationNotice = `\n\n⚠️ تحقق من القيد قبل الترحيل: ${validation.errors.join(' • ')}`;
+        }
+      }
+
+      return {
+        answer: (finalText || 'تمت المعالجة.') + validationNotice,
+        proposedEntry: validatedDraft || undefined,
+        confidence: validatedDraft ? (validatedDraft.validationErrors?.length ? 0.55 : 0.9) : 0.85,
+        sources: validatedDraft?.validationErrors?.length
+          ? [{ type: 'VALIDATION', reference: 'قواعد القيد المتوازن', excerpt: 'تحقق آلي من الأكواد والتوازن والأستاذ المساعد' }]
+          : undefined,
+      };
     } catch (err: any) {
       console.error('Global AI assistant error:', err);
       return {

@@ -21,7 +21,7 @@ import type {
  * - ملخص إحصائي: فجوة تحصيل حصة النقابة بين استمارة 2 والمستقطع الفعلي
  */
 
-const MODULE_DIR = moduleDir(typeof import.meta !== 'undefined' ? import.meta.url : undefined);
+const MODULE_DIR = moduleDir(typeof import.meta !== 'undefined' ? import.meta.url : undefined) || process.cwd();
 
 export const EMPLOYEE_DATA_DIR =
   resolveFirst([

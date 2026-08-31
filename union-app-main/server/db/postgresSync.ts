@@ -150,11 +150,11 @@ export class PostgresStorageManager {
             syndicateCommitteeId: mem.syndicateCommitteeId,
             syndicateCommitteeName: mem.syndicateCommitteeName,
             profession: mem.profession,
-            companyName: mem.companyName,
+            companyName: mem.companyName || '',
             status: mem.status,
             joinDate: mem.joinDate,
-            phone: mem.phone,
-            email: mem.email,
+            phone: mem.phone || '',
+            email: mem.email || '',
           }).onConflictDoNothing();
         }
 

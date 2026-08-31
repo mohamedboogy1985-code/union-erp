@@ -16,10 +16,10 @@ export function moduleDir(importMetaUrl?: string): string {
 }
 
 /** أول ملف موجود من مرشحات نسبية تُجرب من عدة جذور */
-export function resolveFirst(candidates: string[]): string | null {
+export function resolveFirst(candidates: Array<string | undefined | null>): string | null {
   for (const c of candidates) {
     try {
-      if (fs.existsSync(c)) return c;
+      if (c && fs.existsSync(c)) return c;
     } catch { /* تجاهل */ }
   }
   return null;

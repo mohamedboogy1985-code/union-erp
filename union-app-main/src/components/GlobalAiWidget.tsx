@@ -89,7 +89,7 @@ export const GlobalAiWidget: React.FC<GlobalAiWidgetProps> = ({ currentTab, sele
     setPostError(null);
     try {
       const history = messages.map((m) => ({ role: m.role, text: m.text }));
-      const res = await fetch('/api/ai/global-chat', {
+      const res = await fetch('/api/ai/global-chat/stream', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -97,14 +97,51 @@ export const GlobalAiWidget: React.FC<GlobalAiWidgetProps> = ({ currentTab, sele
         },
         body: JSON.stringify({ message: bodyText, organizationId: selectedOrgId || undefined, history }),
       });
-      const data = await res.json();
-      if (!res.ok) {
+      if (!res.ok || !res.body) {
+        const data = await res.json().catch(() => ({}));
         throw new Error(data.error || 'تعذر الاتصال بالمساعد.');
       }
-      setMessages((m) => [...m, { role: 'assistant', text: data.answer || 'تمت المعالجة.' }]);
-      if (data.proposedEntry && Array.isArray(data.proposedEntry.lines)) {
-        setProposedEntry(data.proposedEntry);
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = '';
+      let assistantText = '';
+      const updateAssistant = () => {
+        setMessages((m) => {
+          const next = [...m];
+          const last = next[next.length - 1];
+          if (last?.role === 'assistant' && last.text === '') {
+            next[next.length - 1] = { role: 'assistant', text: assistantText };
+          } else {
+            next.push({ role: 'assistant', text: assistantText });
+          }
+          return next;
+        });
+      };
+      updateAssistant();
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+        const parts = buffer.split('\n\n');
+        buffer = parts.pop() || '';
+        for (const part of parts) {
+          const line = part.split('\n').find((l) => l.startsWith('data: '));
+          if (!line) continue;
+          const evt = JSON.parse(line.slice(6));
+          if (evt.error) throw new Error(evt.error || 'خطأ في المساعد.');
+          if (evt.chunk) {
+            assistantText += evt.chunk;
+            updateAssistant();
+          }
+          if (evt.done) {
+            if (evt.proposedEntry && Array.isArray(evt.proposedEntry.lines)) {
+              setProposedEntry(evt.proposedEntry);
+            }
+          }
+        }
       }
+      if (!assistantText) assistantText = 'تمت المعالجة.';
+      updateAssistant();
     } catch (err: any) {
       setMessages((m) => [...m, { role: 'assistant', text: `حدث خطأ: ${err.message || 'غير معروف'}` }]);
     } finally {

@@ -1,4 +1,4 @@
-﻿import fs from 'fs';
+import fs from 'fs';
 import path from 'path';
 import JSZip from 'jszip';
 import ExcelJS from 'exceljs';
@@ -147,7 +147,7 @@ export function parseSheetMatrix(matrix: any[][]): { name: string; basic: number
   }
 
   // مواضع مهمة
-  const findIdx = (pred: (label: string) => boolean) => labels.findIndex(pred);
+  const findIdx = (pred: (label: string, index: number) => boolean) => labels.findIndex(pred);
   const nameIdx = findIdx((l) => l.includes('اسم'));
   if (nameIdx === -1) return [];
 
@@ -409,7 +409,7 @@ export class PayrollImportService {
         for (let i = 0; i < files.length; i++) {
           try {
             const wb = new ExcelJS.Workbook();
-            await wb.xlsx.load(files[i].buffer);
+            await wb.xlsx.load(files[i].buffer as any);
             for (const sheet of wb.worksheets) {
               if (isReferenceSheet(sheet.name)) continue;
               const matrix: any[][] = [];

@@ -240,7 +240,7 @@ export const api = {
 
   // AI Copilot & Intelligent Features
   queryAI: (prompt: string, organizationId?: string) =>
-    request<{ answer: string; suggestedAction?: any }>('/api/ai/query', {
+    request<{ answer: string; suggestedAction?: any; confidence?: number; sources?: { type?: string; reference?: string }[] }>('/api/ai/query', {
       method: 'POST',
       body: JSON.stringify({ prompt, organizationId }),
     }),
@@ -249,7 +249,7 @@ export const api = {
     history?: { role: string; text: string }[],
     organizationId?: string
   ) =>
-    request<{ answer: string }>('/api/ai/accountant-chat', {
+    request<{ answer: string; confidence?: number; sources?: { type?: string; reference?: string }[] }>('/api/ai/accountant-chat', {
       method: 'POST',
       body: JSON.stringify({ message, history, organizationId }),
     }),

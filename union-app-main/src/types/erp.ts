@@ -551,7 +551,7 @@ export interface OfflineQueueItem {
 // ----------------------------------------------------
 // Real-time Notifications & Alerts System
 // ----------------------------------------------------
-export type NotificationType = 'APPROVAL_PENDING' | 'BUDGET_OVERRUN' | 'ANOMALY_DETECTED' | 'DEBTOR_LIMIT' | 'SYSTEM' | 'OFFLINE_SYNC';
+export type NotificationType = 'APPROVAL_PENDING' | 'BUDGET_OVERRUN' | 'ANOMALY_DETECTED' | 'DEBTOR_LIMIT' | 'SYSTEM' | 'OFFLINE_SYNC' | 'HR_ALERT';
 export type NotificationSeverity = 'INFO' | 'WARNING' | 'CRITICAL' | 'SUCCESS';
 
 export interface AppNotification {

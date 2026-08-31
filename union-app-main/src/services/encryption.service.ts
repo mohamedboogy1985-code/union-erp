@@ -37,7 +37,7 @@ export class EncryptionService {
       const iv = crypto.randomBytes(this.ivLength);
       
       // إنشاء الدالة الحسابية
-      const cipher = crypto.createCipheriv(this.algorithm, this.key, iv);
+      const cipher = crypto.createCipheriv(this.algorithm, this.key, iv) as crypto.CipherGCM;
       
       // تشفير النص
       let encrypted = cipher.update(plaintext, 'utf8', 'binary');
@@ -78,7 +78,7 @@ export class EncryptionService {
       const encryptedData = combined.slice(this.encryptedPosition);
       
       // إنشاء الدالة المعكوسة
-      const decipher = crypto.createDecipheriv(this.algorithm, this.key, iv);
+      const decipher = crypto.createDecipheriv(this.algorithm, this.key, iv) as crypto.DecipherGCM;
       decipher.setAuthTag(tag);
       
       // فك التشفير
