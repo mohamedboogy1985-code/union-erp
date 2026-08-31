@@ -1,0 +1,523 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider        = "prisma-client-js"
+  // previewFeatures = ["fullTextSearch"]
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ============= Authentication & Users =============
+model User {
+  id        String     @id @default(cuid())
+  email     String     @unique
+  password  String
+  fullName  String
+  phone     String?
+  avatar    String?
+  role      UserLegacyRole @default(USER)
+  status    UserStatus @default(ACTIVE)
+  mustChangePassword Boolean @default(false)
+  lastLoginAt DateTime?
+  unitId    String?
+  unit      OrganizationalUnit? @relation(fields: [unitId], references: [id])
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+  deletedAt DateTime?
+
+  // Relations
+  accounts        Account[]
+  journalEntries  JournalEntry[]
+  supportTickets  SupportTicket[]
+  voiceRecordings VoiceRecording[]
+  ocrDocuments    OCRDocument[]
+  userRoles       UserRole[]
+
+  @@map("users")
+  @@index([unitId])
+}
+
+enum UserLegacyRole {
+  ADMIN
+  ACCOUNTANT
+  AUDITOR
+  USER
+}
+
+enum UserStatus {
+  ACTIVE
+  INACTIVE
+  SUSPENDED
+}
+
+// ============= Chart of Accounts (دليل الحسابات) =============
+model Account {
+  id        String    @id @default(cuid())
+  code      String    @unique // مثل: 1000, 1301, 2000
+  name      String
+  nameAr    String    // الاسم بالعربية
+  type      AccountType
+  category  AccountCategory
+  balance   Decimal   @default(0) @db.Decimal(18, 2)
+  isActive  Boolean   @default(true)
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime? // Soft delete بدلاً من الحذف الفعلي
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // Relations
+  journalEntryDetails JournalEntryDetail[]
+  accountingHistory   AccountingHistory[]
+  budgets             Budget[]
+
+  @@map("accounts")
+  @@index([userId])
+  @@index([type])
+}
+
+enum AccountType {
+  ASSET        // الأصول
+  LIABILITY    // الالتزامات
+  EQUITY       // حقوق الملكية
+  REVENUE      // الإيرادات
+  EXPENSE      // المصروفات
+}
+
+enum AccountCategory {
+  CASH           // النقد
+  BANK           // البنك
+  SUPPLIER       // الموردين
+  CUSTOMER       // العملاء
+  EMPLOYEE       // الموظفين
+  FIXED_ASSET    // الأصول الثابتة
+  DEPRECIATION   // الاستهلاك
+  MAINTENANCE    // الصيانة
+  SALARY         // الرواتب
+  OTHER
+}
+
+// ============= Journal Entries (القيود) =============
+model JournalEntry {
+  id            String   @id @default(cuid())
+  referenceNo   String   @unique
+  date          DateTime
+  description   String
+  descriptionAr String   // الوصف بالعربية
+  total         Decimal  @db.Decimal(18, 2)
+  status        EntryStatus @default(DRAFT)
+  source        EntrySource @default(MANUAL)
+  approvedBy    String?
+  approvalDate  DateTime?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  deletedAt     DateTime? // Soft delete
+  userId        String
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // Relations
+  details JournalEntryDetail[]
+  attachment JournalAttachment?
+  voiceEntry VoiceEntry?
+
+  @@map("journal_entries")
+  @@index([userId])
+  @@index([status])
+  @@index([date])
+}
+
+enum EntryStatus {
+  DRAFT      // مسودة
+  PENDING    // قيد الانتظار
+  APPROVED   // معتمدة
+  REJECTED   // مرفوضة
+  POSTED     // مسجلة
+}
+
+enum EntrySource {
+  MANUAL        // إدخال يدوي
+  VOICE         // إدخال صوتي
+  OCR           // من صورة
+  API           // من API خارجي
+  IMPORT        // استيراد
+}
+
+model JournalEntryDetail {
+  id             String   @id @default(cuid())
+  entryId        String
+  entry          JournalEntry @relation(fields: [entryId], references: [id], onDelete: Cascade)
+  accountId      String
+  account        Account  @relation(fields: [accountId], references: [id])
+  debit          Decimal  @default(0) @db.Decimal(18, 2)
+  credit         Decimal  @default(0) @db.Decimal(18, 2)
+  description    String?
+  descriptionAr  String?  // الوصف بالعربية
+  createdAt      DateTime @default(now())
+
+  @@map("journal_entry_details")
+  @@index([entryId])
+  @@index([accountId])
+}
+
+model JournalAttachment {
+  id          String   @id @default(cuid())
+  entryId     String   @unique
+  entry       JournalEntry @relation(fields: [entryId], references: [id], onDelete: Cascade)
+  fileUrl     String
+  fileName    String
+  fileType    String
+  fileSize    Int
+  uploadedAt  DateTime @default(now())
+
+  @@map("journal_attachments")
+}
+
+// ============= OCR & Vision Processing =============
+model OCRDocument {
+  id              String   @id @default(cuid())
+  fileName        String
+  fileUrl         String
+  rawText         String   @db.Text
+  extractedData   Json
+  detectedAccounts Json    // الحسابات المكتشفة
+  confidence      Float    @default(0)
+  status          ProcessingStatus @default(PENDING)
+  linkedEntryId   String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  processedAt     DateTime?
+  userId          String
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("ocr_documents")
+  @@index([userId])
+  @@index([status])
+}
+
+// ============= Voice Processing =============
+model VoiceRecording {
+  id              String   @id @default(cuid())
+  fileName        String
+  fileUrl         String
+  duration        Int      // بالثواني
+  transcription   String   @db.Text
+  transcriptAr    String   @db.Text
+  language        String   @default("ar")
+  confidence      Float
+  processedAt     DateTime?
+  status          ProcessingStatus @default(PENDING)
+  linkedEntryId   String?
+  createdAt       DateTime @default(now())
+  userId          String
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // Relations
+  voiceEntry      VoiceEntry?
+
+  @@map("voice_recordings")
+  @@index([userId])
+  @@index([status])
+}
+
+model VoiceEntry {
+  id                String   @id @default(cuid())
+  voiceRecordingId  String   @unique
+  voiceRecording    VoiceRecording @relation(fields: [voiceRecordingId], references: [id], onDelete: Cascade)
+  entryId           String   @unique
+  entry             JournalEntry @relation(fields: [entryId], references: [id], onDelete: Cascade)
+  detectedAccounts  Json     // الحسابات المكتشفة من الصوت
+  parsedIntention   Json     // النية المحللة (مثل: مصروفات، دفع، استقبال)
+  createdAt         DateTime @default(now())
+
+  @@map("voice_entries")
+}
+
+enum ProcessingStatus {
+  PENDING     // قيد المعالجة
+  PROCESSING  // جاري المعالجة
+  COMPLETED   // اكتملت
+  FAILED      // فشلت
+  VERIFIED    // تم التحقق منها
+}
+
+// ============= AI Support Agent =============
+model SupportTicket {
+  id          String   @id @default(cuid())
+  question    String   @db.Text
+  questionAr  String   @db.Text
+  category    TicketCategory
+  answer      String?  @db.Text
+  answerAr    String?  @db.Text
+  sources     Json?    // مصادر الإجابة (حسابات، قوانين، إلخ)
+  confidence  Float?
+  status      TicketStatus @default(OPEN)
+  rating      Int?     // تقييم المستخدم (1-5)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  resolvedAt  DateTime?
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("support_tickets")
+  @@index([userId])
+  @@index([status])
+  @@index([category])
+}
+
+enum TicketCategory {
+  ACCOUNT_INQUIRY      // استفسار عن الحساب
+  REGULATION           // قوانين واللوائح
+  BALANCE_CHECK        // فحص الأرصدة
+  ENTRY_HELP           // مساعدة في القيود
+  TECHNICAL_SUPPORT    // الدعم الفني
+  OTHER
+}
+
+enum TicketStatus {
+  OPEN        // مفتوحة
+  IN_PROGRESS // قيد المعالجة
+  RESOLVED    // تم حلها
+  CLOSED      // مغلقة
+}
+
+// ============= Audit Trail =============
+model AuditLog {
+  id          String   @id @default(cuid())
+  userId      String
+  action      String
+  entity      String
+  entityId    String?
+  oldValue    Json?
+  newValue    Json?
+  ipAddress   String?
+  userAgent   String?
+  createdAt   DateTime @default(now())
+
+  @@map("audit_logs")
+  @@index([userId])
+  @@index([createdAt])
+}
+
+// ============= Accounting History (سجل التحديثات المحاسبية) - IMPROVEMENTS 1.1 =============
+model AccountingHistory {
+  id              String   @id @default(cuid())
+  accountId       String
+  account         Account  @relation(fields: [accountId], references: [id])
+  previousBalance Decimal  @db.Decimal(18, 2)
+  currentBalance  Decimal  @db.Decimal(18, 2)
+  changeAmount    Decimal  @db.Decimal(18, 2)
+  reason          String
+  journalEntryId  String?
+  createdAt       DateTime @default(now())
+
+  @@map("accounting_history")
+  @@index([accountId, createdAt])
+}
+
+// ============= Journal Templates (قوالب القيود للمساعد الذكي) - IMPROVEMENTS 1.1 =============
+model JournalTemplate {
+  id               String   @id @default(cuid())
+  name             String
+  nameAr           String
+  description      String?
+  category         String   // مثل: صيانة، راتب، إيراد
+  debitAccountCode String
+  creditAccountCode String
+  isActive         Boolean  @default(true)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  @@map("journal_templates")
+  @@index([category])
+}
+
+// ============= Budget & Planning (الميزانية والتخطيط) - IMPROVEMENTS 1.1 =============
+model Budget {
+  id           String   @id @default(cuid())
+  accountId    String
+  account      Account  @relation(fields: [accountId], references: [id])
+  period       String   // مثل: 2024-Q1
+  budgetAmount Decimal  @db.Decimal(18, 2)
+  actualAmount Decimal  @db.Decimal(18, 2)
+  variance     Decimal  @db.Decimal(18, 2)
+  createdAt    DateTime @default(now())
+
+  @@map("budgets")
+  @@index([accountId, period])
+}
+
+// ============= Geography (الجغرافيا - المحافظات والمدن) =============
+model Governorate {
+  id    String @id @default(cuid())
+  name  String @unique
+
+  cities       City[]
+  units        OrganizationalUnit[]
+
+  @@map("governorates")
+}
+
+model City {
+  id              String @id @default(cuid())
+  governorateId   String
+  governorate     Governorate @relation(fields: [governorateId], references: [id])
+  name            String
+
+  districts       District[]
+  units           OrganizationalUnit[]
+
+  @@unique([governorateId, name])
+  @@map("cities")
+  @@index([governorateId])
+}
+
+model District {
+  id      String @id @default(cuid())
+  cityId  String
+  city    City   @relation(fields: [cityId], references: [id])
+  name    String
+
+  @@unique([cityId, name])
+  @@map("districts")
+  @@index([cityId])
+}
+
+// ============= Organizational Units (الهيكل التنظيمي) =============
+model OrganizationalUnit {
+  id              String  @id @default(cuid())
+  parentId        String?
+  parent          OrganizationalUnit? @relation("UnitHierarchy", fields: [parentId], references: [id])
+  children        OrganizationalUnit[] @relation("UnitHierarchy")
+  name            String
+  unitType        UnitType
+  governorateId   String?
+  governorate     Governorate? @relation(fields: [governorateId], references: [id])
+  cityId          String?
+  city            City? @relation(fields: [cityId], references: [id])
+  costCenterCode  String? @unique
+  isActive        Boolean @default(true)
+  createdAt       DateTime @default(now())
+
+  users           User[]
+
+  @@map("organizational_units")
+  @@index([parentId])
+  @@index([governorateId])
+  @@index([unitType])
+}
+
+enum UnitType {
+  UNION       // النقابة العامة
+  COMMITTEE   // لجنة نقابية
+  OFFICE      // مكتب
+}
+
+// ============= RBAC - Roles & Permissions (الأدوار والصلاحيات) =============
+model Role {
+  id          String @id @default(cuid())
+  code        String @unique
+  nameAr      String
+  description String?
+
+  permissions RolePermission[]
+  users       UserRole[]
+
+  @@map("roles")
+}
+
+model Permission {
+  id      String @id @default(cuid())
+  code    String @unique
+  nameAr  String
+  module  String
+
+  roles   RolePermission[]
+
+  @@map("permissions")
+}
+
+model RolePermission {
+  roleId       String
+  role         Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  permissionId String
+  permission   Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+
+  @@id([roleId, permissionId])
+  @@map("role_permissions")
+}
+
+model UserRole {
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  roleId String
+  role   Role   @relation(fields: [roleId], references: [id], onDelete: Cascade)
+
+  @@id([userId, roleId])
+  @@map("user_roles")
+}
+
+// ============= Legal References (المرجعيات القانونية) =============
+model LegalDocument {
+  id           String @id @default(cuid())
+  documentName String
+  number       String?
+  year         Int?
+  type         LegalDocumentType
+  sourceFile   String?
+  createdAt    DateTime @default(now())
+
+  references   LegalReference[]
+
+  @@map("legal_documents")
+}
+
+enum LegalDocumentType {
+  LAW                  // قانون
+  AMENDMENT            // تعديل
+  MINISTERIAL_DECREE   // قرار وزير
+  BYLAW                // لائحة
+  INTERNAL_POLICY      // سياسة داخلية
+}
+
+model LegalReference {
+  id               String @id @default(cuid())
+  legalDocumentId  String
+  legalDocument    LegalDocument @relation(fields: [legalDocumentId], references: [id], onDelete: Cascade)
+  articleNumber    String?
+  pageNumber       Int?
+  title            String
+  textExcerpt      String? @db.Text
+  effectiveFrom    DateTime?
+  effectiveTo      DateTime?
+  createdAt        DateTime @default(now())
+
+  versions         LegalVersion[]
+
+  @@map("legal_references")
+  @@index([legalDocumentId])
+}
+
+model LegalVersion {
+  id                String @id @default(cuid())
+  legalReferenceId  String
+  legalReference    LegalReference @relation(fields: [legalReferenceId], references: [id], onDelete: Cascade)
+  versionNumber     Int
+  effectiveFrom     DateTime
+  effectiveTo       DateTime?
+  status            LegalVersionStatus @default(DRAFT)
+  createdAt         DateTime @default(now())
+
+  @@map("legal_versions")
+  @@index([legalReferenceId])
+}
+
+enum LegalVersionStatus {
+  DRAFT       // مسودة
+  ACTIVE      // ساري
+  SUPERSEDED  // محلول
+  REPEALED    // ملغى
+}
