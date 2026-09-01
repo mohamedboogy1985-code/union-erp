@@ -14,6 +14,7 @@ import { receiptsService } from './server/services/receipts.service.js';
 import { reportsService } from './server/services/reports.service.js';
 import { calculateSimilarity, normalizeArabicText } from './server/utils/arabic.js';
 import { generateVerificationToken, hashNationalId, maskNationalId, sha256 } from './server/utils/crypto.js';
+import { verifyLedgerChain, rebuildLedgerChain } from './server/services/ledger-chain.service.js';
 
 // ===== IMPROVEMENTS.md: الخدمات والوسائط الجديدة =====
 import { securityHeadersMiddleware, comprehensiveAuditMiddleware, createRateLimiter, getRecentAccessLogs } from './server/security/middleware.js';
@@ -632,6 +633,102 @@ async function startServer() {
     );
 
     res.status(201).json(template);
+  });
+
+  // ==============================================================
+  // الهيكل المحاسبي الحكومي المتكامل (أبواب/مجموعات/أنواع/حسابات/بنود)
+  // ==============================================================
+  app.get('/api/government-accounts', (req: Request, res: Response) => {
+    const { level, category, organizationId } = req.query;
+    let list = erpStore.governmentAccounts;
+    if (level) list = list.filter((g) => g.level === level);
+    if (category) list = list.filter((g) => g.category === category);
+    if (organizationId) list = list.filter((g) => g.organizationId === organizationId);
+    res.json(list);
+  });
+
+  // تقرير تنفيذ الموازنة الحكومية: الاعتماد/الصرف/المتاح لكل بند
+  app.get('/api/government-accounts/report', (req: Request, res: Response) => {
+    const entries = erpStore.journalEntries.filter((e) => e.status === 'POSTED' && e.governmentCode);
+    const bands = erpStore.governmentAccounts.filter((g) => g.level === 'BAND' && g.isActive);
+
+    const report = bands.map((g) => {
+      const spent = entries
+        .filter((e) => e.governmentCode === g.code || e.governmentAccountId === g.id)
+        .reduce((sum, e) => sum + e.totalDebit, 0);
+      const budgetLimit = g.budgetLimit || 0;
+      return {
+        ...g,
+        actualAmount: spent,
+        committedAmount: Math.round(spent * 1.15), // تقدير الالتزامات المرتبطة
+        availableAmount: Math.max(0, budgetLimit - spent),
+        spendPercentage: budgetLimit > 0 ? Math.round((spent / budgetLimit) * 1000) / 10 : 0,
+      };
+    });
+
+    res.json(report);
+  });
+
+  // ترتيب هرمي كامل للهيكل الحكومي (للشجرة في الواجهة)
+  app.get('/api/government-accounts/tree', (req: Request, res: Response) => {
+    const all = erpStore.governmentAccounts;
+    const build = (parentId?: string, depth = 0): any[] =>
+      all
+        .filter((g) => (g.parentId ?? undefined) === parentId)
+        .sort((a, b) => a.code.localeCompare(b.code))
+        .map((g) => ({ ...g, children: depth < 5 ? build(g.id, depth + 1) : [] }));
+
+    res.json(build(undefined));
+  });
+
+  // ==============================================================
+  // سلسلة التجزئة المضادة للتلاعب (Blockchain-style Ledger Chain)
+  // ==============================================================
+  app.get('/api/ledger-chain/verify', (req: Request, res: Response) => {
+    const result = verifyLedgerChain(erpStore.journalEntries);
+    erpStore.recordAudit(
+      getActiveUser(req)?.id || 'anonymous',
+      'فحص سلامة السلسلة',
+      'SYSTEM',
+      'org-general',
+      'LEDGER_CHAIN_VERIFIED',
+      'LEDGER_CHAIN',
+      'GLOBAL',
+      `فحص سلسلة التجزئة: ${result.verifiedCount}/${result.totalEntries} قيد سليم، ${result.tamperedCount} متلاعب فيه`
+    );
+    res.json(result);
+  });
+
+  app.post('/api/ledger-chain/rebuild', (req: Request, res: Response) => {
+    const user = requirePermission(req, res, 'journal:post');
+    if (!user) return;
+    const result = rebuildLedgerChain(erpStore.journalEntries);
+    erpStore.recordAudit(
+      user.id,
+      user.fullName,
+      user.role,
+      user.organizationId,
+      'LEDGER_CHAIN_REBUILT',
+      'LEDGER_CHAIN',
+      'GLOBAL',
+      `إعادة بناء السلسلة: ${result.tamperedCount} قيد متلاعب به، السلسلة ${result.chainValid ? 'سليمة' : 'مكسورة'}`
+    );
+    res.json(result);
+  });
+
+  app.get('/api/ledger-chain/last', (req: Request, res: Response) => {
+    const entries = erpStore.journalEntries.filter((e) => e.chainIndex !== undefined);
+    const last = entries.sort((a, b) => (a.chainIndex || 0) - (b.chainIndex || 0)).pop();
+    if (!last) return res.json(null);
+    res.json({
+      id: last.id,
+      entryNumber: last.entryNumber,
+      entryStatus: last.status,
+      chainIndex: last.chainIndex,
+      previousHash: last.previousHash,
+      currentHash: last.currentHash,
+      tamperSeal: last.chainVerified,
+    });
   });
 
   // إنشاء قيد جاهز الاعتماد من قالب معتمد (يستخدمه المساعد الصوتي والذكي)

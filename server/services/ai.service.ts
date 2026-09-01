@@ -536,6 +536,47 @@ ${accountsListStr}
       }
     });
 
+    // 5. Detect Expense Abnormality: single expense entry >30% above the monthly average
+    // (خروج المصروف عن متوسطه الشهري بنسبة تزيد عن 30%)
+    const expenseEntries = entries.filter((e) => {
+      const hasExpenseAccount = e.lines.some(
+        (l) => (erpStore.getAccountById(l.accountId)?.type) === 'EXPENSE' || String(l.accountCode).startsWith('5')
+      );
+      return e.status === 'POSTED' && hasExpenseAccount;
+    });
+    const monthKeyOf = (date: string) => date.slice(0, 7);
+    const monthMap: Record<string, { sum: number; count: number }> = {};
+    for (const e of expenseEntries) {
+      const key = monthKeyOf(e.date);
+      monthMap[key] = monthMap[key] || { sum: 0, count: 0 };
+      monthMap[key].sum += e.totalDebit;
+      monthMap[key].count += 1;
+    }
+    // المتوسط اليومي داخل كل شهر (لتجنب انحياز بداية/نهاية الشهر)
+    for (const e of expenseEntries) {
+      const key = monthKeyOf(e.date);
+      const monthInfo = monthMap[key];
+      if (!monthInfo) continue;
+      const day = Math.max(1, Number(e.date.slice(8, 10)) || 15);
+      const monthlyTotal = monthInfo.sum;
+      // معدل الشهر اعتبارياً (شهر = 30 يوماً) كأساس للمقارنة على مستوى القيد الواحد
+      const expectedPerEntry = monthlyTotal / Math.max(1, monthInfo.count);
+      if (monthInfo.count >= 2 && e.totalDebit > expectedPerEntry * 1.3 && e.totalDebit > 20000) {
+        anomalies.push({
+          id: `anom-above-avg-${e.id}`,
+          entryNumber: e.entryNumber,
+          date: e.date,
+          amount: e.totalDebit,
+          riskScore: 66,
+          riskLevel: 'MEDIUM',
+          anomalyType: 'UNUSUAL_VOLUME',
+          title: `صرف أعلى من المتوسط بنسبة >30% (${e.totalDebit.toLocaleString()} ج.م)`,
+          description: `القيد [${e.entryNumber}] لمصروفات بموقع شهر ${key} تجاوز المتوسط الشهري (${Math.round(expectedPerEntry).toLocaleString()} ج.م) بنسبة ${Math.round(((e.totalDebit - expectedPerEntry) / expectedPerEntry) * 100)}%، وهو ما يزيد عن عتبة التنبيه البالغة 30%.`,
+          recommendation: 'مراجعة تبرير الصرف والموافقات المرتبطة (أذن صرف + مستندات مؤيدة) قبل اعتماد أي استكمالات على نفس البند.',
+        });
+      }
+    }
+
     return anomalies.sort((a, b) => b.riskScore - a.riskScore);
   }
 

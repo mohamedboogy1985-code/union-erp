@@ -1,32 +1,20 @@
 import React, { useState, useEffect } from 'react';
 import { isReadOnly } from '../utils/permissions.js';
 import {
-  LayoutDashboard,
-  PieChart,
-  Boxes,
-  FileCode2,
   ShieldCheck,
   Bot,
-  Settings,
   ChevronDown,
-  UserCheck,
-  Search,
   Sparkles,
   Building,
-  RefreshCw,
   Wifi,
   WifiOff,
   FileSpreadsheet,
   FileCheck2,
-  Film,
-  UsersRound,
-  ScrollText,
-  Layers,
-  Users,
   Globe,
 } from 'lucide-react';
 import { Organization, User, SyncStatus } from '../types/erp.js';
 import { api, setCurrentUserId } from '../services/api.js';
+import { getGatewayMeta, PortalId, screensForPortal } from '../config/portals.js';
 import { NotificationCenter } from './NotificationCenter.js';
 import { OfflineSyncModal } from './OfflineSyncModal.js';
 import { ImportExportModal } from './ImportExportModal.js';
@@ -37,6 +25,7 @@ import { GlobalAiWidget } from './GlobalAiWidget.js';
 interface LayoutProps {
   currentTab: string;
   onTabChange: (tab: string) => void;
+  selectedGateway: PortalId;
   selectedOrgId: string;
   onOrgChange: (orgId: string) => void;
   currentUser: User | null;
@@ -47,6 +36,7 @@ interface LayoutProps {
 export const Layout: React.FC<LayoutProps> = ({
   currentTab,
   onTabChange,
+  selectedGateway,
   selectedOrgId,
   onOrgChange,
   currentUser,
@@ -87,29 +77,49 @@ export const Layout: React.FC<LayoutProps> = ({
     }
   };
 
-  const navItems = [
+  // كل بوابة لها شاشاتها الخاصة فقط — لا تظهر شاشات بوابة أخرى
+  interface NavItem {
+    id: string;
+    label: string;
+    icon: React.ComponentType<{ className?: string }>;
+    isAi?: boolean;
+    badge?: string;
+  }
+  const activePortalMeta = getGatewayMeta(selectedGateway);
+  const navItems: NavItem[] = [
     { id: 'portals', label: 'البوابات الرئيسية', icon: Globe, badge: '3 بوابات' },
-    { id: 'dashboard', label: 'الرئيسية والمؤشرات', icon: LayoutDashboard },
-    { id: 'accounting', label: 'المحاسبة والمالية', icon: Layers, badge: '6 وحدات' },
-    { id: 'membership', label: 'العضوية والتحصيل', icon: UserCheck, badge: 'وحدتان' },
-    { id: 'hrs', label: 'الموارد البشرية والعاملين', icon: UsersRound, badge: '5 وحدات' },
-    { id: 'promo', label: 'الفيديو والعرض الترويجي', icon: Film, badge: 'MP4' },
-    { id: 'committees', label: 'اللجان النقابية', icon: Users, badge: '132 لجنة' },
-    { id: 'budgets', label: 'الموازنة التقديرية', icon: PieChart },
-    { id: 'assets', label: 'الأصول الثابتة والإهلاك', icon: Boxes },
-    { id: 'einvoicing', label: 'الفاتورة الإلكترونية', icon: FileCode2 },
-    { id: 'audit', label: 'سجل التدقيق والرقابة', icon: ShieldCheck },
-    { id: 'regulation', label: 'اللائحة المالية والرقابة', icon: ScrollText, badge: '86 مادة' },
-    { id: 'aihub', label: 'الذكاء الاصطناعي والمساعد الحي', icon: Bot, isAi: true, badge: 'Gemini' },
-    { id: 'settings', label: 'الإعدادات والصلاحيات', icon: Settings },
+    ...screensForPortal(selectedGateway).map((s) => ({
+      id: s.id,
+      label: s.label,
+      icon: s.icon,
+      isAi: s.id === 'aihub' || s.id === 'ai',
+    })),
   ];
 
-  // الوحدات القديمة كان لها عنصر مستقل في القائمة — تبقى معرفاتها شغّالة كتحويلات
-  // داخلية إلى الوحدات الموحدة ليتواصل كل تنقل قديم مع الوحدة الصحيحة.
-  const ACCOUNTING_ALIASES = ['accounting', 'journals', 'reports', 'subledgers', 'accounts', 'banking', 'procurement'];
-  const HRS_ALIASES = ['hrs', 'employees', 'payroll', 'attendance', 'advances', 'actuarial'];
-  const MEMBERSHIP_ALIASES = ['membership', 'members', 'receipts'];
-  const AIHUB_ALIASES = ['aihub', 'ai', 'liveagent'];
+  // الوحدات القديمة كان لها معرفات مستقلة — نحولها إلى الشاشة المجمّعة الصحيحة
+  // حتى لا ينكسر أي تنقل قديم، ويبقى التظليل في الشريط الجانبي دقيقاً.
+  const TAB_TARGETS: Record<string, string> = {
+    accounting: 'journals',
+    journals: 'journals',
+    reports: 'reports',
+    subledgers: 'subledgers',
+    accounts: 'accounts',
+    banking: 'banking',
+    procurement: 'procurement',
+    membership: 'members',
+    members: 'members',
+    receipts: 'receipts',
+    hrs: 'employees',
+    employees: 'employees',
+    payroll: 'payroll',
+    attendance: 'attendance',
+    advances: 'advances',
+    actuarial: 'actuarial',
+    ai: 'aihub',
+    aiHub: 'aihub',
+    liveagent: 'aihub',
+  };
+  const effectiveTab = TAB_TARGETS[currentTab] || (currentTab === 'ai' ? 'aihub' : currentTab);
 
   const currentOrg = organizations.find((o) => o.id === selectedOrgId) || organizations[0];
 
@@ -133,20 +143,34 @@ export const Layout: React.FC<LayoutProps> = ({
           </span>
         </div>
 
+        {/* Current Portal Context */}
+        <div className="px-3 py-2 border-b border-[#334155] bg-slate-900/50">
+          {activePortalMeta ? (
+            <div className="space-y-1.5">
+              <div className="flex items-center gap-1.5">
+                <activePortalMeta.icon className={`w-4 h-4 ${activePortalMeta.accent.text}`} />
+                <span className="text-[10px] font-bold text-slate-300">{activePortalMeta.title}</span>
+              </div>
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-[9px] font-mono text-slate-500">data: {activePortalMeta.organizationId}</span>
+                <button
+                  onClick={() => onTabChange('portals')}
+                  className="text-[9px] px-2 py-0.5 rounded font-bold bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-300 transition"
+                >
+                  البوابات
+                </button>
+              </div>
+            </div>
+          ) : (
+            <span className="text-[10px] text-slate-500">لا توجد بوابة مختارة</span>
+          )}
+        </div>
+
         {/* Navigation Links */}
         <nav className="flex-1 px-2 py-2 space-y-0.5 overflow-y-auto">
           {navItems.map((item) => {
             const Icon = item.icon;
-            const isActive =
-              item.id === 'accounting'
-                ? ACCOUNTING_ALIASES.includes(currentTab)
-                : item.id === 'hrs'
-                ? HRS_ALIASES.includes(currentTab)
-                : item.id === 'membership'
-                ? MEMBERSHIP_ALIASES.includes(currentTab)
-                : item.id === 'aihub'
-                ? AIHUB_ALIASES.includes(currentTab)
-                : currentTab === item.id;
+            const isActive = item.id === 'portals' ? currentTab === 'portals' : effectiveTab === item.id;
             return (
               <button
                 key={item.id}

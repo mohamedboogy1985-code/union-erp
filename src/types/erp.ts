@@ -225,6 +225,19 @@ export interface JournalEntry {
   createdAt: string;
   updatedAt: string;
   postedAt?: string;
+  /** ─── سلسلة التجزئة (Blockchain-style Ledger Chain) ─── */
+  /** تجزئة (SHA-256) للقيد السابق في السلسلة — ربط تسلسلي يمنع التلاعب بالأرشيف */
+  previousHash?: string;
+  /** تجزئة (SHA-256) لمضمون هذا القيد بما في ذلك previousHash — بصمة القيد الحالي */
+  currentHash?: string;
+  /** تسلسل القيد في السلسلة العالمية (0 للقيد الأول) */
+  chainIndex?: number;
+  /** الدولة الحالية للتجزئة: متوافق مع السلسلة أم لا (يُحسب عند الفحص) */
+  chainVerified?: boolean;
+  /** ─── التصنيف الحكومي (أبواب/مجموعات/أنواع/حسابات/بنود) ─── */
+  governmentAccountId?: string;
+  governmentCode?: string;
+  governmentName?: string;
 }
 
 export interface Member {
@@ -1096,6 +1109,85 @@ export interface SupportFeedback {
   rating: number; // 1-5
   comment?: string;
   createdAt: string;
+}
+
+// ----------------------------------------------------
+// Government Accounting Structure (الهيكل المحاسبي الحكومي المتكامل)
+// التصنيف وفق قانون المحاسبة الحكومية المصري:
+//   باب → مجموعة → نوع → حساب → بند
+// ----------------------------------------------------
+export type GovernmentAccountLevel = 'BAB' | 'MAJMOOA' | 'NAWT' | 'HESAB' | 'BAND';
+
+export interface GovernmentAccount {
+  id: string;
+  code: string;            // كود بنود الموازنة الموحد مثال "01/01/01/01/01"
+  name: string;            // الاسم العربي
+  level: GovernmentAccountLevel;
+  parentId?: string;       // الأعلى في التسلسل الهرمي
+  /** نوع الباب: مصروفات / إيرادات / تمويل / استثمار */
+  category: 'EXPENSE' | 'REVENUE' | 'FINANCING' | 'INVESTMENT';
+  /** الحساب في دليل الحسابات المحاسبي المرتبط بهذا البند الحكومي */
+  mappedAccountId?: string;
+  mappedAccountCode?: string;
+  isActive: boolean;
+  /** كمصروف: الحد الأقصى للموازنة، وكإيراد: المعتمد */
+  budgetLimit?: number;
+  /** تمركز إجمالي المصروفات الفعلية على البند حتى اليوم */
+  actualSpent?: number;
+  organizationId: string;
+}
+
+export interface GovernmentAccountWithSpend extends GovernmentAccount {
+  committedAmount: number;
+  actualAmount: number;
+  availableAmount: number;
+  spendPercentage: number; // نسبة الصرف من الاعتماد
+}
+
+// ----------------------------------------------------
+// Blockchain-style Ledger Chain (سلسلة التجزئة المضادة للتلاعب)
+// ----------------------------------------------------
+export interface LedgerChainVerificationResult {
+  totalEntries: number;
+  verifiedCount: number;
+  tamperedCount: number;
+  chainValid: boolean;
+  tamperedEntries: {
+    id: string;
+    entryNumber: string;
+    date: string;
+    expectedHash: string;
+    storedHash: string;
+    reason: 'HASH_MISMATCH' | 'BREAK_IN_CHAIN';
+  }[];
+  checkedAt: string;
+}
+
+// ----------------------------------------------------
+// Continuous Audit & Risk Heat-map (نظام التدقيق المستمر)
+// ----------------------------------------------------
+export interface RiskFactorScore {
+  factor: string;
+  code: string;
+  score: number;          // 0 - 100
+  level: 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
+  description: string;
+  affectedCount: number;
+}
+
+export interface ContinuousAuditSummary {
+  generatedAt: string;
+  overallRiskScore: number;
+  overallRiskLevel: 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
+  factors: RiskFactorScore[];
+  openIssues: number;
+  resolvedIssues: number;
+  lastRunAt: string;
+  chainIntegrity: {
+    valid: boolean;
+    tamperedCount: number;
+    totalCount: number;
+  };
 }
 
 

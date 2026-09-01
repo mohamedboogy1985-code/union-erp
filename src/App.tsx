@@ -1,7 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { Layout } from './components/Layout.js';
 import { ToastContainer, ToastMessage } from './components/Toast.js';
-import { api, getCurrentUserId } from './services/api.js';
+import { api } from './services/api.js';
 import { User } from './types/erp.js';
 
 // Pages
@@ -23,6 +23,7 @@ import { Journal2024Viewer } from './pages/Journal2024Viewer.js';
 import { Gateways } from './pages/Gateways.js';
 import { ErrorBoundary } from './components/ErrorBoundary.js';
 import { Settings } from './pages/Settings.js';
+import { getGatewayMeta, PortalId } from './config/portals.js';
 
 // الوحدات القديمة المُدمجة في الوحدات الموحدة — تبقى معرفاتها شغّالة كتحويلات
 // داخلية ليتواصل كل تنقل قديم (لوحة التحكم/المساعد الذكي) مع الوحدة الصحيحة.
@@ -57,15 +58,31 @@ const AI_HUB_ALIASES: Record<string, AiTabId> = {
   liveagent: 'liveagent',
 };
 
+function loadStoredPortal(): PortalId {
+  const saved = localStorage.getItem('union_active_portal');
+  return saved === 'training' || saved === 'committees' ? saved : 'syndicate';
+}
+
 export function App() {
+  const [selectedGateway, setSelectedGateway] = useState<PortalId>(loadStoredPortal);
+  const portalMeta = getGatewayMeta(selectedGateway);
   const [currentTab, setCurrentTab] = useState('portals');
-  const [selectedOrgId, setSelectedOrgId] = useState('org-general');
+  const [selectedOrgId, setSelectedOrgId] = useState(portalMeta?.organizationId || 'org-general');
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
 
   useEffect(() => {
     loadUser();
   }, []);
+
+  // عند تغيير البوابة: نضبط كيان/بيانات البوابة وشاشة البداية الخاصة بها
+  const handleSelectGateway = (gateway: PortalId) => {
+    const meta = getGatewayMeta(gateway);
+    setSelectedGateway(gateway);
+    setSelectedOrgId(meta?.organizationId || 'org-general');
+    setCurrentTab(meta?.homeTab || 'portals');
+    localStorage.setItem('union_active_portal', gateway);
+  };
 
   const loadUser = async () => {
     try {
@@ -107,6 +124,7 @@ export function App() {
       <Layout
         currentTab={currentTab}
         onTabChange={setCurrentTab}
+        selectedGateway={selectedGateway}
         selectedOrgId={selectedOrgId}
         onOrgChange={setSelectedOrgId}
         currentUser={currentUser}
@@ -114,7 +132,7 @@ export function App() {
       >
         {currentTab === 'portals' && (
           <ErrorBoundary label="بوابات النظام" onNavigate={setCurrentTab}>
-            <Gateways onNavigate={setCurrentTab} onShowToast={showToast} />
+            <Gateways onSelectGateway={handleSelectGateway} onShowToast={showToast} />
           </ErrorBoundary>
         )}
 

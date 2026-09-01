@@ -14,6 +14,7 @@ import {
   DocumentAttachment,
   FiscalPeriod,
   FixedAsset,
+  GovernmentAccount,
   JournalEntry,
   JournalEntryLine,
   JournalTemplate,
@@ -35,6 +36,7 @@ import {
 } from '../../src/types/erp.js';
 import { normalizeArabicText } from '../utils/arabic.js';
 import { calculateAuditHash, generateVerificationToken, hashNationalId, maskIban, maskNationalId, sha256 } from '../utils/crypto.js';
+import { rebuildLedgerChain } from '../services/ledger-chain.service.js';
 
 export class ERPStore {
   public organizations: Organization[] = [];
@@ -74,6 +76,8 @@ export class ERPStore {
   public employeeAdvances: EmployeeAdvance[] = [];
   // ===== شاشة المرتبات (مسير الرواتب الشهري) =====
   public payrollRuns: PayrollRun[] = [];
+  // ===== الهيكل المحاسبي الحكومي المتكامل (أبواب/مجموعات/أنواع/حسابات/بنود) =====
+  public governmentAccounts: GovernmentAccount[] = [];
   // ===== كشوف المرتبات المستوردة من أرشيف Excel (نماذج معتمدة) =====
   public payrollImports: any[] = [];
   // ===== الحضور والانصراف بالبصمة (وجه/إصبع) =====
@@ -94,6 +98,8 @@ export class ERPStore {
   constructor() {
     this.seedInitialData();
     this.rebuildAccountIndexes();
+    // بناء سلسلة التجزئة للقيود المبدئية بعد التهيئة
+    rebuildLedgerChain(this.journalEntries);
   }
 
   public rebuildAccountIndexes() {
@@ -234,6 +240,26 @@ export class ERPStore {
         name: 'صندوق التكافل والرعاية الصحية',
         nameEn: 'Healthcare & Solidarity Fund',
         type: 'FUND',
+        parentId: 'org-general',
+        isActive: true,
+        currency: 'EGP',
+      },
+      {
+        id: 'org-training-center',
+        code: 'ORG-05',
+        name: 'مركز تدريب النقابة العامة',
+        nameEn: 'General Syndicate Training Center',
+        type: 'BRANCH',
+        parentId: 'org-general',
+        isActive: true,
+        currency: 'EGP',
+      },
+      {
+        id: 'org-committees',
+        code: 'ORG-06',
+        name: 'بوابة اللجان النقابية',
+        nameEn: 'Syndicate Committees Portal',
+        type: 'PROFESSIONAL_COMMITTEE',
         parentId: 'org-general',
         isActive: true,
         currency: 'EGP',
@@ -1048,6 +1074,43 @@ export class ERPStore {
         location: 'الملحق الإداري — شئون العاملين',
         isActive: true,
       },
+    ];
+
+    // ===== 18. الهيكل المحاسبي الحكومي المتكامل (باب/مجموعة/نوع/حساب/بند) =====
+    // وفق قانون الموازنة العامة للحكومة المصرية — يغطي أبواب المصروفات والإيرادات
+    this.governmentAccounts = [
+      // ─── باب المصروفات 1: الأجور وتعويضات العاملين ───
+      { id: 'gov-1', code: '01', name: 'باب الأجور وتعويضات العاملين', level: 'BAB', category: 'EXPENSE', isActive: true, organizationId: 'org-general' },
+      { id: 'gov-1-1', code: '01/01', name: 'مجموعة الأجور', level: 'MAJMOOA', parentId: 'gov-1', category: 'EXPENSE', isActive: true, organizationId: 'org-general' },
+      { id: 'gov-1-1-1', code: '01/01/01', name: 'نوع الأجور الأساسية', level: 'NAWT', parentId: 'gov-1-1', category: 'EXPENSE', isActive: true, organizationId: 'org-general' },
+      { id: 'gov-1-1-1-1', code: '01/01/01/01', name: 'حساب الأجر الأساسي المدفوع', level: 'HESAB', parentId: 'gov-1-1-1', category: 'EXPENSE', mappedAccountId: 'acc-5101', mappedAccountCode: '5101', isActive: true, budgetLimit: 1000000, organizationId: 'org-general' },
+      { id: 'gov-1-1-1-1-1', code: '01/01/01/01/01', name: 'بند الأجر الأساسي للعاملين الدائمين', level: 'BAND', parentId: 'gov-1-1-1-1', category: 'EXPENSE', mappedAccountId: 'acc-5101', mappedAccountCode: '5101', isActive: true, budgetLimit: 800000, organizationId: 'org-general' },
+
+      // ─── باب المصروفات 2: شراء السلع والخدمات ───
+      { id: 'gov-2', code: '02', name: 'باب شراء السلع والخدمات', level: 'BAB', category: 'EXPENSE', isActive: true, organizationId: 'org-general' },
+      { id: 'gov-2-1', code: '02/01', name: 'مجموعة مستلزمات التشغيل', level: 'MAJMOOA', parentId: 'gov-2', category: 'EXPENSE', isActive: true, organizationId: 'org-general' },
+      { id: 'gov-2-1-1', code: '02/01/01', name: 'نوع مستلزمات تشغيل الأنشطة النقابية', level: 'NAWT', parentId: 'gov-2-1', category: 'EXPENSE', isActive: true, organizationId: 'org-general' },
+      { id: 'gov-2-1-1-1', code: '02/01/01/01', name: 'حساب التدريب والتطوير المهني', level: 'HESAB', parentId: 'gov-2-1-1', category: 'EXPENSE', mappedAccountId: 'acc-5103', mappedAccountCode: '5103', isActive: true, budgetLimit: 1000000, organizationId: 'org-eng-committee' },
+      { id: 'gov-2-1-1-1-1', code: '02/01/01/01/01', name: 'بند برامج التدريب والتطوير', level: 'BAND', parentId: 'gov-2-1-1-1', category: 'EXPENSE', mappedAccountId: 'acc-5103', mappedAccountCode: '5103', isActive: true, budgetLimit: 600000, organizationId: 'org-eng-committee' },
+      { id: 'gov-2-1-1-2', code: '02/01/01/02', name: 'حساب الصيانة والإصلاحات', level: 'HESAB', parentId: 'gov-2-1-1', category: 'EXPENSE', mappedAccountId: 'acc-5101', mappedAccountCode: '5101', isActive: true, budgetLimit: 500000, organizationId: 'org-general' },
+      { id: 'gov-2-1-1-2-1', code: '02/01/01/02/01', name: 'بند صيانة المباني والمعدات', level: 'BAND', parentId: 'gov-2-1-1-2', category: 'EXPENSE', mappedAccountId: 'acc-5101', mappedAccountCode: '5101', isActive: true, budgetLimit: 400000, organizationId: 'org-general' },
+
+      // ─── باب المصروفات 3: الدعم والمنح والمزايا الاجتماعية ───
+      { id: 'gov-3', code: '03', name: 'باب الدعم والمنح والمزايا الاجتماعية', level: 'BAB', category: 'EXPENSE', isActive: true, organizationId: 'org-general' },
+      { id: 'gov-3-1', code: '03/01', name: 'مجموعة الدعم النقدي', level: 'MAJMOOA', parentId: 'gov-3', category: 'EXPENSE', isActive: true, organizationId: 'org-general' },
+      { id: 'gov-3-1-1', code: '03/01/01', name: 'نوع دعم ورعاية الأعضاء', level: 'NAWT', parentId: 'gov-3-1', category: 'EXPENSE', isActive: true, organizationId: 'org-general' },
+      { id: 'gov-3-1-1-1', code: '03/01/01/01', name: 'حساب دعم ورعاية الأعضاء', level: 'HESAB', parentId: 'gov-3-1-1', category: 'EXPENSE', mappedAccountId: 'acc-5102', mappedAccountCode: '5102', isActive: true, budgetLimit: 2500000, organizationId: 'org-general' },
+      { id: 'gov-3-1-1-1-1', code: '03/01/01/01/01', name: 'بند المساعدات والرعاية الاجتماعية للأعضاء', level: 'BAND', parentId: 'gov-3-1-1-1', category: 'EXPENSE', mappedAccountId: 'acc-5102', mappedAccountCode: '5102', isActive: true, budgetLimit: 2000000, organizationId: 'org-general' },
+
+      // ─── باب الإيرادات: الإيرادات الذاتية ───
+      { id: 'gov-4', code: '04', name: 'باب الإيرادات', level: 'BAB', category: 'REVENUE', isActive: true, organizationId: 'org-general' },
+      { id: 'gov-4-1', code: '04/01', name: 'مجموعة الإيرادات الذاتية', level: 'MAJMOOA', parentId: 'gov-4', category: 'REVENUE', isActive: true, organizationId: 'org-general' },
+      { id: 'gov-4-1-1', code: '04/01/01', name: 'نوع اشتراكات الأعضاء', level: 'NAWT', parentId: 'gov-4-1', category: 'REVENUE', isActive: true, organizationId: 'org-general' },
+      { id: 'gov-4-1-1-1', code: '04/01/01/01', name: 'حساب اشتراكات العضوية السنوية', level: 'HESAB', parentId: 'gov-4-1-1', category: 'REVENUE', mappedAccountId: 'acc-4101', mappedAccountCode: '4101', isActive: true, budgetLimit: 700000, organizationId: 'org-general' },
+      { id: 'gov-4-1-1-1-1', code: '04/01/01/01/01', name: 'بند اشتراكات الأعضاء السنوية', level: 'BAND', parentId: 'gov-4-1-1-1', category: 'REVENUE', mappedAccountId: 'acc-4101', mappedAccountCode: '4101', isActive: true, budgetLimit: 700000, organizationId: 'org-general' },
+      { id: 'gov-4-1-2', code: '04/01/02', name: 'نوع رسوم الخدمات', level: 'NAWT', parentId: 'gov-4-1', category: 'REVENUE', isActive: true, organizationId: 'org-general' },
+      { id: 'gov-4-1-2-1', code: '04/01/02/01', name: 'حساب رسوم إصدار وتجديد الشهادات', level: 'HESAB', parentId: 'gov-4-1-2', category: 'REVENUE', mappedAccountId: 'acc-4102', mappedAccountCode: '4102', isActive: true, budgetLimit: 350000, organizationId: 'org-general' },
+      { id: 'gov-4-1-2-1-1', code: '04/01/02/01/01', name: 'بند رسوم الشهادات والكارنيهات', level: 'BAND', parentId: 'gov-4-1-2-1', category: 'REVENUE', mappedAccountId: 'acc-4102', mappedAccountCode: '4102', isActive: true, budgetLimit: 350000, organizationId: 'org-general' },
     ];
   }
   /**

@@ -8,6 +8,7 @@ import {
 } from '../../src/types/erp.js';
 import { erpStore } from '../db/store.js';
 import { regulationService } from './regulation.service.js';
+import { appendToLedgerChain } from './ledger-chain.service.js';
 import { calculateSimilarity, normalizeArabicText } from '../utils/arabic.js';
 
 export interface CreateJournalEntryDto {
@@ -18,6 +19,7 @@ export interface CreateJournalEntryDto {
   type?: 'MANUAL' | 'RECEIPT' | 'PAYMENT' | 'DISTRIBUTION' | 'DEPRECIATION' | 'CLOSING' | 'REVERSAL';
   sourceDocumentType?: string;
   sourceDocumentId?: string;
+  governmentAccountId?: string; // التصنيف الحكومي (بند الموازنة) الاختياري
   lines: {
     accountId: string;
     subledgerPartyId?: string;
@@ -265,6 +267,24 @@ export class AccountingService {
 
     const org = erpStore.organizations.find((o) => o.id === dto.organizationId);
 
+    // ===== التصنيف الحكومي (بند الموازنة) =====
+    // أولوية: بند صريح من المستخدم، وإلا خريطة تلقائية من أول حساب في القيد لأقرب بند موازنة
+    let govAccount: { id: string; code: string; name: string } | undefined;
+    if (dto.governmentAccountId) {
+      const gov = erpStore.governmentAccounts.find((g) => g.id === dto.governmentAccountId);
+      if (gov) govAccount = { id: gov.id, code: gov.code, name: gov.name };
+    }
+    if (!govAccount) {
+      const firstAccount = processedLines.find((l) => l.debit > 0) || processedLines[0];
+      const govByMap = erpStore.governmentAccounts.find(
+        (g) => g.level === 'BAND' && g.mappedAccountCode === firstAccount?.accountCode && g.isActive
+      );
+      if (govByMap) {
+        govAccount = { id: govByMap.id, code: govByMap.code, name: govByMap.name };
+        warnings.push(`تم ربط القيد تلقائياً ببند الموازنة الحكومية [${govByMap.code} - ${govByMap.name}].`);
+      }
+    }
+
     const entry: JournalEntry = {
       id: entryId,
       entryNumber,
@@ -279,6 +299,9 @@ export class AccountingService {
       journalName: dto.journalName || 'يومية النقابة',
       sourceDocumentType: dto.sourceDocumentType,
       sourceDocumentId: dto.sourceDocumentId,
+      governmentAccountId: govAccount?.id,
+      governmentCode: govAccount?.code,
+      governmentName: govAccount?.name,
       totalDebit: Math.round(totalDebit * 100) / 100,
       totalCredit: Math.round(totalCredit * 100) / 100,
       lines: processedLines,
@@ -427,6 +450,9 @@ export class AccountingService {
     entry.postedBy = user.id;
     entry.postedAt = new Date().toISOString();
     entry.updatedAt = new Date().toISOString();
+
+    // ربط القيد بالسلسلة المضادة للتلاعب (Blockchain-style Ledger Chain)
+    appendToLedgerChain(erpStore.journalEntries, entry);
 
     erpStore.recordAudit(
       user.id,
