@@ -189,7 +189,7 @@ export const EInvoicing: React.FC<EInvoicingProps> = ({
       CANCELLED: { label: 'ملغى', cls: 'bg-slate-800 text-slate-400 border-slate-700' },
       DRAFT: { label: 'مسودة', cls: 'bg-slate-800 text-slate-400 border-slate-700' },
     };
-    const b = map[d.status] || map.PENDING!;
+    const b = map[d.status] || map.PENDING;
     return (
       <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold border ${b.cls}`}>
         {d.simulated ? <ShieldAlert className="w-3 h-3" /> : <CheckCircle2 className="w-3 h-3" />}

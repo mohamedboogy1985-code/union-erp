@@ -3,6 +3,7 @@ import { Pool } from 'pg';
 import * as schema from './schema.ts';
 
 declare global {
+  // eslint-disable-next-line no-var
   var _postgresPool: Pool | undefined;
 }
 
@@ -52,4 +53,4 @@ export const db = new Proxy({} as ReturnType<typeof drizzle>, {
     const value = Reflect.get(_db as any, prop, receiver);
     return typeof value === 'function' ? value.bind(_db) : value;
   },
-}) as ReturnType<typeof drizzle>;
+});

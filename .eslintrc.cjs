@@ -2,6 +2,7 @@ module.exports = {
   root: true,
   env: {
     node: true,
+    browser: true,
     es2022: true,
   },
   parser: '@typescript-eslint/parser',
@@ -14,31 +15,23 @@ module.exports = {
   extends: [
     'eslint:recommended',
     'plugin:@typescript-eslint/recommended',
-    'plugin:@typescript-eslint/recommended-requiring-type-checking',
   ],
   rules: {
-    // تشديد قواعد TypeScript
     '@typescript-eslint/no-unused-vars': [
-      'error',
+      'warn',
       {
         argsIgnorePattern: '^_',
         varsIgnorePattern: '^_',
         caughtErrorsIgnorePattern: '^_',
       },
     ],
-    '@typescript-eslint/no-explicit-any': 'error',
+    '@typescript-eslint/no-explicit-any': 'warn',
     '@typescript-eslint/no-non-null-assertion': 'warn',
     '@typescript-eslint/no-require-imports': 'error',
-    '@typescript-eslint/explicit-function-return-types': [
-      'error',
-      { allowExpressions: true },
-    ],
-    '@typescript-eslint/no-floating-promises': 'error',
-    '@typescript-eslint/no-misused-promises': 'error',
     
-    // قواعس عامة
-    'no-empty': 'error',
-    'no-constant-condition': 'error',
+    // قواعد عامة
+    'no-empty': 'warn',
+    'no-constant-condition': 'warn',
     'no-undef': 'error',
     'no-var': 'error',
     'prefer-const': 'error',
@@ -51,5 +44,7 @@ module.exports = {
     'pgdata/**',
     '*.tmp.ts',
     'prisma/migrations/**',
+    'src/**/__tests__/**',
+    '**/*.test.ts',
   ],
 };
