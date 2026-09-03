@@ -7,6 +7,7 @@ import { getCurrentUserId } from './api.js';
  */
 export interface AiStreamDoneEvent {
   proposedEntry?: any;
+  actionIntent?: any;
   confidence?: number;
   sources?: { type?: string; reference?: string }[];
 }
@@ -60,6 +61,7 @@ export async function streamGlobalAiChat(
       if (evt.done) {
         finalEvent = {
           proposedEntry: evt.proposedEntry,
+          actionIntent: evt.actionIntent,
           confidence: evt.confidence,
           sources: evt.sources,
         };

@@ -3,29 +3,31 @@ import {
   TrendingUp,
   Wallet,
   Users,
-  AlertCircle,
   FileCheck2,
   Receipt,
   ArrowUpRight,
   ArrowDownRight,
   ShieldAlert,
-  Bot,
   PlusCircle,
-  CheckCircle2
+  CheckCircle2,
+  Download
 } from 'lucide-react';
 import { api } from '../services/api.js';
-import { IncomeExpenseReport, JournalEntry, SubledgerParty, User } from '../types/erp.js';
+import { AnomalyDetectionItem, IncomeExpenseReport, JournalEntry, SubledgerParty, User } from '../types/erp.js';
 
 interface DashboardProps {
   organizationId: string;
   currentUser: User | null;
   onNavigate: (tab: string) => void;
+  onShowToast?: (type: 'success' | 'error' | 'warning' | 'info', message: string) => void;
 }
 
-export const Dashboard: React.FC<DashboardProps> = ({ organizationId, currentUser, onNavigate }) => {
+export const Dashboard: React.FC<DashboardProps> = ({ organizationId, currentUser, onNavigate, onShowToast }) => {
   const [incomeExpense, setIncomeExpense] = useState<IncomeExpenseReport | null>(null);
   const [debtors, setDebtors] = useState<SubledgerParty[]>([]);
   const [recentEntries, setRecentEntries] = useState<JournalEntry[]>([]);
+  const [anomalies, setAnomalies] = useState<AnomalyDetectionItem[]>([]);
+  const [exporting, setExporting] = useState(false);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -35,15 +37,17 @@ export const Dashboard: React.FC<DashboardProps> = ({ organizationId, currentUse
   const loadDashboardData = async () => {
     setLoading(true);
     try {
-      const [ieData, allParties, entriesData] = await Promise.all([
+      const [ieData, allParties, entriesData, anomaliesData] = await Promise.all([
         api.getIncomeExpense({ organizationId }),
         api.getSubledgerParties({}),
         api.getJournalEntries({ organizationId }),
+        api.getAnomaliesAI().catch(() => [] as AnomalyDetectionItem[]),
       ]);
       setIncomeExpense(ieData);
       // حساب المدينين ديناميكياً: يتوافق مع الدليل الموحد المستورد وأي دليل آخر
       setDebtors(allParties.filter((p: any) => p.currentBalance > 0).slice(0, 10));
       setRecentEntries(entriesData.slice(0, 6));
+      setAnomalies(anomaliesData);
     } catch (err) {
       console.error('Error loading dashboard data:', err);
     } finally {
@@ -52,6 +56,19 @@ export const Dashboard: React.FC<DashboardProps> = ({ organizationId, currentUse
   };
 
   const totalDebtorsBalance = debtors.reduce((sum, d) => sum + (d.currentBalance || 0), 0);
+
+  const handleExportExcel = async () => {
+    setExporting(true);
+    try {
+      await api.downloadFinancialRiskReport();
+      onShowToast?.('success', 'تم تصدير تقرير المخاطر المالية (Excel) بنجاح.');
+    } catch (err: any) {
+      console.error('Export risk report error:', err);
+      onShowToast?.('error', err?.message || 'تعذر تصدير تقرير المخاطر المالية.');
+    } finally {
+      setExporting(false);
+    }
+  };
 
   return (
     <div className="space-y-3.5">
@@ -156,6 +173,69 @@ export const Dashboard: React.FC<DashboardProps> = ({ organizationId, currentUse
             <button onClick={() => onNavigate('subledgers')} className="underline hover:text-amber-300">VIEW_ALL</button>
           </div>
         </div>
+      </div>
+
+      {/* Risk Heatmap: خريطة حرارية للمخاطر المالية */}
+      <div className="bg-[#1e293b] border border-[#334155] rounded p-3.5 shadow-xs">
+        <div className="flex items-center justify-between border-b border-[#334155] pb-2 mb-3">
+          <div>
+            <h3 className="font-bold text-xs text-slate-100 flex items-center gap-2">
+              <ShieldAlert className="w-4 h-4 text-rose-400" />
+              <span>خريطة حرارية للمخاطر المالية</span>
+              <span className="font-mono text-[10px] text-slate-400">| RISK_HEATMAP</span>
+            </h3>
+            <p className="text-[11px] text-slate-400">كشف الشذوذ المالي المعتمد على الذكاء الاصطناعي (صرف &gt;30% عن المتوسط، تكرار مبالغ، توقيت غير معتاد، مديونيات مرتفعة)</p>
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={handleExportExcel}
+              disabled={exporting}
+              className="text-[10px] font-mono px-2.5 py-1 rounded bg-emerald-900/40 hover:bg-emerald-800/40 border border-emerald-800/50 text-emerald-300 font-bold transition-colors flex items-center gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <Download className="w-3 h-3" />
+              {exporting ? 'PREPARING...' : 'EXPORT_EXCEL'}
+            </button>
+            <button
+              onClick={() => onNavigate('ai')}
+              className="text-[10px] font-mono px-2.5 py-1 rounded bg-slate-900 hover:bg-slate-800 border border-[#334155] text-sky-400 font-bold transition-colors"
+            >
+              OPEN_AI_ANALYTICS
+            </button>
+          </div>
+        </div>
+
+        {loading ? (
+          <div className="text-xs text-slate-500 font-mono p-2">LOADING_RISK_DATA...</div>
+        ) : anomalies.length === 0 ? (
+          <div className="text-xs text-slate-500 p-2 flex items-center gap-2">
+            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
+            <span>لا توجد مؤشرات شذوذ مالي في الفترة الحالية — العمليات ضمن الحدود الطبيعية.</span>
+          </div>
+        ) : (
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-2">
+            {anomalies.slice(0, 10).map((anom) => (
+              <div
+                key={anom.id}
+                onClick={() => onNavigate('ai')}
+                title={`${anom.title}\n${anom.recommendation}`}
+                className={`rounded border p-2.5 cursor-pointer transition-transform hover:scale-[1.02] ${
+                  anom.riskScore >= 80
+                    ? 'bg-rose-950/60 border-rose-700/50 text-rose-200'
+                    : anom.riskScore >= 60
+                    ? 'bg-amber-950/60 border-amber-700/50 text-amber-200'
+                    : 'bg-emerald-950/60 border-emerald-700/50 text-emerald-200'
+                }`}
+              >
+                <div className="flex items-center justify-between mb-1">
+                  <span className="font-mono text-[9px] font-bold uppercase opacity-80">{anom.anomalyType.replace(/_/g, ' ')}</span>
+                  <span className="font-mono text-[10px] font-bold">{anom.riskScore}%</span>
+                </div>
+                <div className="text-[11px] font-semibold leading-tight line-clamp-2">{anom.title}</div>
+                <div className="text-[9.5px] font-mono mt-1 opacity-70">{anom.entryNumber}</div>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* Main Content Grid: Recent Entries + Subledger 1301 Summary */}

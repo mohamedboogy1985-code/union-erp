@@ -159,6 +159,7 @@ export const CACHE_KEYS = {
   dashboardSummary: (orgId?: string) => `cache:dashboard:${orgId || 'all'}`,
   accountsList: () => 'cache:accounts:active',
   trialBalance: (orgId?: string) => `cache:reports:trial-balance:${orgId || 'all'}`,
+  balanceSheet: (orgId?: string) => `cache:reports:balance-sheet:${orgId || 'all'}`,
   incomeExpense: (orgId?: string) => `cache:reports:income-expense:${orgId || 'all'}`,
   generalLedger: (orgId?: string) => `cache:reports:general-ledger:${orgId || 'all'}`,
   financialSnapshot: (orgId?: string) => `cache:reports:financial-snapshot:${orgId || 'all'}`,

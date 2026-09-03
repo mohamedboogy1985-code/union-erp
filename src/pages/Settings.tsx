@@ -147,7 +147,7 @@ export const Settings: React.FC<SettingsProps> = ({
                   <span className="font-mono text-[10px] text-emerald-400 font-bold ml-2">{cc.code}</span>
                   <strong className="text-slate-200">{cc.name}</strong>
                 </div>
-                <span className="text-[10px] text-slate-400">{cc.organizationName}</span>
+                <span className="text-[10px] text-slate-400">{cc.organizationId}</span>
               </div>
             ))}
           </div>
@@ -182,15 +182,18 @@ export const Settings: React.FC<SettingsProps> = ({
                 <tr key={u.id} className="hover:bg-slate-800/40">
                   <td className="py-3 px-4 font-bold text-slate-100">{u.fullName}</td>
                   <td className="py-3 px-4 font-mono text-emerald-400">{u.role}</td>
-                  <td className="py-3 px-4 text-slate-300">{u.organizationName}</td>
+                  <td className="py-3 px-4 text-slate-300">{u.organizationId}</td>
                   <td className="py-3 px-4 font-mono font-bold text-amber-400">
                     {(u.maxApprovalLimit ?? 0).toLocaleString()} ج.م
                   </td>
                   <td className="py-3 px-4">
                     <span className="text-[11px] text-slate-400">
-                      {u.role === 'CFO' || u.role === 'ADMIN'
+                      {u.role === 'PRESIDENT' ||
+                      u.role === 'SYSTEM_ADMIN' ||
+                      u.role === 'CHIEF_FINANCIAL_OFFICER' ||
+                      u.role === 'HEAD_OF_ACCOUNTS'
                         ? 'اعتماد وترحيل حتى أقصى حد مالي'
-                        : u.role === 'AUDITOR'
+                        : u.role === 'INTERNAL_AUDITOR' || u.role === 'READ_ONLY_AUDITOR'
                         ? 'فحص وتدقيق رقابي فقط'
                         : 'إنشاء وتعديل مسودات القيود'}
                     </span>

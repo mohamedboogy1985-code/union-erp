@@ -336,7 +336,7 @@ function setupFunctionPatterns(version: number): QrMatrix {
   // معلومات الإصدار (Version Info) — تُوضع فقط للإصدارات 7 فأعلى (ISO/IEC 18004)
   if (version >= 7) {
     // BCH(18,6) بمولد 0x1f25 ثم إلحاق 12 بت للباقي: bits = (version << 12) | remainder
-    let d = version << 12;
+    const d = version << 12;
     let rem = d;
     const bitLen = (n: number) => { let i = 0; while (n !== 0) { i++; n >>>= 1; } return i; };
     while (bitLen(rem) - bitLen(0x1f25) >= 0) {
@@ -412,7 +412,7 @@ function placeDataBits(qm: QrMatrix, codewords: Uint8Array) {
 // معلومات التنسيق: حساب BCH (15,5) مع ثابت 0x5412
 function formatBits(level: QrLevel, mask: number): number {
   const ecBits = level === 'L' ? 1 : level === 'M' ? 0 : level === 'Q' ? 3 : 2;
-  let data = (ecBits << 3) | mask;
+  const data = (ecBits << 3) | mask;
   let rem = data << 10;
   for (let i = 14; i >= 10; i--) {
     if (rem & (1 << i)) rem ^= 0x537 << (i - 10);

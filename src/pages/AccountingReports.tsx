@@ -301,10 +301,10 @@ export const AccountingReports: React.FC<AccountingReportsProps> = ({
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-800 pb-4">
               <div>
                 <span className="text-xs font-bold text-amber-400 bg-amber-950/60 px-2.5 py-1 rounded-md border border-amber-800/40">
-                  كشف حساب تفصيلي - أستاذ مساعد حساب {statement.accountCode} ({statement.accountName})
+                  كشف حساب تفصيلي - أستاذ مساعد حساب {statement.party.associatedAccountId} ({statement.party.name})
                 </span>
-                <h3 className="text-xl font-black text-slate-100 mt-2">{statement.partyName}</h3>
-                <p className="text-xs text-slate-400 mt-0.5">كود الحساب المساعد: <span className="font-mono text-slate-200">{statement.partyCode}</span></p>
+                <h3 className="text-xl font-black text-slate-100 mt-2">{statement.party.name}</h3>
+                <p className="text-xs text-slate-400 mt-0.5">كود الحساب المساعد: <span className="font-mono text-slate-200">{statement.party.partyCode}</span></p>
               </div>
 
               <div className="text-left bg-slate-950 p-3 rounded-xl border border-slate-800">
@@ -404,31 +404,23 @@ export const AccountingReports: React.FC<AccountingReportsProps> = ({
                 </div>
               </div>
 
-              <div className="overflow-x-auto">
-                <table className="w-full text-right text-xs">
-                  <thead>
-                    <tr className="text-slate-500 border-b border-slate-800/80">
-                      <th className="py-2 px-3">التاريخ</th>
-                      <th className="py-2 px-3">رقم القيد</th>
-                      <th className="py-2 px-3">البيان</th>
-                      <th className="py-2 px-3">الطرف التحليلي</th>
-                      <th className="py-2 px-3">مدين</th>
-                      <th className="py-2 px-3">دائن</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-800/40">
-                    {item.entries.map((e, idx) => (
-                      <tr key={idx} className="hover:bg-slate-800/30">
-                        <td className="py-2 px-3 font-mono text-slate-400">{e.date}</td>
-                        <td className="py-2 px-3 font-mono font-bold text-slate-300">{e.entryNumber}</td>
-                        <td className="py-2 px-3 text-slate-300">{e.description}</td>
-                        <td className="py-2 px-3 text-amber-300">{e.subledgerPartyName || '-'}</td>
-                        <td className="py-2 px-3 font-mono font-bold text-slate-100">{e.debit > 0 ? (e.debit ?? 0).toLocaleString() : '-'}</td>
-                        <td className="py-2 px-3 font-mono font-bold text-slate-100">{e.credit > 0 ? (e.credit ?? 0).toLocaleString() : '-'}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs pt-2">
+                <div className="bg-slate-950 p-3 rounded-xl border border-slate-800">
+                  <span className="text-slate-500 block">عدد القيود</span>
+                  <span className="font-mono font-bold text-slate-100">{(item.entriesCount ?? 0).toLocaleString()}</span>
+                </div>
+                <div className="bg-slate-950 p-3 rounded-xl border border-slate-800">
+                  <span className="text-slate-500 block">رصيد افتتاحي</span>
+                  <span className="font-mono font-bold text-slate-100">{(item.openingBalance ?? 0).toLocaleString()} ج.م</span>
+                </div>
+                <div className="bg-slate-950 p-3 rounded-xl border border-slate-800">
+                  <span className="text-slate-500 block">اجمالي المدين</span>
+                  <span className="font-mono font-bold text-emerald-400">{(item.totalDebit ?? 0).toLocaleString()} ج.م</span>
+                </div>
+                <div className="bg-slate-950 p-3 rounded-xl border border-slate-800">
+                  <span className="text-slate-500 block">اجمالي الدائن</span>
+                  <span className="font-mono font-bold text-rose-400">{(item.totalCredit ?? 0).toLocaleString()} ج.م</span>
+                </div>
               </div>
             </div>
           ))}
@@ -477,9 +469,9 @@ export const AccountingReports: React.FC<AccountingReportsProps> = ({
                 {receiptsPayments.items.map((item, idx) => (
                   <tr key={idx}>
                     <td className="py-2.5 px-4 font-mono text-slate-400">{item.date}</td>
-                    <td className="py-2.5 px-4 font-mono font-bold text-slate-200">{item.entryNumber}</td>
+                    <td className="py-2.5 px-4 font-mono font-bold text-slate-200">{item.documentNumber}</td>
                     <td className="py-2.5 px-4 text-slate-300">{item.description}</td>
-                    <td className="py-2.5 px-4 text-slate-400">{item.offsetAccountName}</td>
+                    <td className="py-2.5 px-4 text-slate-400">{item.accountName}</td>
                     <td className="py-2.5 px-4 font-mono font-bold text-emerald-400">
                       {item.receiptAmount > 0 ? (item.receiptAmount ?? 0).toLocaleString() : '-'}
                     </td>

@@ -974,7 +974,7 @@ ${accountsListStr}
     contextOrgId?: string,
     history?: { role: 'user' | 'model'; text: string }[],
     mode: 'global' | 'accounting' | 'general' = 'global'
-  ): Promise<{ answer: string; proposedEntry?: any; postedEntry?: any; confidence?: number; sources?: any[] }> {
+  ): Promise<{ answer: string; proposedEntry?: any; postedEntry?: any; actionIntent?: any; confidence?: number; sources?: any[] }> {
     const ai = getAIClient();
 
     const ctx = getAIContext(contextOrgId);
@@ -1109,10 +1109,66 @@ ${accountsListStr || 'لا توجد حسابات نشطة حالياً.'}
       },
     };
 
-    const tools = [{ functionDeclarations: [createJournalTool, postJournalTool, queryErpTool, lookupAccountsTool] }];
+    const runAppActionTool = {
+      name: 'run_app_action',
+      description:
+        'تنفيذ أمر إداري/تشغيلي في النظام (وليس قيداً محاسبياً): إضافة حساب جديد، إضافة جهة/أستاذ مساعد، إصدار سند قبض/تحصيل، — بعد التأكيد. استخدمها عندما يطلب المستخدم إنشاء/إضافة/تسجيل/إصدار حسابات أو جهات أو إيصالات أو سندات قبض. لا تستخدمها للقيود المحاسبية (استخدم create_journal_entry) ولا للاستعلامات (استخدم query_erp_data أو run_app_report).',
+      parameters: {
+        type: Type.OBJECT,
+        properties: {
+          action: {
+            type: Type.STRING,
+            description:
+              'نوع الإجراء: "create_account" لإضافة حساب، "create_subledger_party" لإضافة جهة/أستاذ مساعد، "create_receipt" لإصدار سند قبض.',
+          },
+          args: {
+            type: Type.OBJECT,
+            description:
+              'معطيات الإجراء: لحساب {code,name,type,nature} ولجهة {name,phone} ولسند قبض {fromName,amount,description} (المبلغ بالجنيه المصري).',
+          },
+        },
+        required: ['action', 'args'],
+      },
+    };
+
+    const runAppReportTool = {
+      name: 'run_app_report',
+      description:
+        'تشغيل تقرير/كشف حي في النظام لإجابة المستخدم بأرقام فعلية: ميزان المراجعة (run_trial_balance)، كشف الإيرادات والمصروفات (run_income_expense)، كشف المدينين (list_debtors)، القيود المعلقة (list_pending_entries)، دليل الحسابات (list_accounts). تُنفَّذ فوراً (للقراءة).',
+      parameters: {
+        type: Type.OBJECT,
+        properties: {
+          action: {
+            type: Type.STRING,
+            description:
+              'معرّف التقرير: run_trial_balance أو run_income_expense أو list_debtors أو list_pending_entries أو list_accounts.',
+          },
+          args: {
+            type: Type.OBJECT,
+            description: 'معطيات اختيارية (keyword للبحث أو limit لعدد النتائج).',
+          },
+        },
+        required: ['action'],
+      },
+    };
+
+    const tools = [
+      {
+        functionDeclarations: [
+          createJournalTool,
+          postJournalTool,
+          queryErpTool,
+          lookupAccountsTool,
+          runAppActionTool,
+          runAppReportTool,
+        ],
+      },
+    ];
 
     // موقّت لتخزين المسودة أثناء دورة الاستدعاء
     let pendingDraft: any = null;
+    // نوع/معطيات أمر تنفيذ يُطلق عبر run_app_action / run_app_report
+    let actionIntent: { kind: 'action' | 'report'; actionId: string; args: any } | null = null;
 
     if (!ai) {
       const isEntry = /قيد|ترحيل|تسجيل|صرف|قبض|إيداع|سند|مصروف/.test(message);
@@ -1278,6 +1334,29 @@ ${accountsListStr || 'لا توجد حسابات نشطة حالياً.'}
                   note: suggestions.length ? 'استخدم فقط أكواد الحسابات المذكورة.' : 'لم نجد حسابات مطابقة; ابحث بمرادفات أخرى.',
                 })
               );
+            } else if (call.name === 'run_app_action' || call.name === 'run_app_report') {
+              const actionId = String((call.args as any)?.action || '');
+              const args = (call.args as any)?.args || {};
+              const validated = ['create_account', 'create_subledger_party', 'create_receipt', 'run_trial_balance', 'run_income_expense', 'list_debtors', 'list_pending_entries', 'list_accounts'].includes(actionId);
+              if (validated) {
+                actionIntent = { kind: call.name === 'run_app_action' ? 'action' : 'report', actionId, args };
+                toolResponses.push(
+                  createPartFromFunctionResponse(call.id, call.name, {
+                    status: call.name === 'run_app_action' ? 'pending_confirmation' : 'report_ready',
+                    actionId,
+                    note: call.name === 'run_app_action'
+                      ? 'أُعدّت مسودة الأمر بانتظار تأكيد المستخدم في الواجهة قبل الترسيخ.'
+                      : 'أُعدّ التقرير ليعرضه المساعد بأرقام فعلية.',
+                  })
+                );
+              } else {
+                toolResponses.push(
+                  createPartFromFunctionResponse(call.id, call.name, {
+                    status: 'unknown_action',
+                    note: `إجراء غير معروف: ${actionId}`,
+                  })
+                );
+              }
             } else if (call.name === 'query_erp_data') {
               const topic = String((call.args as any)?.topic || '');
               const q = topic.toLowerCase();
@@ -1394,6 +1473,7 @@ ${accountsListStr || 'لا توجد حسابات نشطة حالياً.'}
       return {
         answer: (finalText || 'تمت المعالجة.') + validationNotice,
         proposedEntry: validatedDraft || undefined,
+        actionIntent: actionIntent || undefined,
         confidence: validatedDraft ? (validatedDraft.validationErrors?.length ? 0.55 : 0.9) : 0.85,
         sources: validatedDraft?.validationErrors?.length
           ? [{ type: 'VALIDATION', reference: 'قواعد القيد المتوازن', excerpt: 'تحقق آلي من الأكواد والتوازن والأستاذ المساعد' }]

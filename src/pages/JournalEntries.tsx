@@ -29,6 +29,7 @@ import { DocumentManagerModal } from '../components/DocumentManagerModal.js';
 import { offlineSync } from '../services/offlineSync.js';
 import { PrintHeader } from '../components/PrintHeader.js';
 import { JournalAiAssistant } from '../components/JournalAiAssistant.js';
+import { ExpenseVoucherForm } from '../components/ExpenseVoucherForm.js';
 
 interface JournalEntriesProps {
   organizationId: string;
@@ -72,6 +73,7 @@ export const JournalEntries: React.FC<JournalEntriesProps> = ({
   const [reversingEntryId, setReversingEntryId] = useState<string | null>(null);
   const [reversalReason, setReversalReason] = useState('');
   const [docModalEntry, setDocModalEntry] = useState<JournalEntry | null>(null);
+  const [isVoucherModalOpen, setIsVoucherModalOpen] = useState(false);
 
   // New Entry Form State
   const [entryDate, setEntryDate] = useState(new Date().toISOString().split('T')[0]);
@@ -403,6 +405,13 @@ export const JournalEntries: React.FC<JournalEntriesProps> = ({
             <PlusCircle className="w-4 h-4" />
             <span>تسجيل قيد جديد</span>
           </button>
+          <button
+            onClick={() => setIsVoucherModalOpen(true)}
+            className="flex items-center gap-2 px-4 py-2.5 bg-sky-600 hover:bg-sky-500 text-white text-xs font-bold rounded-xl shadow-lg transition-all"
+          >
+            <Printer className="w-4 h-4" />
+            <span>نموذج إذن صرف</span>
+          </button>
         </div>
       </div>
 
@@ -675,6 +684,7 @@ export const JournalEntries: React.FC<JournalEntriesProps> = ({
           <JournalAiAssistant
             organizationId={organizationId}
             accounts={accounts}
+            userName={currentUser?.fullName}
             onFillForm={handleAiFillForm}
             onFilled={() => onShowToast('info', 'تم ملء النموذج من اقتراح المساعد — راجِع الحقول ثم اضغط حفظ.')}
           />
@@ -1086,6 +1096,24 @@ export const JournalEntries: React.FC<JournalEntriesProps> = ({
           entityId={docModalEntry.id}
           entityTitle={`قيد رقم ${docModalEntry.entryNumber} - ${docModalEntry.description}`}
         />
+      )}
+
+      {/* ========================================================================= */}
+      {/* MODAL 5: EXPENSE VOUCHER FORM (إذن صرف قابل للتعبئة والطباعة) */}
+      {/* ========================================================================= */}
+      {isVoucherModalOpen && (
+        <Modal
+          isOpen={true}
+          onClose={() => setIsVoucherModalOpen(false)}
+          title="نموذج إذن صرف"
+          subtitle="نموذج قابل للتعبئة مع إمكانية الطباعة — بوابة النقابة العامة"
+          maxWidth="4xl"
+        >
+          <ExpenseVoucherForm
+            currentUser={currentUser}
+            onShowToast={onShowToast}
+          />
+        </Modal>
       )}
     </div>
   );

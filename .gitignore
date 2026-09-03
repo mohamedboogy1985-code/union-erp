@@ -68,3 +68,10 @@ data/
 *.zip
 downloads/
 dist/
+
+# Office lock/temp files
+~$*
+*.tmp
+
+# Runtime log files
+union-server.log

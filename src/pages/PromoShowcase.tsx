@@ -23,7 +23,13 @@ export const PromoShowcase: React.FC = () => {
       cache: 'no-store',
       signal: controller.signal,
     })
-      .then((response) => setVideoStatus(response.ok ? 'available' : 'missing'))
+      .then((response) => {
+        // لا نكتفي بحالة 200: الخادم يعيد index.html (Content-Type: text/html)
+        // كطوارئ لكل مسار، لذا نتأكد من أن النوع هو فيديو فعلياً.
+        const type = (response.headers.get('content-type') || '').toLowerCase();
+        const typeOk = response.ok && type.includes('video/');
+        setVideoStatus(typeOk ? 'available' : 'missing');
+      })
       .catch((error: unknown) => {
         if (error instanceof DOMException && error.name === 'AbortError') return;
         setVideoStatus('missing');
@@ -82,21 +88,23 @@ export const PromoShowcase: React.FC = () => {
         )}
 
         {videoStatus === 'missing' && (
-          <div className="rounded border border-amber-700/50 bg-amber-950/20 p-4">
-            <div className="mb-3 flex items-center gap-2 text-amber-300">
+          <details className="rounded border border-amber-700/50 bg-amber-950/20 p-4">
+            <summary className="flex items-center gap-2 text-amber-300 cursor-pointer">
               <Terminal className="h-5 w-5" />
-              <h3 className="text-sm font-bold">ملف MP4 غير موجود — أنشئه محلياً</h3>
+              <h3 className="text-sm font-bold">ملف MP4 غير موجود — يمكنك توليده محلياً (اختياري)</h3>
+            </summary>
+            <div className="mt-3">
+              <p className="mb-3 text-xs leading-6 text-slate-300">
+                ضع التعليق الصوتي في <code className="text-sky-300">promo/voice.mp3</code> ثم شغّل مولّد الفيديو من جذر المشروع:
+              </p>
+              <pre className="overflow-x-auto rounded border border-[#334155] bg-slate-950 p-3 text-left font-mono text-xs leading-6 text-emerald-300" dir="ltr">
+                <code>{`python -m pip install moviepy pillow numpy\npython promo/create_union_video.py\n\n# مع موسيقى خلفية اختيارية:\npython promo/create_union_video.py --music /path/to/music.mp3`}</code>
+              </pre>
+              <p className="mt-3 text-[11px] leading-5 text-slate-400">
+                يحفظ السكربت النسختين العريضة وReels داخل <code className="text-sky-300">assets/promo/video/</code>.
+              </p>
             </div>
-            <p className="mb-3 text-xs leading-6 text-slate-300">
-              ضع التعليق الصوتي في <code className="text-sky-300">promo/voice.mp3</code> ثم شغّل مولّد الفيديو من جذر المشروع:
-            </p>
-            <pre className="overflow-x-auto rounded border border-[#334155] bg-slate-950 p-3 text-left font-mono text-xs leading-6 text-emerald-300" dir="ltr">
-              <code>{`python -m pip install moviepy pillow numpy\npython promo/create_union_video.py\n\n# مع موسيقى خلفية اختيارية:\npython promo/create_union_video.py --music /path/to/music.mp3`}</code>
-            </pre>
-            <p className="mt-3 text-[11px] leading-5 text-slate-400">
-              يحفظ السكربت النسختين العريضة وReels داخل <code className="text-sky-300">assets/promo/video/</code>.
-            </p>
-          </div>
+          </details>
         )}
       </section>
 

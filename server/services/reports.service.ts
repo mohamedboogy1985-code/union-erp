@@ -1,4 +1,10 @@
 import {
+  Account,
+  AccountType,
+  BalanceSheetGroup,
+  BalanceSheetLine,
+  BalanceSheetReport,
+  BalanceSheetSection,
   GeneralLedgerReportItem,
   IncomeExpenseReport,
   ReceiptsPaymentsItem,
@@ -315,6 +321,83 @@ export class ReportsService {
           closingDebit: Math.round(totalClosingDebit * 100) / 100,
           closingCredit: Math.round(totalClosingCredit * 100) / 100,
         },
+      };
+    }, 60);
+  }
+
+  /**
+   * 6. الميزانية العمومية (مركز مالي) + الحسابات الختامية (قائمة الإيرادات والمصروفات)
+   * تُرحَّل الأرصدة تلقائيًا من القيود المرحلة (ميزان المراجعة) وتُصنَّف حسب
+   * دليل الحسابات إلى: أصول / التزامات / حقوق ملكية.
+   */
+  public getBalanceSheet(filters: ReportFilterDto = {}): BalanceSheetReport {
+    return cacheService.wrapSync(cacheKeyFor(filters, CACHE_KEYS.balanceSheet), () => {
+      const tb = this.getTrialBalance(filters);
+      const finalAccounts = this.getIncomeExpenseReport(filters);
+      const accountsById = new Map<string, Account>(erpStore.accounts.map((a) => [a.id, a]));
+
+      const ancestorAtLevel = (acc: Account, level: number): Account | undefined => {
+        let cur = acc;
+        while (cur && cur.level > level && cur.parentId) {
+          const parent = accountsById.get(cur.parentId);
+          if (!parent) break;
+          cur = parent;
+        }
+        return cur && cur.level <= level ? cur : undefined;
+      };
+
+      const buildSection = (types: Set<AccountType>, title: string): BalanceSheetSection => {
+        const groups = new Map<string, BalanceSheetGroup>();
+        for (const item of tb.items) {
+          const acc = accountsById.get(item.accountId);
+          if (!acc || !types.has(acc.type)) continue;
+          const ancestor = ancestorAtLevel(acc, 2);
+          const key = ancestor?.id || acc.id;
+          const g = groups.get(key) || { code: ancestor?.code || '', name: ancestor?.name || 'حسابات أخرى', items: [], total: 0 };
+          const amount = Math.round((item.closingDebit - item.closingCredit) * 100) / 100;
+          const line: BalanceSheetLine = {
+            accountId: item.accountId,
+            accountCode: item.accountCode,
+            accountName: item.accountName,
+            debit: item.closingDebit,
+            credit: item.closingCredit,
+            amount,
+          };
+          g.items.push(line);
+          g.total = Math.round((g.total + amount) * 100) / 100;
+          groups.set(key, g);
+        }
+        const sorted = [...groups.values()].sort((a, b) =>
+          (a.code || 'ZZZ').localeCompare(b.code || 'ZZZ', undefined, { numeric: true })
+        );
+        return {
+          code: [...types][0] as string,
+          title,
+          groups: sorted,
+          total: Math.round(sorted.reduce((s, g) => s + g.total, 0) * 100) / 100,
+        };
+      };
+
+      const assets = buildSection(new Set<AccountType>(['ASSET']), 'الأصول');
+      const liabilities = buildSection(new Set<AccountType>(['LIABILITY']), 'الالتزامات (الخصوم)');
+      const equity = buildSection(new Set<AccountType>(['EQUITY']), 'حقوق الملكية والاحتياطيات النقابية');
+
+      const totalAssets = assets.total;
+      const totalLiabilities = liabilities.total;
+      // حقوق الملكية تُعرض بقيمتها الدائنة (موجبة)
+      const totalEquity = equity.total;
+      // صافي المركز: الأصول (مدين) - الالتزامات (دائن) - حقوق الملكية (دائن)
+      const netPosition = Math.round((totalAssets + totalLiabilities + totalEquity) * 100) / 100;
+
+      return {
+        assets,
+        liabilities,
+        equity,
+        totalAssets: Math.round(totalAssets * 100) / 100,
+        totalLiabilities: Math.round(totalLiabilities * 100) / 100,
+        totalEquity: Math.round(totalEquity * 100) / 100,
+        netPosition,
+        finalAccounts,
       };
     }, 60);
   }

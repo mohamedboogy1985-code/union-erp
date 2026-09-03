@@ -26,6 +26,7 @@ import {
   Network,
   Landmark,
   FileSpreadsheet,
+  Scale,
 } from 'lucide-react';
 
 /**
@@ -69,6 +70,7 @@ export const SCREENS: ScreenDef[] = [
   // المحاسبة والمالية (النقابة العامة)
   { id: 'journals', label: 'القيود والحسابات', icon: BookOpen, group: 'المحاسبة والمالية', portals: ['syndicate'] },
   { id: 'reports', label: 'التقارير المحاسبية', icon: FileText, group: 'المحاسبة والمالية', portals: ['syndicate'] },
+  { id: 'balance-sheet', label: 'الميزانية العمومية والحسابات الختامية', icon: Scale, group: 'المحاسبة والمالية', portals: ['syndicate'] },
   { id: 'subledgers', label: 'الأستاذ المساعد (المدينون)', icon: Users, group: 'المحاسبة والمالية', portals: ['syndicate'] },
   { id: 'accounts', label: 'دليل الحسابات', icon: Building, group: 'المحاسبة والمالية', portals: ['syndicate'] },
   { id: 'banking', label: 'البنوك والتسويات', icon: Building2, group: 'المحاسبة والمالية', portals: ['syndicate'] },
@@ -92,7 +94,9 @@ export const SCREENS: ScreenDef[] = [
   // بيانات البوابات والملفات المستوردة
   { id: 'committee-data', label: 'بيانات اللجان والمكاتب (بيانات.xlsx)', icon: FileSpreadsheet, group: 'بيانات البوابات والملفات المستوردة', portals: ['syndicate', 'committees'] },
   { id: 'insured-list', label: 'المؤمَّن عليهم — الصندوق الاكتواري', icon: ShieldCheck, group: 'بيانات البوابات والملفات المستوردة', portals: ['syndicate'] },
-  { id: 'journal-2024', label: 'قيود يومية 2024', icon: BookOpen, group: 'بيانات البوابات والملفات المستوردة', portals: ['training'] },
+  { id: 'journal-2024', label: 'قيود يومية 2024', icon: BookOpen, group: 'بيانات البوابات والملفات المستوردة', portals: ['syndicate'] },
+  { id: 'training-accounting-2024', label: 'برنامج المحاسبة 2024 (مركز التدريب)', icon: Calculator, group: 'بيانات البوابات والملفات المستوردة', portals: ['training'] },
+  { id: 'final-accounts-2024', label: 'الميزانية العمومية والحسابات الختامية 2024 (مركز التدريب)', icon: Scale, group: 'بيانات البوابات والملفات المستوردة', portals: ['training'] },
   // الذكاء الاصطناعي والإعدادات (مشتركة)
   { id: 'aihub', label: 'الذكاء الاصطناعي والمساعد الحي', icon: Bot, group: 'الذكاء الاصطناعي والإعدادات', portals: ALL },
   { id: 'settings', label: 'الإعدادات والصلاحيات', icon: Settings, group: 'الذكاء الاصطناعي والإعدادات', portals: ALL },

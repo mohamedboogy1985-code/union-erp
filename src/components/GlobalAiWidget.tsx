@@ -15,6 +15,16 @@ interface GlobalAiWidgetProps {
   currentUser: User | null;
 }
 
+interface PendingAction {
+  actionId: string;
+  label: string;
+  icon?: string;
+  summary: string;
+  details: { label: string; value: string }[];
+  payload: any;
+  needs?: string;
+}
+
 interface ProposedEntry {
   date?: string;
   description?: string;
@@ -42,6 +52,10 @@ export const GlobalAiWidget: React.FC<GlobalAiWidgetProps> = ({ currentTab, sele
   const [apiConfigured, setApiConfigured] = useState<boolean | null>(null);
   const [isListening, setIsListening] = useState(false);
   const [voiceError, setVoiceError] = useState<string | null>(null);
+  const [pendingAction, setPendingAction] = useState<PendingAction | null>(null);
+  const [executing, setExecuting] = useState(false);
+  const [execResult, setExecResult] = useState<string | null>(null);
+  const [execError, setExecError] = useState<string | null>(null);
   const recognitionRef = useRef<any>(null);
   const spokenTextRef = useRef('');
   const bodyRef = useRef<HTMLDivElement>(null);
@@ -88,6 +102,9 @@ export const GlobalAiWidget: React.FC<GlobalAiWidgetProps> = ({ currentTab, sele
     setProposedEntry(null);
     setPostResult(null);
     setPostError(null);
+    setPendingAction(null);
+    setExecResult(null);
+    setExecError(null);
     try {
       const history = messages.map((m) => ({ role: m.role, text: m.text }));
       let assistantText = '';
@@ -111,9 +128,12 @@ export const GlobalAiWidget: React.FC<GlobalAiWidgetProps> = ({ currentTab, sele
             assistantText = fullText;
             updateAssistant();
           },
-          onDone: (evt) => {
+          onDone: async (evt) => {
             if (evt.proposedEntry && Array.isArray(evt.proposedEntry.lines)) {
               setProposedEntry(evt.proposedEntry);
+            }
+            if (evt.actionIntent && evt.actionIntent.actionId) {
+              await previewAction(evt.actionIntent.actionId, evt.actionIntent.args || {});
             }
           },
         }
@@ -152,6 +172,70 @@ export const GlobalAiWidget: React.FC<GlobalAiWidgetProps> = ({ currentTab, sele
     } finally {
       setPosting(false);
     }
+  };
+
+  // ==== تنفيذ أوامر الذكاء الاصطناعي عبر الشاشات (أي إجراء) ====
+  const previewAction = async (actionId: string, args: any) => {
+    setExecResult(null);
+    setExecError(null);
+    try {
+      const res = await fetch('/api/ai/actions/preview', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-user-id': getCurrentUserId() },
+        body: JSON.stringify({ actionId, args, organizationId: selectedOrgId || undefined }),
+      });
+      const data = await res.json();
+      if (data.status === 'needs_confirmation' && data.confirmation) {
+        setPendingAction({
+          actionId,
+          label: data.confirmation.label || actionId,
+          summary: data.confirmation.summary,
+          details: data.confirmation.details || [],
+          payload: data.confirmation.payload || args,
+        });
+      } else {
+        setExecResult(data.message || data.answer || 'تمت المعالجة.');
+        if (data.result?.summary && !data.result?.kind) {
+          // ignore raw summary; message already shown
+        }
+      }
+    } catch (err: any) {
+      setExecError(err.message || 'تعذر معاينة الأمر.');
+    }
+  };
+
+  const confirmAction = async () => {
+    if (!pendingAction || executing) return;
+    setExecuting(true);
+    setExecError(null);
+    setExecResult(null);
+    try {
+      const res = await fetch('/api/ai/actions/confirm', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-user-id': getCurrentUserId() },
+        body: JSON.stringify({
+          actionId: pendingAction.actionId,
+          payload: pendingAction.payload,
+          organizationId: selectedOrgId || undefined,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || data.message || 'تعذر تنفيذ الأمر.');
+      }
+      setExecResult(data.message || 'تم تنفيذ الأمر بنجاح.');
+      setPendingAction(null);
+    } catch (err: any) {
+      setExecError(err.message || 'خطأ في التنفيذ.');
+    } finally {
+      setExecuting(false);
+    }
+  };
+
+  const cancelAction = () => {
+    setPendingAction(null);
+    setExecResult(null);
+    setExecError(null);
   };
 
   // ==== الإدخال الصوتي داخل المساعد العائم ====
@@ -372,6 +456,54 @@ export const GlobalAiWidget: React.FC<GlobalAiWidgetProps> = ({ currentTab, sele
               <div className="flex justify-end">
                 <div className="px-3 py-2 rounded-xl bg-emerald-950/60 border border-emerald-800/40 text-emerald-200 text-xs flex items-center gap-1.5">
                   <CheckCircle2 className="w-3.5 h-3.5" /> {postResult}
+                </div>
+              </div>
+            )}
+
+            {/* Generic AI Action confirmation */}
+            {pendingAction && !loading && (
+              <div className="rounded-xl border border-sky-500/40 bg-sky-950/30 p-3 space-y-2">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-1.5 text-sky-300 text-xs font-bold">
+                    <Sparkles className="w-3.5 h-3.5" />
+                    {pendingAction.label} — يتطلب تأكيدك
+                  </div>
+                </div>
+                <p className="text-[11px] text-slate-200 font-semibold">{pendingAction.summary}</p>
+                <div className="space-y-1">
+                  {pendingAction.details.map((d, idx) => (
+                    <div key={idx} className="flex justify-between gap-2 text-[11px] bg-slate-900/60 rounded px-2 py-1.5">
+                      <span className="text-slate-400">{d.label}</span>
+                      <span className="text-slate-100 font-medium text-left">{d.value}</span>
+                    </div>
+                  ))}
+                </div>
+                <div className="flex items-center gap-2 pt-1">
+                  <button
+                    onClick={confirmAction}
+                    disabled={executing}
+                    className="flex-1 flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg bg-sky-600 hover:bg-sky-500 disabled:opacity-40 disabled:cursor-not-allowed text-xs font-bold text-white"
+                  >
+                    {executing ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <ShieldCheck className="w-3.5 h-3.5" />}
+                    تأكيد التنفيذ
+                  </button>
+                  <button
+                    onClick={cancelAction}
+                    disabled={executing}
+                    className="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 border border-[#334155] text-xs text-slate-300"
+                  >
+                    إلغاء
+                  </button>
+                </div>
+                {execError && <p className="text-[11px] text-rose-400">{execError}</p>}
+              </div>
+            )}
+
+            {/* Action executed result standalone */}
+            {execResult && !pendingAction && !proposedEntry && (
+              <div className="flex justify-end">
+                <div className="px-3 py-2 rounded-xl bg-emerald-950/60 border border-emerald-800/40 text-emerald-200 text-xs flex items-center gap-1.5">
+                  <CheckCircle2 className="w-3.5 h-3.5" /> {execResult}
                 </div>
               </div>
             )}

@@ -1,6 +1,7 @@
 import React from 'react';
-import { ArrowRight, Landmark } from 'lucide-react';
+import { ArrowRight, Landmark, Film, Sparkles } from 'lucide-react';
 import { GATEWAYS, PortalId, screensForPortal } from '../config/portals.js';
+import { PromoShowcase } from './PromoShowcase.js';
 
 interface GatewayProps {
   onSelectGateway: (gatewayId: PortalId) => void;
@@ -60,6 +61,23 @@ export const Gateways: React.FC<GatewayProps> = ({ onSelectGateway, onShowToast 
           );
         })}
       </div>
+
+      {/* ===== الفيديو والعرض الترويجي ===== */}
+      <section className="mt-10 rounded-2xl bg-slate-900 border border-slate-800 p-6 shadow-lg">
+        <div className="flex items-center gap-3 border-b border-slate-800 pb-4 mb-4">
+          <div className="h-11 w-11 rounded-2xl bg-sky-500/15 flex items-center justify-center">
+            <Film className="h-5 w-5 text-sky-400" />
+          </div>
+          <div>
+            <h2 className="text-lg font-bold text-white flex items-center gap-2">
+              الفيديو الترويجي للنظام
+              <Sparkles className="h-4 w-4 text-amber-400" />
+            </h2>
+            <p className="text-sm text-slate-400">عرض تقديمي لنظام Union Financial ERP — النقابة العامة للعاملين بصناعات البناء والأخشاب</p>
+          </div>
+        </div>
+        <PromoShowcase />
+      </section>
     </div>
   );
 };

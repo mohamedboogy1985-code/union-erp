@@ -99,6 +99,7 @@ CREATE TABLE "journal_entries" (
 	"period_id" text NOT NULL,
 	"description" text NOT NULL,
 	"type" text DEFAULT 'MANUAL' NOT NULL,
+	"journal_name" text DEFAULT 'يومية النقابة' NOT NULL,
 	"status" text DEFAULT 'DRAFT' NOT NULL,
 	"total_debit" double precision DEFAULT 0 NOT NULL,
 	"total_credit" double precision DEFAULT 0 NOT NULL,

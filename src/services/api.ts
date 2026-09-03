@@ -3,6 +3,7 @@ import {
   AuditLog,
   BankAccount,
   BankTransaction,
+  BalanceSheetReport,
   Budget,
   CostCenter,
   FiscalPeriod,
@@ -38,6 +39,10 @@ import {
   CommitteesData,
   InsuredMember,
   JournalRow,
+  EtaStatus,
+  EtaDocumentRecord,
+  EtaSubmitResponse,
+  EtaDocumentInput,
 } from '../types/erp.js';
 
 // المستخدم الافتراضي: مدير البرنامج محمد عبد الله أحمد (جميع الصلاحيات)
@@ -93,6 +98,12 @@ export const api = {
   getInsuredList: (q?: string) =>
     request<InsuredMember[]>(q ? `/api/insured-list?q=${encodeURIComponent(q)}` : '/api/insured-list'),
   getJournal2024: () => request<JournalRow[]>(`/api/journal-2024`),
+
+  // برنامج المحاسبة 2024 — مركز التدريب
+  getTrainingAccounting2024: () => request<any>(`/api/training-accounting-2024`),
+
+  // الميزانية العمومية والحسابات الختامية 2024 — مركز التدريب
+  getFinalAccounts2024: () => request<any>(`/api/final-accounts-2024`),
 
   // Chart of Accounts
   getAccounts: () => request<Account[]>('/api/accounts'),
@@ -171,6 +182,10 @@ export const api = {
       totals: { periodDebit: number; periodCredit: number; closingDebit: number; closingCredit: number };
     }>(`/api/reports/trial-balance?${query.toString()}`);
   },
+  getBalanceSheet: (params: any = {}) => {
+    const query = new URLSearchParams(params);
+    return request<BalanceSheetReport>(`/api/reports/balance-sheet?${query.toString()}`);
+  },
 
   // Receipts & Distribution
   getReceipts: () => request<Receipt[]>('/api/receipts'),
@@ -238,6 +253,10 @@ export const api = {
       };
     }>('/api/regulation'),
 
+  // استرجاع لائحة النظام الأساسي المؤرشفة من قاعدة البيانات
+  getRegulationDocument: () =>
+    request<any>('/api/regulation/document'),
+
   // AI Copilot & Intelligent Features
   queryAI: (prompt: string, organizationId?: string) =>
     request<{ answer: string; suggestedAction?: any; confidence?: number; sources?: { type?: string; reference?: string }[] }>('/api/ai/query', {
@@ -260,6 +279,32 @@ export const api = {
     request<any>('/api/ai/voice-dictation', { method: 'POST', body: JSON.stringify({ spokenText }) }),
   getFinancialForecastAI: (horizon: number = 12) =>
     request<any>(`/api/ai/financial-forecast?horizon=${horizon}`),
+
+  // تصدير تقرير المخاطر المالية بصيغة Excel (منسّق، وضعية موحدة)
+  downloadFinancialRiskReport: async (): Promise<void> => {
+    const res = await fetch('/api/reports/export/risk', {
+      headers: { 'x-user-id': currentUserId },
+    });
+    if (!res.ok) {
+      let message = 'تعذر تجهيز ملف التقرير المالي';
+      try {
+        const body = await res.json();
+        message = body.error || message;
+      } catch {
+        /* تجاهل */
+      }
+      throw new Error(message);
+    }
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `Union_Financial_Risk_${new Date().toISOString().split('T')[0]}.xlsx`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  },
 
   // Document Management System (DMS) & Digital Signatures
   getDocuments: (params: { entityType?: string; entityId?: string } = {}) => {
@@ -427,5 +472,20 @@ export const api = {
     request<AttendanceMonthlySummary[]>(`/api/attendance/monthly/${year}/${month}`),
   getAttendanceEmployeeSummary: (year: number, month: number, employeeId: string) =>
     request<AttendanceMonthlySummary>(`/api/attendance/monthly/${year}/${month}/${employeeId}`),
+
+  // ─── منظومة الفاتورة الإلكترونية (ETA) — مصلحة الضرائب المصرية ───
+  etaGetStatus: () => request<EtaStatus>(`/api/eta/status`),
+  etaListDocuments: () => request<EtaDocumentRecord[]>(`/api/eta/documents`),
+  etaSubmit: (document: EtaDocumentInput) =>
+    request<EtaSubmitResponse>('/api/eta/submit', { method: 'POST', body: JSON.stringify({ document }) }),
+  etaSubmitFromReceipt: (id: string, data?: any) =>
+    request<EtaSubmitResponse>(`/api/eta/submit/receipt/${id}`, { method: 'POST', body: JSON.stringify(data || {}) }),
+  etaSubmitFromJournal: (id: string, data?: any) =>
+    request<EtaSubmitResponse>(`/api/eta/submit/journal/${id}`, { method: 'POST', body: JSON.stringify(data || {}) }),
+  etaQuerySubmission: (submissionId: string) => request<any>(`/api/eta/submissions/${submissionId}`),
+  etaVerify: (uuid: string) => request<any>(`/api/eta/documents/${uuid}/verify`, { method: 'POST' }),
+  etaCancel: (uuid: string, reason: string) =>
+    request<any>(`/api/eta/documents/${uuid}/cancel`, { method: 'POST', body: JSON.stringify({ reason }) }),
+  etaDownloadUrl: (uuid: string) => `/api/eta/documents/${uuid}/download`,
 };
 

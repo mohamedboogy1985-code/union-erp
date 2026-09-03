@@ -64,7 +64,7 @@ export const FixedAssets: React.FC<FixedAssetsProps> = ({
                 <h3 className="font-bold text-sm text-slate-100 mt-1">{a.name}</h3>
                 <span className="text-xs text-slate-400">تاريخ الشراء: {a.purchaseDate}</span>
               </div>
-              <span className="text-xs text-slate-400">معدل الإهلاك: <strong className="text-amber-400 font-mono">%{a.depreciationRate}</strong></span>
+              <span className="text-xs text-slate-400">معدل الإهلاك: <strong className="text-amber-400 font-mono">%{(a.usefulLifeMonths ? (100 / (a.usefulLifeMonths / 12)).toFixed(1) : 0)}</strong></span>
             </div>
 
             <div className="pt-3 border-t border-slate-800 grid grid-cols-3 gap-2 text-xs">

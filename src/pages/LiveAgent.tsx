@@ -361,7 +361,6 @@ export const LiveAgent: React.FC<LiveAgentProps> = ({
     return () => {
       endSession();
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const toggleMic = () => {

@@ -19,7 +19,7 @@ import { api } from '../services/api.js';
 interface Props {
   isOpen: boolean;
   onClose: () => void;
-  entityType: 'JOURNAL_ENTRY' | 'RECEIPT' | 'MEMBER' | 'ASSET' | 'BUDGET';
+  entityType: 'JOURNAL_ENTRY' | 'RECEIPT' | 'MEMBER' | 'ASSET' | 'BUDGET' | 'REGULATION';
   entityId: string;
   entityTitle: string;
 }

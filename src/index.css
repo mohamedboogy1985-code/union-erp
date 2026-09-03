@@ -76,10 +76,25 @@
     padding: 0 !important;
     margin: 0 !important;
   }
-  #printable-document * {
+  #printable-document *,
+  #expense-voucher-print-area * {
     color: black !important;
     border-color: #cbd5e1 !important;
     background-color: transparent !important;
+  }
+  #expense-voucher-print-area {
+    background: white !important;
+    color: black !important;
+    border: none !important;
+    box-shadow: none !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    width: 100% !important;
+    max-width: 100% !important;
+  }
+  /* إخفاء خلفية المودال السوداء أثناء الطباعة وإظهار الورقة فقط */
+  .fixed {
+    background: none !important;
   }
 }
 

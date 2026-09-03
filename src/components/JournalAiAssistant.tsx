@@ -22,6 +22,7 @@ import { streamGlobalAiChat } from '../services/ai-stream.js';
 interface JournalAiAssistantProps {
   organizationId: string;
   accounts: Account[];
+  userName?: string;
   onFillForm: (data: {
     entryDate: string;
     entryDescription: string;
@@ -53,6 +54,7 @@ interface ChatMsg {
 export const JournalAiAssistant: React.FC<JournalAiAssistantProps> = ({
   organizationId,
   accounts,
+  userName,
   onFillForm,
   onFilled,
 }) => {
@@ -109,6 +111,24 @@ export const JournalAiAssistant: React.FC<JournalAiAssistantProps> = ({
   useEffect(() => {
     // التأكد من تحميل قائمة الأصوات في المتصفحات الحديثة
     if ('speechSynthesis' in window) window.speechSynthesis.getVoices();
+  }, []);
+
+  // ===== الترحيب الصوتي باسم المستخدم عند فتح نافذة تسجيل القيد =====
+  const greetByName = (): string => {
+    const name = (userName || '').trim();
+    const greeting = name
+      ? `أهلاً بك يا ${name}، كيف يمكنني مساعدتك في تسجيل القيد اليوم؟`
+      : `أهلاً بك، كيف يمكنني مساعدتك في تسجيل القيد اليوم؟`;
+    setMessages((m) => (m.length ? m : [{ role: 'assistant', text: greeting }]));
+    return greeting;
+  };
+
+  useEffect(() => {
+    // الترحيب التلقائي عند فتح النافذة (مرة واحدة فقط)
+    if (!('speechSynthesis' in window)) return;
+    const t = setTimeout(() => speak(greetByName()), 500);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line
   }, []);
 
   const addAssistant = (text: string) => {
@@ -196,7 +216,11 @@ export const JournalAiAssistant: React.FC<JournalAiAssistantProps> = ({
     });
     setFilled(true);
     onFilled?.();
-    addAssistant('تم ملء النموذج من الاقتراح. راجِع الحقول (خاصة الأستاذ المساعد لحساب 1301) ثم اضغط "حفظ القيد المحاسبي".');
+    const name = (userName || '').trim();
+    const confirmText = name
+      ? `تم ملء النموذج بالقيد بقيمة ${totalDebit.toLocaleString()} جنيه يا ${name}. راجع الحقول ثم اضغط حفظ القيد المحاسبي.`
+      : `تم ملء النموذج بالقيد بقيمة ${totalDebit.toLocaleString()} جنيه. راجع الحقول ثم اضغط حفظ القيد المحاسبي.`;
+    addAssistant(confirmText);
   };
 
   // لصق النص من الحافظة في حقل الإدخال

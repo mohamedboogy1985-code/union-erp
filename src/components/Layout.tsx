@@ -11,6 +11,9 @@ import {
   FileSpreadsheet,
   FileCheck2,
   Globe,
+  Layers,
+  UserCheck,
+  UsersRound,
 } from 'lucide-react';
 import { Organization, User, SyncStatus } from '../types/erp.js';
 import { api, setCurrentUserId } from '../services/api.js';
@@ -85,35 +88,67 @@ export const Layout: React.FC<LayoutProps> = ({
     isAi?: boolean;
     badge?: string;
   }
+
+  // الوحدات المدمجة: كل شاشة تابعة تُعرض داخل بند رئيسي واحد كالسابق (المحاسبة والمالية، العضوية، الموارد البشرية)
+  const HUB_DEFS = [
+    { id: 'accounting', label: 'المحاسبة والمالية', icon: Layers, tabs: ['journals', 'reports', 'subledgers', 'accounts', 'banking', 'procurement'] },
+    { id: 'membership', label: 'العضوية والتحصيل', icon: UserCheck, tabs: ['members', 'receipts'] },
+    { id: 'hrs', label: 'الموارد البشرية والعاملين', icon: UsersRound, tabs: ['employees', 'payroll', 'attendance', 'advances'] },
+  ];
+
   const activePortalMeta = getGatewayMeta(selectedGateway);
+  const portalScreens = screensForPortal(selectedGateway);
+
   const navItems: NavItem[] = [
     { id: 'portals', label: 'البوابات الرئيسية', icon: Globe, badge: '3 بوابات' },
-    ...screensForPortal(selectedGateway).map((s) => ({
+  ];
+
+  const foldedTabs = new Set(HUB_DEFS.flatMap((h) => h.tabs));
+  const addedHubs = new Set<string>();
+
+  for (const s of portalScreens) {
+    const hub = HUB_DEFS.find((h) => h.tabs.includes(s.id));
+    if (hub) {
+      if (!addedHubs.has(hub.id)) {
+        const visibleTabs = hub.tabs.filter((t) => portalScreens.some((s2) => s2.id === t));
+        navItems.push({
+          id: hub.id,
+          label: hub.label,
+          icon: hub.icon,
+          badge: `${visibleTabs.length} وحدات`,
+        });
+        addedHubs.add(hub.id);
+      }
+      continue;
+    }
+    navItems.push({
       id: s.id,
       label: s.label,
       icon: s.icon,
       isAi: s.id === 'aihub' || s.id === 'ai',
-    })),
-  ];
+    });
+  }
 
   // الوحدات القديمة كان لها معرفات مستقلة — نحولها إلى الشاشة المجمّعة الصحيحة
   // حتى لا ينكسر أي تنقل قديم، ويبقى التظليل في الشريط الجانبي دقيقاً.
   const TAB_TARGETS: Record<string, string> = {
-    accounting: 'journals',
-    journals: 'journals',
-    reports: 'reports',
-    subledgers: 'subledgers',
-    accounts: 'accounts',
-    banking: 'banking',
-    procurement: 'procurement',
-    membership: 'members',
-    members: 'members',
-    receipts: 'receipts',
-    hrs: 'employees',
-    employees: 'employees',
-    payroll: 'payroll',
-    attendance: 'attendance',
-    advances: 'advances',
+    accounting: 'accounting',
+    journals: 'accounting',
+    reports: 'accounting',
+    subledgers: 'accounting',
+    accounts: 'accounting',
+    banking: 'accounting',
+    procurement: 'accounting',
+    'balance-sheet': 'balance-sheet',
+    balanceSheet: 'balance-sheet',
+    membership: 'membership',
+    members: 'membership',
+    receipts: 'membership',
+    hrs: 'hrs',
+    employees: 'hrs',
+    payroll: 'hrs',
+    attendance: 'hrs',
+    advances: 'hrs',
     actuarial: 'actuarial',
     ai: 'aihub',
     aiHub: 'aihub',

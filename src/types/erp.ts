@@ -515,6 +515,43 @@ export interface IncomeExpenseReport {
 }
 
 // ----------------------------------------------------
+// الميزانية العمومية والحسابات الختامية (مركز مالي + قائمة دخل)
+// ----------------------------------------------------
+export interface BalanceSheetLine {
+  accountId: string;
+  accountCode: string;
+  accountName: string;
+  debit: number;
+  credit: number;
+  amount: number;
+}
+
+export interface BalanceSheetGroup {
+  code: string;
+  name: string;
+  items: BalanceSheetLine[];
+  total: number;
+}
+
+export interface BalanceSheetSection {
+  code: string;
+  title: string;
+  groups: BalanceSheetGroup[];
+  total: number;
+}
+
+export interface BalanceSheetReport {
+  assets: BalanceSheetSection;
+  liabilities: BalanceSheetSection;
+  equity: BalanceSheetSection;
+  totalAssets: number;
+  totalLiabilities: number;
+  totalEquity: number;
+  netPosition: number;
+  finalAccounts: IncomeExpenseReport;
+}
+
+// ----------------------------------------------------
 // Document Management System (DMS) & Digital Signatures
 // ----------------------------------------------------
 export interface DigitalSignature {
@@ -530,7 +567,7 @@ export interface DigitalSignature {
 
 export interface DocumentAttachment {
   id: string;
-  entityType: 'JOURNAL_ENTRY' | 'RECEIPT' | 'MEMBER' | 'ASSET' | 'BUDGET' | 'PROCUREMENT';
+  entityType: 'JOURNAL_ENTRY' | 'RECEIPT' | 'MEMBER' | 'ASSET' | 'BUDGET' | 'PROCUREMENT' | 'REGULATION';
   entityId: string;
   fileName: string;
   fileSize: number;
@@ -1189,5 +1226,85 @@ export interface ContinuousAuditSummary {
     totalCount: number;
   };
 }
+
+// =====================================================
+// منظومة الفاتورة الإلكترونية — مصلحة الضرائب المصرية (ETA)
+// =====================================================
+export type EtaEnvironment = 'test' | 'production';
+
+export interface EtaStatus {
+  environment: EtaEnvironment;
+  configured: boolean;
+  simulation: boolean;
+  issuer: string;
+}
+
+export interface EtaDocumentRecord {
+  uuid: string;
+  internalId?: string;
+  source?: string;
+  docType: string;
+  docNumber: string;
+  receiverName: string;
+  netAmount: number;
+  taxAmount: number;
+  grossAmount: number;
+  submissionId?: string;
+  status:
+    | 'DRAFT'
+    | 'SUBMITTED'
+    | 'VALID'
+    | 'INVALID'
+    | 'REJECTED'
+    | 'CANCELLED'
+    | 'PENDING';
+  etaStatusCode?: string;
+  etaValidationErrors?: string[];
+  simulated: boolean;
+  createdBy: string;
+  createdAt: string;
+  responseRaw?: Record<string, any>;
+}
+
+export interface EtaSubmitResponse {
+  uuid: string;
+  docNumber: string;
+  status: string;
+  submissionId?: string;
+  simulated: boolean;
+  totals: { netAmount: number; taxAmount: number; grossAmount: number };
+  document?: Record<string, any>;
+}
+
+export interface EtaLineInput {
+  description: string;
+  quantity: number;
+  unitPrice: number;
+  taxType?: string;
+  taxRate?: number;
+}
+
+export interface EtaDocumentInput {
+  docType: 'INVOICE' | 'RECEIPT' | 'DEBIT_NOTE' | 'CREDIT_NOTE';
+  invoiceType: 'Standard' | 'Simplified';
+  businessProcess: 'B2B' | 'B2C' | 'B2G' | 'BOTH';
+  docNumber: string;
+  issueDate: string;
+  lines: EtaLineInput[];
+  receiver: {
+    id: string;
+    name: string;
+    type: 'company' | 'natural';
+    address?: string;
+    country?: string;
+    branch?: string;
+  };
+  currency?: string;
+  paymentMethod?: string;
+  bankAccount?: string;
+  internalId?: string;
+  source?: string;
+}
+
 
 

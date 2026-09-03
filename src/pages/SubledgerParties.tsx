@@ -43,7 +43,7 @@ export const SubledgerParties: React.FC<SubledgerPartiesProps> = ({
   const [newName, setNewName] = useState('');
   const [newPhone, setNewPhone] = useState('');
   const [newTaxNumber, setNewTaxNumber] = useState('');
-  const [newType, setNewType] = useState<SubledgerParty['type']>('DEBTOR_MISC');
+  const [newType, setNewType] = useState<SubledgerParty['type']>('MISC_DEBTOR');
 
   // Merge Form
   const [sourcePartyId, setSourcePartyId] = useState('');
@@ -241,7 +241,7 @@ export const SubledgerParties: React.FC<SubledgerPartiesProps> = ({
                   <h3 className="font-extrabold text-sm text-slate-100 mt-2 leading-snug">{party.name}</h3>
                 </div>
                 <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-slate-950 text-slate-400 border border-slate-800">
-                  {party.associatedAccountCode || '1301'}
+                  {party.associatedAccountId || '1301'}
                 </span>
               </div>
 

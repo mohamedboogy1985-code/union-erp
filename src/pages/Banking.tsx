@@ -84,10 +84,10 @@ export const Banking: React.FC<BankingProps> = ({
             <div className="flex items-start justify-between">
               <div>
                 <h3 className="font-extrabold text-sm text-slate-100">{b.bankName}</h3>
-                <span className="font-mono text-xs text-slate-400 mt-0.5 block">{b.accountNumber}</span>
+                <span className="font-mono text-xs text-slate-400 mt-0.5 block">{b.accountNumberMasked}</span>
               </div>
               <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-emerald-950 text-emerald-300 border border-emerald-800/40">
-                {b.currency}
+                ج.م
               </span>
             </div>
 
@@ -124,23 +124,23 @@ export const Banking: React.FC<BankingProps> = ({
             <tbody className="divide-y divide-slate-800/60">
               {transactions.map((t) => (
                 <tr key={t.id} className="hover:bg-slate-800/40">
-                  <td className="py-3 px-4 font-mono text-slate-400">{t.date}</td>
+                  <td className="py-3 px-4 font-mono text-slate-400">{t.transactionDate}</td>
                   <td className="py-3 px-4 font-mono font-bold text-slate-200">{t.referenceNumber}</td>
                   <td className="py-3 px-4 text-slate-200">{t.description}</td>
                   <td className="py-3 px-4 font-mono font-bold text-slate-100">
-                    <span className={t.type === 'CREDIT' ? 'text-emerald-400' : 'text-rose-400'}>
-                      {t.type === 'CREDIT' ? '+' : '-'}{(t.amount ?? 0).toLocaleString()} ج.م
+                    <span className={t.debit > 0 ? 'text-emerald-400' : 'text-rose-400'}>
+                      {t.debit > 0 ? '+' : '-'}{((t.debit || t.credit) ?? 0).toLocaleString()} ج.م
                     </span>
                   </td>
                   <td className="py-3 px-4">
                     <span
                       className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold ${
-                        t.reconciliationStatus === 'MATCHED'
+                        t.matchedStatus === 'MATCHED'
                           ? 'bg-emerald-950 text-emerald-400 border border-emerald-800/40'
                           : 'bg-amber-950 text-amber-400 border border-amber-800/40'
                       }`}
                     >
-                      {t.reconciliationStatus === 'MATCHED' ? (
+                      {t.matchedStatus === 'MATCHED' ? (
                         <>
                           <CheckCircle2 className="w-3 h-3" />
                           <span>مطابق بالدفاتر</span>

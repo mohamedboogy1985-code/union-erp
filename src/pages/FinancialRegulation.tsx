@@ -6,6 +6,12 @@ import {
   CheckCircle2,
   Clock,
   Gavel,
+  FileText,
+  Download,
+  Eye,
+  Lock,
+  Award,
+  RefreshCw,
 } from 'lucide-react';
 import { api } from '../services/api.js';
 import { User } from '../types/erp.js';
@@ -52,9 +58,13 @@ export const FinancialRegulation: React.FC<FinancialRegulationProps> = ({
   const [data, setData] = useState<RegulationData | null>(null);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
+  const [regulationDoc, setRegulationDoc] = useState<any | null>(null);
+  const [docLoading, setDocLoading] = useState(false);
+  const [showDoc, setShowDoc] = useState(false);
 
   useEffect(() => {
     loadRegulation();
+    loadRegulationFile();
   }, [organizationId]);
 
   const loadRegulation = async () => {
@@ -67,6 +77,32 @@ export const FinancialRegulation: React.FC<FinancialRegulationProps> = ({
     } finally {
       setLoading(false);
     }
+  };
+
+  const loadRegulationFile = async () => {
+    setDocLoading(true);
+    try {
+      const doc = await api.getRegulationDocument();
+      setRegulationDoc(doc);
+    } catch (err: any) {
+      // اللائحة غير مؤرشفة بعد — لا تُظهر خطأ للمستخدم
+      setRegulationDoc(null);
+    } finally {
+      setDocLoading(false);
+    }
+  };
+
+  const downloadRegulation = () => {
+    if (!regulationDoc) return;
+    const dataUrl = regulationDoc.fileData?.startsWith('data:')
+      ? regulationDoc.fileData
+      : `data:${regulationDoc.fileType || 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'};base64,${regulationDoc.fileData}`;
+    const a = document.createElement('a');
+    a.href = dataUrl;
+    a.download = regulationDoc.fileName || 'لائحة_النظام_الاساسي.docx';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
   };
 
   const filteredArticles = (data?.articles ?? []).filter((a) => {
@@ -139,6 +175,83 @@ export const FinancialRegulation: React.FC<FinancialRegulationProps> = ({
           </span>
         </div>
       </div>
+
+      {/* لائحة النظام الأساسي المؤرشفة */}
+      {regulationDoc && (
+        <div className="bg-slate-900/90 border border-indigo-800/50 rounded-2xl p-5 shadow-lg overflow-hidden">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div className="flex items-center gap-3">
+              <div className="p-2.5 bg-indigo-500/20 text-indigo-400 rounded-xl border border-indigo-500/30">
+                <FileText className="w-6 h-6" />
+              </div>
+              <div>
+                <h3 className="font-bold text-sm text-white flex items-center gap-2">
+                  لائحة النظام الأساسي للنقابة العامة
+                  {regulationDoc.isSealed && (
+                    <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-emerald-500/15 border border-emerald-500/30 text-emerald-300 rounded text-[10px] font-semibold">
+                      <Lock className="w-3 h-3" />
+                      مختومة إلكترونياً
+                    </span>
+                  )}
+                </h3>
+                <p className="text-[11px] text-slate-400 mt-1 flex items-center gap-1.5">
+                  <span className="font-mono">{regulationDoc.fileName}</span>
+                  <span>•</span>
+                  <span>{((regulationDoc.fileSize || 0) / 1024 / 1024).toFixed(2)} MB</span>
+                  {regulationDoc.sealedBy && (
+                    <>
+                      <span>•</span>
+                      <span>ختم بواسطة: {regulationDoc.sealedBy}</span>
+                    </>
+                  )}
+                </p>
+                <p className="text-[10px] font-mono text-slate-500 mt-1 truncate max-w-[420px]">
+                  SHA-256: {regulationDoc.sha256}
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={downloadRegulation}
+                className="px-3.5 py-2 bg-gradient-to-r from-indigo-600 to-indigo-700 hover:from-indigo-500 hover:to-indigo-600 text-white font-medium rounded-xl text-xs flex items-center gap-2 transition-all shadow-lg shadow-indigo-950/40"
+              >
+                <Download className="w-4 h-4" />
+                تحميل اللائحة
+              </button>
+              <button
+                onClick={() => setShowDoc(!showDoc)}
+                className="px-3.5 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 font-medium rounded-xl text-xs flex items-center gap-2 transition-all border border-slate-700"
+              >
+                <Eye className="w-4 h-4" />
+                {showDoc ? 'إخفاء المعاينة' : 'معاينة'}
+              </button>
+            </div>
+          </div>
+
+          {showDoc && (
+            <div className="mt-4 border-t border-slate-800 pt-4">
+              <iframe
+                src={regulationDoc.fileData?.startsWith('data:') ? regulationDoc.fileData : `data:${regulationDoc.fileType || 'application/pdf'};base64,${regulationDoc.fileData}`}
+                className="w-full h-[480px] rounded-xl border border-slate-800 bg-white"
+                title="لائحة النظام الأساسي"
+              />
+              <p className="text-[10px] text-slate-500 mt-2 flex items-center gap-1.5">
+                <Award className="w-3.5 h-3.5 text-amber-400" />
+                محفوظة في قاعدة البيانات المركزية PostgreSQL مع بصمة SHA-256 مضادة للتلاعب
+              </p>
+            </div>
+          )}
+        </div>
+      )}
+
+      {!regulationDoc && !docLoading && (
+        <div className="bg-slate-900/70 border border-dashed border-slate-700 rounded-2xl p-4 flex items-center justify-between">
+          <p className="text-xs text-slate-400 flex items-center gap-2">
+            <Clock className="w-4 h-4 text-slate-500" />
+            لم يُرفع ملف لائحة النظام الأساسي بعد. يمكن رفعه من إدارة المستندات.
+          </p>
+        </div>
+      )}
 
       {/* Summary cards */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">

@@ -59,6 +59,10 @@ export class PostgresStorageManager {
       // 0. إنشاء الجداول عند أول تشغيل إن لزم
       await this.ensureTables();
 
+      // القاعدة متاحة فعلاً (الجداول جاهزة) — تُفعَّل قبل الدمج حتى تكتب
+      // persistJournalEntry/persistAccount أثناء مزامنة التحميل أيضاً.
+      this.dbAvailable = true;
+
       // 1. Check if accounts table is populated
       const existingAccounts = await db.select().from(schema.accounts).limit(5);
 
@@ -199,6 +203,11 @@ export class PostgresStorageManager {
         console.log('✅ Initial syndicate data successfully seeded to Cloud SQL PostgreSQL.');
       } else {
         console.log('📦 Loading existing financial records from Cloud SQL PostgreSQL...');
+        // لقطة من بيانات الذاكرة (المستوردة من CSV) قبل الاستبدال حتى لا تَضيع
+        // القيود والحسابات غير المخزنة بعد بالقاعدة، وتُدمج بعد التحميل.
+        const memoryJournalEntries = store.journalEntries.slice();
+        const memoryAccounts = store.accounts.slice();
+
         // Load Accounts from PostgreSQL
         const dbAccounts = await db.select().from(schema.accounts);
         if (dbAccounts.length > 0) {
@@ -216,6 +225,17 @@ export class PostgresStorageManager {
             subledgerType: (a.subledgerType || 'NONE') as any,
             currentBalance: a.currentBalance,
           }));
+        }
+
+        // ===== دمج حسابات الذاكرة (CSV) غير المخزنة بعد في PostgreSQL =====
+        const dbAccountIds = new Set(dbAccounts.map((a) => a.id));
+        const missingAccounts = memoryAccounts.filter((a) => !dbAccountIds.has(a.id));
+        for (const acc of missingAccounts) await this.persistAccount(acc);
+        const existingStoreAccountIds = new Set(store.accounts.map((a) => a.id));
+        const extraAccounts = missingAccounts.filter((a) => !existingStoreAccountIds.has(a.id));
+        if (extraAccounts.length > 0) {
+          store.accounts = [...store.accounts, ...extraAccounts];
+          console.log(`🔁 تم دمج ${extraAccounts.length} حساباً من الذاكرة (CSV) مع PostgreSQL.`);
         }
 
         // Load Subledger Parties
@@ -330,17 +350,58 @@ export class PostgresStorageManager {
           }
         }
 
-        // ===== تعويض: قيود موجودة في الذاكرة وغير مخزنة بالقاعدة (مثل استيراد CSV لاحق) =====
+        // ===== تعويض: قيود موجودة في الذاكرة (CSV) وغير مخزنة بالقاعدة =====
         const dbEntryIds = new Set(dbEntries.map((e) => e.id));
-        const missing = store.journalEntries.filter((e) => !dbEntryIds.has(e.id));
-        for (const entry of missing) {
+        const missingEntries = memoryJournalEntries.filter((e) => !dbEntryIds.has(e.id));
+        for (const entry of missingEntries) {
           await this.persistJournalEntry(entry);
         }
-        if (missing.length > 0) console.log(`🔁 تمت مزامنة ${missing.length} قيداً غير مخزن إلى PostgreSQL.`);
+        if (missingEntries.length > 0) {
+          const existingStoreEntryIds = new Set(store.journalEntries.map((e) => e.id));
+          const extraEntries = missingEntries.filter((e) => !existingStoreEntryIds.has(e.id));
+          if (extraEntries.length > 0) {
+            store.journalEntries = [...store.journalEntries, ...extraEntries].sort((a, b) => (a.date < b.date ? 1 : -1));
+            console.log(`🔁 تم دمج ${extraEntries.length} قيداً من الذاكرة (CSV) مع PostgreSQL وواجهة التشغيل.`);
+          }
+        }
       }
 
       this.isInitialized = true;
       this.dbAvailable = true;
+
+      // ===== تحميل المستندات (DMS) من PostgreSQL إلى الذاكرة =====
+      try {
+        const dbDocs = await db.select().from(schema.documents);
+        if (dbDocs.length > 0) {
+          store.attachments = dbDocs.map((d: any) => ({
+            id: d.id,
+            entityType: d.entityType as any,
+            entityId: d.entityId,
+            fileName: d.fileName,
+            fileSize: d.fileSize,
+            fileType: d.fileType,
+            dataUrl: d.fileData,
+            sha256Hash: d.sha256,
+            description: d.entityType === 'REGULATION' ? 'لائحة النظام الأساسي للنقابة العامة' : 'مستند مؤيد معتمد',
+            uploadedBy: 'usr-mohamed-abdallah',
+            uploadedByName: 'محمد عبد الله أحمد',
+            uploadedAt: d.createdAt?.toISOString() || new Date().toISOString(),
+            digitalSignature: d.isSealed ? {
+              signedBy: d.sealedBy || 'usr-mohamed-abdallah',
+              signerName: 'محمد عبد الله أحمد',
+              signerRole: 'PROGRAM_ADMIN',
+              signedAt: d.sealTimestamp || new Date().toISOString(),
+              sealCode: `SEAL-PRO-${Date.now()}-VERIFIED`,
+              certThumbprint: `SHA256:${String(d.sha256).slice(0, 24).toUpperCase()}`,
+              isValid: true,
+              notes: 'مستند اللائحة مختوم إلكترونياً ومؤرشف في قاعدة البيانات المركزية',
+            } : undefined,
+          }));
+          console.log(`🗂️ تم تحميل ${dbDocs.length} مستند مؤرشف من PostgreSQL (بما فيها اللائحة).`);
+        }
+      } catch (docLoadErr: any) {
+        console.warn(`⚠️ تعذر تحميل المستندات من PostgreSQL: ${docLoadErr.message}`);
+      }
     } catch (err: any) {
       this.isInitialized = true;
       this.dbAvailable = false;

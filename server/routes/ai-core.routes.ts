@@ -60,6 +60,7 @@ export function registerAICoreRoutes(app: any, deps: AIRouteDeps): void {
       sendSSE(res, {
         done: true,
         proposedEntry: result.proposedEntry || null,
+        actionIntent: result.actionIntent || null,
         confidence: result.confidence,
         sources: result.sources,
       });

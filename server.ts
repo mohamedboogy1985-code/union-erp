@@ -9,7 +9,10 @@ import { erpStore } from './server/db/store.js';
 import { postgresManager } from './server/db/postgresSync.js';
 import { accountingService } from './server/services/accounting.service.js';
 import { registerAICoreRoutes } from './server/routes/ai-core.routes.js';
+import { registerAIActionRoutes } from './server/routes/ai-action.routes.js';
 import { registerAIRoutes } from './server/routes/ai.routes.js';
+import { registerReportExportRoutes } from './server/routes/report-export.routes.js';
+import { registerEtaRoutes } from './server/routes/eta.routes.js';
 import { receiptsService } from './server/services/receipts.service.js';
 import { reportsService } from './server/services/reports.service.js';
 import { calculateSimilarity, normalizeArabicText } from './server/utils/arabic.js';
@@ -53,7 +56,7 @@ async function startServer() {
   app.use(comprehensiveAuditMiddleware); // سجل تدقيق شامل لكل عمليات API
   app.use(createRateLimiter(Number(process.env.RATE_LIMIT_MAX || 300), 60_000)); // 300 طلب/دقيقة لكل IP
 
-  app.use(express.json({ limit: '25mb' })); // دعم رفع الصور base64 للمستندات
+  app.use(express.json({ limit: '250mb' })); // دعم رفع الملفات الكبيرة base64 للمستندات
 
   // خدمة الأصول الثابتة (صور المستخدمين وأيقونة التطبيق) — بمسارات مرشحة
   // تدعم التطوير وحزمة الإنتاج وتطبيق Electron المُغلَّف
@@ -151,6 +154,9 @@ async function startServer() {
 
   registerAIRoutes(app);
   registerAICoreRoutes(app, { requirePermission });
+  registerAIActionRoutes(app, { requirePermission });
+  registerReportExportRoutes(app);
+  registerEtaRoutes(app);
 
   // ==========================================
   // 1. HEALTH & SYSTEM INFO
@@ -291,6 +297,16 @@ async function startServer() {
 
   app.get('/api/journal-2024', (_req: Request, res: Response) => {
     res.json(portalDataService.getJournal2024());
+  });
+
+  // برنامج المحاسبة 2024 — مركز التدريب
+  app.get('/api/training-accounting-2024', (_req: Request, res: Response) => {
+    res.json(portalDataService.getTrainingAccounting2024());
+  });
+
+  // الميزانية العمومية والحسابات الختامية 2024 — مركز التدريب
+  app.get('/api/final-accounts-2024', (_req: Request, res: Response) => {
+    res.json(portalDataService.getFinalAccounts2024());
   });
 
   app.get('/api/cost-centers', (req: Request, res: Response) => {
@@ -897,6 +913,16 @@ async function startServer() {
   app.get('/api/reports/trial-balance', (req: Request, res: Response) => {
     const { organizationId, startDate, endDate } = req.query;
     const report = reportsService.getTrialBalance({
+      organizationId: organizationId as string,
+      startDate: startDate as string,
+      endDate: endDate as string,
+    });
+    res.json(report);
+  });
+
+  app.get('/api/reports/balance-sheet', (req: Request, res: Response) => {
+    const { organizationId, startDate, endDate } = req.query;
+    const report = reportsService.getBalanceSheet({
       organizationId: organizationId as string,
       startDate: startDate as string,
       endDate: endDate as string,
@@ -1751,6 +1777,31 @@ async function startServer() {
       articles: regulationService.listArticles(),
       status: regulationService.getStatus(),
     });
+  });
+
+  // استرجاع لائحة النظام الأساسي المؤرشفة من قاعدة البيانات PostgreSQL (ملف Word/PDF)
+  app.get('/api/regulation/document', async (_req: Request, res: Response) => {
+    try {
+      const { db } = await import('./src/db/index.js');
+      const schema = await import('./src/db/schema.js');
+      const docs = await db.select().from(schema.documents);
+      const regulation = docs.find((d: any) => d.entityType === 'REGULATION');
+      if (!regulation) return res.status(404).json({ error: 'لم تُعثر على لائحة النظام الأساسي في قاعدة البيانات.' });
+      res.json({
+        id: regulation.id,
+        fileName: regulation.fileName,
+        fileType: regulation.fileType,
+        fileSize: regulation.fileSize,
+        fileData: regulation.fileData,
+        sha256: regulation.sha256,
+        isSealed: regulation.isSealed,
+        sealedBy: regulation.sealedBy,
+        sealTimestamp: regulation.sealTimestamp,
+        createdAt: regulation.createdAt,
+      });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
   });
 
   // ترقيم قاعدة إنفاذ من نص المادة المطبوعة (قيمة + رقم مادة + صرامة)
