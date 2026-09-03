@@ -109,7 +109,7 @@ export const EmployeeAdvances: React.FC<EmployeeAdvancesProps> = ({
       const updated = await api.payEmployeeAdvanceInstallment(payTarget.id, {
         amount: Number(payForm.amount),
         date: payForm.date,
-        method: payForm.method as any,
+        method: payForm.method,
         notes: payForm.notes || undefined,
       });
       onShowToast(

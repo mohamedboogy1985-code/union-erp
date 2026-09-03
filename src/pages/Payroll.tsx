@@ -383,7 +383,7 @@ export const Payroll: React.FC<PayrollProps> = ({ currentUser, onShowToast }) =>
                       {STATUS_AR[run.status].label}
                     </span>
                     {run.journalEntryId && (
-                      <div className="text-[9px] text-slate-500 mt-0.5">قيد: {(run.journalEntryId as string).slice(0, 14)}…</div>
+                      <div className="text-[9px] text-slate-500 mt-0.5">قيد: {(run.journalEntryId).slice(0, 14)}…</div>
                     )}
                   </td>
                   <td className="py-2.5 px-3">

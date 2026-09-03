@@ -340,7 +340,7 @@ export const FinancialRegulation: React.FC<FinancialRegulationProps> = ({
       <Combobox
         value={searchQuery}
         onChange={setSearchQuery}
-        onSelect={(o) => setSearchQuery(o.id as string)}
+        onSelect={(o) => setSearchQuery(o.id)}
         placeholder="بحث في مواد اللائحة بالكلمة المفتاحية أو رقم المادة..."
         options={(data?.articles ?? []).map((a) => ({
           id: String(a.articleNo),
