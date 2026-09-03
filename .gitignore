@@ -75,3 +75,9 @@ dist/
 
 # Runtime log files
 union-server.log
+
+# Scripts with sensitive information
+fix-prisma.ps1
+fix-prisma-and-apply-changes.ps1
+*.backup
+prisma.config.ts.backup
