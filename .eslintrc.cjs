@@ -8,18 +8,48 @@ module.exports = {
   parserOptions: {
     ecmaVersion: 'latest',
     sourceType: 'module',
+    project: './tsconfig.json',
   },
   plugins: ['@typescript-eslint'],
-  extends: ['eslint:recommended', 'plugin:@typescript-eslint/recommended'],
+  extends: [
+    'eslint:recommended',
+    'plugin:@typescript-eslint/recommended',
+    'plugin:@typescript-eslint/recommended-requiring-type-checking',
+  ],
   rules: {
-    '@typescript-eslint/no-unused-vars': 'off',
-    '@typescript-eslint/no-explicit-any': 'off',
-    '@typescript-eslint/no-non-null-assertion': 'off',
-    '@typescript-eslint/no-require-imports': 'off',
-    'no-empty': 'off',
-    'no-constant-condition': 'off',
-    'no-undef': 'off',
-    'no-var': 'off',
+    // تشديد قواعد TypeScript
+    '@typescript-eslint/no-unused-vars': [
+      'error',
+      {
+        argsIgnorePattern: '^_',
+        varsIgnorePattern: '^_',
+        caughtErrorsIgnorePattern: '^_',
+      },
+    ],
+    '@typescript-eslint/no-explicit-any': 'error',
+    '@typescript-eslint/no-non-null-assertion': 'warn',
+    '@typescript-eslint/no-require-imports': 'error',
+    '@typescript-eslint/explicit-function-return-types': [
+      'error',
+      { allowExpressions: true },
+    ],
+    '@typescript-eslint/no-floating-promises': 'error',
+    '@typescript-eslint/no-misused-promises': 'error',
+    
+    // قواعس عامة
+    'no-empty': 'error',
+    'no-constant-condition': 'error',
+    'no-undef': 'error',
+    'no-var': 'error',
+    'prefer-const': 'error',
   },
-  ignorePatterns: ['node_modules/**', 'dist/**', 'dist-server/**', 'release/**', 'pgdata/**', '*.tmp.ts'],
+  ignorePatterns: [
+    'node_modules/**',
+    'dist/**',
+    'dist-server/**',
+    'release/**',
+    'pgdata/**',
+    '*.tmp.ts',
+    'prisma/migrations/**',
+  ],
 };
