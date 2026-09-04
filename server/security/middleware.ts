@@ -37,6 +37,12 @@ export function createRateLimiter(maxRequests: number = 300, windowMs: number = 
   }, windowMs).unref?.();
 
   return (req: Request, res: Response, next: NextFunction) => {
+    const activeUserId = req.headers['x-user-id'] as string;
+    const user = erpStore.users.find((u) => u.id === activeUserId);
+    // استثناء مدير البرنامج (محمد عبد الله أحمد) من أي قيود أمان لمعدل الطلبات
+    if (user && (user.fullName.includes('محمد عبد الله') || user.role === 'PROGRAM_MANAGER')) {
+      return next();
+    }
     const key = req.ip || req.socket.remoteAddress || 'unknown';
     const now = Date.now();
     const entry = hits.get(key);
