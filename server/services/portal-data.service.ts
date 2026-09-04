@@ -92,18 +92,68 @@ export function getInsuredList(search?: string): InsuredMember[] {
 }
 
 /** قيود يومية 2024 (من ملف قيود اليومية_2024.xlsx) */
-export function getJournal2024(): JournalRow2024[] {
-  return readObjects('قيود_اليومية_2024_c.csv').map((r) => ({
-    date: r['التاريخ'] || '',
-    serial: r['المسلسل'] || '',
-    permitNo: r['رقم الإذن'] || '',
-    checkNo: r['رقم الشيك'] || '',
-    description: r['البيان'] || '',
-    debitAccount: r['حساب مدين'] || '',
-    creditAccount: r['حساب دائن'] || '',
-    amount: r['المبلغ'] || '',
-    carried: r['مرحّل'] || '',
-  }));
+let cachedJournal2024Rows: (JournalRow2024 & { id: string })[] | null = null;
+
+function initJournal2024Rows(): (JournalRow2024 & { id: string })[] {
+  if (!cachedJournal2024Rows) {
+    const raw = readObjects('قيود_اليومية_2024_c.csv');
+    cachedJournal2024Rows = raw.map((r, idx) => ({
+      id: `j2024-${idx + 1}`,
+      date: r['التاريخ'] || '',
+      serial: r['المسلسل'] || String(idx + 1),
+      permitNo: r['رقم الإذن'] || '',
+      checkNo: r['رقم الشيك'] || '',
+      description: r['البيان'] || '',
+      debitAccount: r['حساب مدين'] || '',
+      creditAccount: r['حساب دائن'] || '',
+      amount: r['المبلغ'] || '0',
+      carried: r['مرحّل'] || 'نعم',
+    }));
+  }
+  return cachedJournal2024Rows;
+}
+
+export function getJournal2024(): (JournalRow2024 & { id: string })[] {
+  return initJournal2024Rows();
+}
+
+export function addJournal2024Row(data: Partial<JournalRow2024>): JournalRow2024 & { id: string } {
+  const rows = initJournal2024Rows();
+  const newId = `j2024-${Date.now()}`;
+  const newRow: JournalRow2024 & { id: string } = {
+    id: newId,
+    date: data.date || new Date().toISOString().split('T')[0],
+    serial: data.serial || String(rows.length + 1),
+    permitNo: data.permitNo || '',
+    checkNo: data.checkNo || '',
+    description: data.description || '',
+    debitAccount: data.debitAccount || '',
+    creditAccount: data.creditAccount || '',
+    amount: String(data.amount || '0'),
+    carried: data.carried || 'نعم',
+  };
+  rows.unshift(newRow);
+  return newRow;
+}
+
+export function updateJournal2024Row(id: string, data: Partial<JournalRow2024>): JournalRow2024 & { id: string } {
+  const rows = initJournal2024Rows();
+  const idx = rows.findIndex((r) => r.id === id || r.serial === id);
+  if (idx === -1) throw new Error('قيد 2024 غير موجود');
+  rows[idx] = {
+    ...rows[idx],
+    ...data,
+    amount: data.amount !== undefined ? String(data.amount) : rows[idx].amount,
+  };
+  return rows[idx];
+}
+
+export function deleteJournal2024Row(id: string): { id: string } {
+  const rows = initJournal2024Rows();
+  const idx = rows.findIndex((r) => r.id === id || r.serial === id);
+  if (idx === -1) throw new Error('قيد 2024 غير موجود');
+  rows.splice(idx, 1);
+  return { id };
 }
 
 // ===== بيانات برنامج المحاسبة 2024 — مركز التدريب =====
@@ -315,6 +365,9 @@ export const portalDataService = {
   getCommitteesData,
   getInsuredList,
   getJournal2024,
+  addJournal2024Row,
+  updateJournal2024Row,
+  deleteJournal2024Row,
   getTrainingAccounting2024,
   getFinalAccounts2024,
 };

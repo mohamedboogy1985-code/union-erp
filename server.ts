@@ -299,6 +299,34 @@ async function startServer() {
     res.json(portalDataService.getJournal2024());
   });
 
+  app.post('/api/journal-2024', (req: Request, res: Response) => {
+    try {
+      const row = portalDataService.addJournal2024Row(req.body);
+      res.json(row);
+    } catch (err: any) {
+      res.status(400).json({ error: err.message });
+    }
+  });
+
+  app.put('/api/journal-2024/:id', (req: Request, res: Response) => {
+    try {
+      const row = portalDataService.updateJournal2024Row(req.params.id, req.body);
+      res.json(row);
+    } catch (err: any) {
+      res.status(400).json({ error: err.message });
+    }
+  });
+
+  app.delete('/api/journal-2024/:id', (req: Request, res: Response) => {
+    try {
+      const result = portalDataService.deleteJournal2024Row(req.params.id);
+      res.json(result);
+    } catch (err: any) {
+      res.status(400).json({ error: err.message });
+    }
+  });
+
+
   // برنامج المحاسبة 2024 — مركز التدريب
   app.get('/api/training-accounting-2024', (_req: Request, res: Response) => {
     res.json(portalDataService.getTrainingAccounting2024());
@@ -841,6 +869,18 @@ async function startServer() {
       const entry = accountingService.postJournalEntry(req.params.id, user);
       await postgresManager.updateJournalEntryStatus(entry);
       res.json(entry);
+    } catch (err: any) {
+      res.status(400).json({ error: err.message });
+    }
+  });
+
+
+  app.delete('/api/journal-entries/:id', (req: Request, res: Response) => {
+    const user = requirePermission(req, res, 'journal:edit');
+    if (!user) return;
+    try {
+      const result = accountingService.deleteJournalEntry(req.params.id, user);
+      res.json(result);
     } catch (err: any) {
       res.status(400).json({ error: err.message });
     }

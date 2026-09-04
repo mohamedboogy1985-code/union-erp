@@ -71,6 +71,7 @@ export const JournalEntries: React.FC<JournalEntriesProps> = ({
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [viewingEntry, setViewingEntry] = useState<JournalEntry | null>(null);
   const [reversingEntryId, setReversingEntryId] = useState<string | null>(null);
+  const [deletingEntryId, setDeletingEntryId] = useState<string | null>(null);
   const [reversalReason, setReversalReason] = useState('');
   const [docModalEntry, setDocModalEntry] = useState<JournalEntry | null>(null);
   const [isVoucherModalOpen, setIsVoucherModalOpen] = useState(false);
@@ -313,6 +314,18 @@ export const JournalEntries: React.FC<JournalEntriesProps> = ({
     try {
       await api.postJournalEntry(id);
       onShowToast('success', 'تم ترحيل القيد إلى الأستاذ العام والأستاذ المساعد وتحديث الأرصدة.');
+      loadData();
+    } catch (err: any) {
+      onShowToast('error', err.message);
+    }
+  };
+
+    const handleDeleteEntry = async () => {
+    if (!deletingEntryId) return;
+    try {
+      await api.deleteJournalEntry(deletingEntryId);
+      onShowToast('success', 'تم حذف القيد بنجاح.');
+      setDeletingEntryId(null);
       loadData();
     } catch (err: any) {
       onShowToast('error', err.message);
@@ -633,6 +646,16 @@ export const JournalEntries: React.FC<JournalEntriesProps> = ({
                           </button>
                         )}
 
+                                                {/* Delete Draft/Unposted */}
+                        {entry.status !== 'POSTED' && hasPerm(currentUser, 'journal:edit') && (
+                          <button
+                            onClick={() => setDeletingEntryId(entry.id)}
+                            title="حذف القيد"
+                            className="p-1.5 text-rose-400 hover:text-rose-300 hover:bg-rose-950/60 rounded-lg transition-colors"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        )}
                         {/* Reverse */}
                         {entry.status === 'POSTED' && !entry.reversedEntryId && hasPerm(currentUser, 'journal:workflow') && (
                           <button
@@ -1043,6 +1066,38 @@ export const JournalEntries: React.FC<JournalEntriesProps> = ({
       )}
 
       {/* ========================================================================= */}
+            {/* MODAL DELETE CONFIRMATION */}
+      {deletingEntryId && (
+        <Modal
+          isOpen={true}
+          onClose={() => setDeletingEntryId(null)}
+          title="تأكيد حذف القيد المحاسبي"
+          subtitle="هل أنت تأكد من رغبتك في حذف هذا القيد؟ لا يمكن التراجع عن هذا الإجراء."
+          maxWidth="sm"
+        >
+          <div className="space-y-4">
+            <p className="text-xs text-slate-300">
+              سيتم حذف القيد نهائياً وتسجيل الإجراء في سجل التدقيق المالي.
+            </p>
+
+            <div className="flex items-center justify-end gap-3 pt-2">
+              <button
+                onClick={() => setDeletingEntryId(null)}
+                className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold rounded-xl transition-colors"
+              >
+                إلغاء
+              </button>
+              <button
+                onClick={handleDeleteEntry}
+                className="px-5 py-2 bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold rounded-xl shadow-lg transition-all"
+              >
+                تأكيد الحذف
+              </button>
+            </div>
+          </div>
+        </Modal>
+      )}
+
       {/* MODAL 3: REVERSE JOURNAL ENTRY */}
       {/* ========================================================================= */}
       {reversingEntryId && (
