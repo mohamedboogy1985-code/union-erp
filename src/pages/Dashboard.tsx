@@ -10,7 +10,8 @@ import {
   ShieldAlert,
   PlusCircle,
   CheckCircle2,
-  Download
+  Download,
+  Sparkles
 } from 'lucide-react';
 import { api } from '../services/api.js';
 import { AnomalyDetectionItem, IncomeExpenseReport, JournalEntry, SubledgerParty, User } from '../types/erp.js';
