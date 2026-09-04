@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { BookOpen, Search, FileSpreadsheet, Plus, Edit2, Trash2, PlusCircle } from 'lucide-react';
+import React, { useState, useEffect, useRef } from 'react';
+import { BookOpen, Search, FileSpreadsheet, Plus, Edit2, Trash2, PlusCircle, Mic, MicOff, Video, VideoOff, Volume2, Sparkles } from 'lucide-react';
 import { api } from '../services/api.js';
 import { JournalRow, User } from '../types/erp.js';
 import { Modal } from '../components/Modal.js';
@@ -25,6 +25,13 @@ export const Journal2024Viewer: React.FC<Journal2024ViewerProps> = ({
   const [editingRow, setEditingRow] = useState<(JournalRow & { id?: string }) | null>(null);
   const [deletingRow, setDeletingRow] = useState<(JournalRow & { id?: string }) | null>(null);
 
+  // AI Voice & Video State
+  const [isCameraActive, setIsCameraActive] = useState(false);
+  const [isListening, setIsListening] = useState(false);
+  const videoRef = useRef<HTMLVideoElement | null>(null);
+  const streamRef = useRef<MediaStream | null>(null);
+  const recognitionRef = useRef<any>(null);
+
   // Form State
   const [formData, setFormData] = useState<Partial<JournalRow>>({
     date: new Date().toISOString().split('T')[0],
@@ -40,6 +47,10 @@ export const Journal2024Viewer: React.FC<Journal2024ViewerProps> = ({
 
   useEffect(() => {
     loadData();
+    return () => {
+      stopCamera();
+      stopListening();
+    };
   }, [organizationId]);
 
   const loadData = async () => {
@@ -69,16 +80,144 @@ export const Journal2024Viewer: React.FC<Journal2024ViewerProps> = ({
     });
   };
 
+  // Text-To-Speech (قراءة القيد بصوت واضح بالعربية)
+  const speakEntryDetails = (entry: Partial<JournalRow>) => {
+    if (!('speechSynthesis' in window)) return;
+    window.speechSynthesis.cancel();
+
+    const desc = entry.description || 'بدون بيان';
+    const amt = entry.amount ? `${entry.amount} جنيه` : 'غير محدد';
+    const debit = entry.debitAccount ? `حساب مدين: ${entry.debitAccount}` : '';
+    const credit = entry.creditAccount ? `حساب دائن: ${entry.creditAccount}` : '';
+
+    const text = `تم تسجيل القيد بنجاح. البيان: ${desc}. المبلغ: ${amt}. ${debit}. ${credit}.`;
+    const utterance = new SpeechSynthesisUtterance(text);
+    utterance.lang = 'ar-EG';
+    utterance.rate = 0.9;
+    window.speechSynthesis.speak(utterance);
+  };
+
+  // Camera Toggle
+  const toggleCamera = async () => {
+    if (isCameraActive) {
+      stopCamera();
+    } else {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+        streamRef.current = stream;
+        if (videoRef.current) {
+          videoRef.current.srcObject = stream;
+        }
+        setIsCameraActive(true);
+        onShowToast('info', 'تم تشغيل الكاميرا التفاعلية للذكاء الإصطناعي');
+      } catch (err) {
+        onShowToast('error', 'تعذر الوصول إلى الكاميرا');
+      }
+    }
+  };
+
+  const stopCamera = () => {
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach((track) => track.stop());
+      streamRef.current = null;
+    }
+    setIsCameraActive(false);
+  };
+
+  // Speech Recognition (الأوامر الصوتية)
+  const toggleListening = () => {
+    if (isListening) {
+      stopListening();
+    } else {
+      startListening();
+    }
+  };
+
+  const startListening = () => {
+    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    if (!SpeechRecognition) {
+      onShowToast('error', 'خاصية التعرف على الصوت غير مدعومة في هذا المتصفح.');
+      return;
+    }
+
+    try {
+      const recognition = new SpeechRecognition();
+      recognition.lang = 'ar-EG';
+      recognition.continuous = true;
+      recognition.interimResults = false;
+
+      recognition.onstart = () => {
+        setIsListening(true);
+        onShowToast('info', 'الذكاء الإصطناعي يستمع الآن... تحدث ببيان القيد والمبلغ');
+      };
+
+      recognition.onresult = (event: any) => {
+        const transcript = event.results[event.results.length - 1][0].transcript;
+        parseVoiceToEntry(transcript);
+      };
+
+      recognition.onerror = () => {
+        setIsListening(false);
+      };
+
+      recognition.onend = () => {
+        setIsListening(false);
+      };
+
+      recognition.start();
+      recognitionRef.current = recognition;
+    } catch (err) {
+      onShowToast('error', 'تعذر بدء الاستماع الصوتي');
+    }
+  };
+
+  const stopListening = () => {
+    if (recognitionRef.current) {
+      recognitionRef.current.stop();
+      recognitionRef.current = null;
+    }
+    setIsListening(false);
+  };
+
+  // تحليل الأمر الصوتي وتحويله إلى بيانات القيد
+  const parseVoiceToEntry = (text: string) => {
+    onShowToast('info', `تم التقاط الصوت: "${text}"`);
+
+    let extractedAmount = '';
+    const numMatch = text.match(/(\d+)/);
+    if (numMatch) {
+      extractedAmount = numMatch[1];
+    }
+
+    let debit = '';
+    let credit = '';
+
+    if (text.includes('بنك') || text.includes('البنك')) debit = 'البنك الأهلي المصري';
+    if (text.includes('صندوق') || text.includes('نقدية')) credit = 'الصندوق الرئيسي';
+    if (text.includes('مصروف') || text.includes('صيانة')) debit = 'مصروفات صيانة وتدريب';
+
+    setFormData((prev) => ({
+      ...prev,
+      description: prev.description ? `${prev.description} - ${text}` : text,
+      amount: extractedAmount || prev.amount,
+      debitAccount: debit || prev.debitAccount || 'حساب مدين فرعي',
+      creditAccount: credit || prev.creditAccount || 'حساب دائن فرعي',
+    }));
+  };
+
   const handleCreate = async () => {
     if (!formData.description || !formData.amount) {
       onShowToast('warning', 'يرجى تعبئة البيان والمبلغ على الأقل.');
       return;
     }
     try {
-      await api.createJournal2024(formData);
+      const created = await api.createJournal2024(formData);
       onShowToast('success', 'تم إضافة قيد 2024 بنجاح.');
+      speakEntryDetails(created || formData);
       setIsCreateOpen(false);
       resetForm();
+      stopCamera();
+      stopListening();
       loadData();
     } catch (err: any) {
       onShowToast('error', err.message || 'تعذر إضافة القيد');
@@ -89,10 +228,13 @@ export const Journal2024Viewer: React.FC<Journal2024ViewerProps> = ({
     if (!editingRow) return;
     const targetId = editingRow.id || editingRow.serial;
     try {
-      await api.updateJournal2024(targetId, formData);
+      const updated = await api.updateJournal2024(targetId, formData);
       onShowToast('success', 'تم تعديل قيد 2024 بنجاح.');
+      speakEntryDetails(updated || formData);
       setEditingRow(null);
       resetForm();
+      stopCamera();
+      stopListening();
       loadData();
     } catch (err: any) {
       onShowToast('error', err.message || 'تعذر تعديل القيد');
@@ -170,7 +312,7 @@ export const Journal2024Viewer: React.FC<Journal2024ViewerProps> = ({
               className="inline-flex items-center gap-2 px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold rounded-xl shadow-lg transition-all"
             >
               <PlusCircle className="w-4 h-4" />
-              إضافة قيد 2024
+              إضافة قيد 2024 بالذكاء الإصطناعي
             </button>
           )}
         </div>
@@ -267,19 +409,73 @@ export const Journal2024Viewer: React.FC<Journal2024ViewerProps> = ({
         </div>
       </div>
 
-      {/* modal create / edit */}
+      {/* modal create / edit with AI Voice & Camera */}
       {(isCreateOpen || editingRow) && (
         <Modal
           isOpen={true}
           onClose={() => {
             setIsCreateOpen(false);
             setEditingRow(null);
+            stopCamera();
+            stopListening();
           }}
           title={editingRow ? 'تعديل قيد 2024' : 'إضافة قيد يومية جديد 2024'}
-          subtitle="بوابة النقابة العامة — قيود سنة 2024"
-          maxWidth="md"
+          subtitle="مساعد الذكاء الإصطناعي التفاعلي — صوت وصورة وقراءة آليّة"
+          maxWidth="lg"
         >
           <div className="space-y-4 text-xs">
+            {/* AI Interactive Panel (الكاميرا والصوت) */}
+            <div className="bg-slate-950 border border-emerald-500/30 rounded-2xl p-3 space-y-3 shadow-inner">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2 text-emerald-400 font-bold">
+                  <Sparkles className="w-4 h-4 animate-pulse" />
+                  <span>المساعد الذكي التفاعلي (صوت وصورة)</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={toggleListening}
+                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl font-bold transition-all ${
+                      isListening ? 'bg-rose-600 text-white animate-pulse' : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
+                    }`}
+                  >
+                    {isListening ? <MicOff className="w-3.5 h-3.5" /> : <Mic className="w-3.5 h-3.5" />}
+                    <span>{isListening ? 'إيقاف الاستماع' : 'التحدث للذكاء'}</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={toggleCamera}
+                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl font-bold transition-all ${
+                      isCameraActive ? 'bg-emerald-600 text-white' : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
+                    }`}
+                  >
+                    {isCameraActive ? <VideoOff className="w-3.5 h-3.5" /> : <Video className="w-3.5 h-3.5" />}
+                    <span>{isCameraActive ? 'إغلاق الكاميرا' : 'تشغيل الكاميرا'}</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => speakEntryDetails(formData)}
+                    title="قراءة القيد بصوت آلي"
+                    className="p-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl"
+                  >
+                    <Volume2 className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+
+              {/* Video Stream */}
+              {isCameraActive && (
+                <div className="relative overflow-hidden rounded-xl bg-black h-36 flex items-center justify-center border border-slate-800">
+                  <video ref={videoRef} autoPlay playsInline muted className="w-full h-full object-cover" />
+                  <div className="absolute top-2 right-2 bg-emerald-500/80 text-black font-bold text-[10px] px-2 py-0.5 rounded-full">
+                    مباشر - البث المرئي للذكاء
+                  </div>
+                </div>
+              )}
+            </div>
+
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <label className="block text-slate-300 font-bold mb-1">التاريخ</label>
@@ -369,6 +565,8 @@ export const Journal2024Viewer: React.FC<Journal2024ViewerProps> = ({
                 onClick={() => {
                   setIsCreateOpen(false);
                   setEditingRow(null);
+                  stopCamera();
+                  stopListening();
                 }}
                 className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold rounded-xl"
               >
@@ -378,7 +576,7 @@ export const Journal2024Viewer: React.FC<Journal2024ViewerProps> = ({
                 onClick={editingRow ? handleUpdate : handleCreate}
                 className="px-5 py-2 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-xl shadow-lg"
               >
-                {editingRow ? 'حفظ التعديلات' : 'إضافة القيد'}
+                {editingRow ? 'حفظ وتسميع القيد' : 'إضافة القيد وقراءته آلياً'}
               </button>
             </div>
           </div>
