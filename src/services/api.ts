@@ -97,7 +97,13 @@ export const api = {
   getCommitteesData: () => request<CommitteesData>('/api/committees-data'),
   getInsuredList: (q?: string) =>
     request<InsuredMember[]>(q ? `/api/insured-list?q=${encodeURIComponent(q)}` : '/api/insured-list'),
-  getJournal2024: () => request<JournalRow[]>(`/api/journal-2024`),
+    getJournal2024: () => request<JournalRow[]>(`/api/journal-2024`),
+  createJournal2024: (data: Partial<JournalRow>) =>
+    request<JournalRow>(`/api/journal-2024`, { method: "POST", body: JSON.stringify(data) }),
+  updateJournal2024: (id: string, data: Partial<JournalRow>) =>
+    request<JournalRow>(`/api/journal-2024/${id}`, { method: "PUT", body: JSON.stringify(data) }),
+  deleteJournal2024: (id: string) =>
+    request<{ id: string }>(`/api/journal-2024/${id}`, { method: "DELETE" }),
 
   // برنامج المحاسبة 2024 — مركز التدريب
   getTrainingAccounting2024: () => request<any>(`/api/training-accounting-2024`),
@@ -150,6 +156,7 @@ export const api = {
   submitJournalEntry: (id: string) => request<JournalEntry>(`/api/journal-entries/${id}/submit`, { method: 'POST' }),
   approveJournalEntry: (id: string) => request<JournalEntry>(`/api/journal-entries/${id}/approve`, { method: 'POST' }),
   postJournalEntry: (id: string) => request<JournalEntry>(`/api/journal-entries/${id}/post`, { method: 'POST' }),
+    deleteJournalEntry: (id: string) => request<{ id: string }>(`/api/journal-entries/${id}`, { method: "DELETE" }),
   reverseJournalEntry: (id: string, reason: string) =>
     request<{ original: JournalEntry; reversal: JournalEntry }>(`/api/journal-entries/${id}/reverse`, {
       method: 'POST',

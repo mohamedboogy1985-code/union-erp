@@ -530,6 +530,35 @@ export class AccountingService {
 
     return { original, reversal };
   }
+
+  /**
+   * Delete a Journal Entry (Draft or Unposted)
+   */
+  public deleteJournalEntry(entryId: string, user: User): { id: string } {
+    const index = erpStore.journalEntries.findIndex((e) => e.id === entryId);
+    if (index === -1) throw new Error('القيد غير موجود.');
+
+    const entry = erpStore.journalEntries[index];
+    if (entry.status === 'POSTED') {
+      throw new Error('لا يمكن حذف القيد المرحّل. استخدم خيار العكس بدلاً من ذلك.');
+    }
+
+    erpStore.journalEntries.splice(index, 1);
+
+    erpStore.recordAudit(
+      user.id,
+      user.fullName,
+      user.role,
+      entry.organizationId,
+      'JOURNAL_ENTRY_DELETED',
+      'JOURNAL_ENTRY',
+      entryId,
+      `حذف القيد رقم [${entry.entryNumber}] (${entry.status})`
+    );
+
+    return { id: entryId };
+  }
 }
+
 
 export const accountingService = new AccountingService();
