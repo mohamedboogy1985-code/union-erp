@@ -1,0 +1,30 @@
+
+> union-app@1.1.0 start
+> NODE_ENV=production tsx server.ts
+
+⚠️⚠️ تعمل النسخة بوضع العرض التجريبي (DEMO_MODE=true): الدخول بترويسة x-user-id وبلا كلمات مرور إلزامية.
+   مناسب لتطبيق سطح المكتب فقط. لأي نشر شبكي اضبط DEMO_MODE=false مع JWT_SECRET و ENCRYPTION_KEY قويين.
+📊 تم تحميل الدليل الموحد: 0 حساباً في 0 قسماً
+📒 تم تحميل [تدريب_قيود_اليومية_2024.csv]: 0 قيداً (0 مرحّلاً) بإجمالي 0 ج.م
+📒 تم تحميل [قيود_اليومية_2022.csv]: 0 قيداً (0 مرحّلاً) بإجمالي 0 ج.م
+📒 تم تحميل [قيود_اليومية_2024.csv]: 0 قيداً (0 مرحّلاً) بإجمالي 0 ج.م
+📒 تم تحميل [قيود_اليومية_2024_c.csv]: 0 قيداً (0 مرحّلاً) بإجمالي 0 ج.م
+📒 تم تحميل [قيود_لجان_الشركات_2021.csv]: 0 قيداً (0 مرحّلاً) بإجمالي 0 ج.م
+📒 تم تحميل [قيود_لجان_الشركات_2022.csv]: 0 قيداً (0 مرحّلاً) بإجمالي 0 ج.م
+📒 تم تحميل [قيود_لجان_الشركات_2023.csv]: 0 قيداً (0 مرحّلاً) بإجمالي 0 ج.م
+📒 تم تحميل [قيود_لجان_الشركات_2024.csv]: 0 قيداً (0 مرحّلاً) بإجمالي 0 ج.م
+📒 تم تحميل [قيود_لجان_الشركات_2025.csv]: 0 قيداً (0 مرحّلاً) بإجمالي 0 ج.م
+📒 إجمالي القيود المحمّلة: 0 قيداً بإجمالي 0 ج.م
+[employee-affairs] تم تحميل 76 عاملاً من استمارة 2 تأمينات.
+[STDERR] /app/node_modules/@embedded-postgres/linux-x64/native/bin/initdb: error while loading shared libraries: libpq.so.5: cannot open shared object file: No such file or directory
+
+⚠️ تعذر تشغيل PostgreSQL المضمّن — سيُستخدم وضع الذاكرة: Postgres init script failed (code: 127, signal: null). ERROR OUTPUT: /app/node_modules/@embedded-postgres/linux-x64/native/bin/initdb: error while loading shared libraries: libpq.so.5: cannot open shared object file: No such file or directory
+
+ℹ️ وضع العرض المحلي: النظام يعمل بكامل وظائفه بالبيانات في الذاكرة (بدون PostgreSQL).
+   لتشغيل المزامنة السحابية: اضبط SQL_HOST / SQL_USER / SQL_PASSWORD / SQL_DB_NAME في ملف .env
+🎙️ [live-agent] خادم WebSocket الحي جاهز على المسار /api/live-agent
+🕐 تم بذر 212 سجل حضور تجريبي (بصمة) للشهر الحالي.
+=======================================================
+🏛️ Union Financial ERP Server running on http://0.0.0.0:3000
+📌 General Syndicate Chart of Accounts & 1301 Subledger Ready
+=======================================================
