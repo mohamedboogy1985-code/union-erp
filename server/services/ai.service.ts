@@ -26,10 +26,10 @@ import {
   VoiceParsedTransaction,
 } from '../../src/types/erp.js';
 
-export const AI_MODELS = ['gemini-3.7-flash', 'gemini-3.6-flash'];
-export const AI_PRIMARY_MODEL = AI_MODELS[0];
-export const AI_REQUEST_TIMEOUT_MS = Number(process.env.AI_REQUEST_TIMEOUT_MS || 25000);
-export const MAX_OCR_IMAGE_BYTES = Number(process.env.MAX_OCR_IMAGE_BYTES || 8 * 1024 * 1024);
+export const AI_MODELS = ['gemini-2.0-flash', 'gemini-1.5-flash', 'gemini-1.5-pro'];
+export const AI_PRIMARY_MODEL = 'gemini-1.5-flash';
+export const AI_REQUEST_TIMEOUT_MS = Number(process.env.AI_REQUEST_TIMEOUT_MS || 20000);
+export const MAX_OCR_IMAGE_BYTES = Number(process.env.MAX_OCR_IMAGE_BYTES || 4 * 1024 * 1024);
 
 let aiClient: GoogleGenAI | null = null;
 
@@ -1455,7 +1455,7 @@ ${accountsListStr || 'لا توجد حسابات نشطة حالياً.'}
         return {
           answer: quotaIssue
             ? 'استُهلكت حصة محرك Gemini المجانية (429) وتعذّر صياغة هذه المساعدة محلياً. حاول مرة أخرى بعد بضع دقائق.'
-            : 'محرك Gemini مشغول مؤقتاً أو تعذّر الوصول إليه (الموديلات المتاحة: gemini-3.7-flash و gemini-3.6-flash). حاول مرة أخرى بعد لحظات.',
+            : 'محرك Gemini مشغول مؤقتاً أو تعذّر الوصول إليه (الموديلات المتاحة: gemini-2.0-flash و gemini-1.5-flash و gemini-1.5-pro). حاول مرة أخرى بعد لحظات.',
         };
       }
 

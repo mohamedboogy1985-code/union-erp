@@ -83,8 +83,10 @@ export class DashboardService {
       if (state.lockedUntil && new Date(state.lockedUntil) > new Date()) lockedUsers++;
     });
 
-    // ===== 3) الرسوم البيانية =====
-    // اتجاه المصروفات شهرياً (من القيود المرحلة)
+    // ===== 3) الرسوم البيانية — تحسين أداء O(n) باستخدام خريطة نوع الحساب مسبقاً =====
+    const accountTypeMap = new Map<string, string>();
+    for (const a of erpStore.accounts) accountTypeMap.set(a.id, a.type);
+
     const expensesByMonth = new Map<string, number>();
     const revenueByMonth = new Map<string, number>();
     const monthNamesAr = ['يناير', 'فبراير', 'مارس', 'أبريل', 'مايو', 'يونيو', 'يوليو', 'أغسطس', 'سبتمبر', 'أكتوبر', 'نوفمبر', 'ديسمبر'];
@@ -92,16 +94,16 @@ export class DashboardService {
     for (const entry of erpStore.journalEntries) {
       if (entry.status !== 'POSTED') continue;
       if (organizationId && entry.organizationId !== organizationId) continue;
-      const monthKey = entry.date.slice(0, 7); // YYYY-MM
       const monthLabel = monthNamesAr[Number(entry.date.slice(5, 7)) - 1] + ' ' + entry.date.slice(0, 4);
       for (const line of entry.lines) {
-        const acc = erpStore.getAccountById(line.accountId);
-        if (!acc) continue;
-        const value = line.debit - line.credit;
-        if (acc.type === 'EXPENSE') {
-          expensesByMonth.set(monthLabel, (expensesByMonth.get(monthLabel) || 0) + Math.max(0, value));
-        } else if (acc.type === 'REVENUE') {
-          revenueByMonth.set(monthLabel, (revenueByMonth.get(monthLabel) || 0) + Math.max(0, line.credit - line.debit));
+        const accType = accountTypeMap.get(line.accountId);
+        if (!accType) continue;
+        if (accType === 'EXPENSE') {
+          const value = line.debit - line.credit;
+          if (value > 0) expensesByMonth.set(monthLabel, (expensesByMonth.get(monthLabel) || 0) + value);
+        } else if (accType === 'REVENUE') {
+          const value = line.credit - line.debit;
+          if (value > 0) revenueByMonth.set(monthLabel, (revenueByMonth.get(monthLabel) || 0) + value);
         }
       }
     }

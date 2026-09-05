@@ -37,13 +37,11 @@ export function createRateLimiter(maxRequests: number = 300, windowMs: number = 
   }, windowMs).unref?.();
 
   return (req: Request, res: Response, next: NextFunction) => {
-    const activeUserId = req.headers['x-user-id'] as string;
-    const user = erpStore.users.find((u) => u.id === activeUserId);
-    // استثناء مدير البرنامج (محمد عبد الله أحمد) من أي قيود أمان لمعدل الطلبات
-    if (user && (user.fullName.includes('محمد عبد الله') || user.role === 'PROGRAM_MANAGER')) {
-      return next();
-    }
     const key = req.ip || req.socket.remoteAddress || 'unknown';
+    // لا تجاوز كامل — فقط حد أعلى لمدير النظام (1000/دقيقة بدل 300) لمنع إساءة انتحال x-user-id
+    const activeUserId = req.headers['x-user-id'] as string;
+    const user = activeUserId ? erpStore.users.find((u) => u.id === activeUserId) : undefined;
+    const effectiveMax = user && (user.role === 'PROGRAM_MANAGER' || user.role === 'SYSTEM_ADMIN') ? Math.max(maxRequests, 1000) : maxRequests;
     const now = Date.now();
     const entry = hits.get(key);
 
@@ -53,7 +51,7 @@ export function createRateLimiter(maxRequests: number = 300, windowMs: number = 
     }
 
     entry.count += 1;
-    if (entry.count > maxRequests) {
+    if (entry.count > effectiveMax) {
       res.status(429).json({
         error: 'تم تجاوز الحد المسموح من الطلبات. يرجى الانتظار قليلاً قبل إعادة المحاولة.',
         retryAfterMs: entry.resetAt - now,

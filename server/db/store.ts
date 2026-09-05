@@ -125,18 +125,39 @@ export class ERPStore {
   }
 
   public getAccountById(id: string): Account | undefined {
-    if (this.accountIndex.size !== this.accounts.length) this.rebuildAccountIndexes();
+    let acc = this.accountIndex.get(id);
+    if (acc) return acc;
+    if (this.accountIndex.size === 0 || this.accountIndex.size !== this.accounts.length) this.rebuildAccountIndexes();
     return this.accountIndex.get(id);
   }
 
   public getAccountByCode(code: string): Account | undefined {
-    if (this.accountCodeIndex.size !== this.accounts.length) this.rebuildAccountIndexes();
+    let acc = this.accountCodeIndex.get(code);
+    if (acc) return acc;
+    if (this.accountCodeIndex.size === 0 || this.accountCodeIndex.size !== this.accounts.length) this.rebuildAccountIndexes();
     return this.accountCodeIndex.get(code);
   }
 
   public getSubledgerPartiesForAccount(accountId: string): SubledgerParty[] {
-    if (this.subledgerByAccountIndex.size !== this.subledgerParties.length) this.rebuildAccountIndexes();
+    const existing = this.subledgerByAccountIndex.get(accountId);
+    if (existing) return existing;
+    if (this.subledgerByAccountIndex.size === 0) this.rebuildAccountIndexes();
     return this.subledgerByAccountIndex.get(accountId) || [];
+  }
+
+  /** صيانة الفهارس عند إضافة حساب جديد (بدل إعادة البناء الكامل) */
+  public upsertAccountIndex(account: Account): void {
+    if (account.id) this.accountIndex.set(account.id, account);
+    if (account.code) this.accountCodeIndex.set(account.code, account);
+  }
+
+  public upsertSubledgerIndex(party: SubledgerParty): void {
+    if (!party.associatedAccountId) return;
+    const list = this.subledgerByAccountIndex.get(party.associatedAccountId) || [];
+    if (!list.some((p) => p.id === party.id)) {
+      list.push(party);
+      this.subledgerByAccountIndex.set(party.associatedAccountId, list);
+    }
   }
 
   public addNotification(notification: Omit<AppNotification, 'id' | 'timestamp' | 'isRead'>): AppNotification {

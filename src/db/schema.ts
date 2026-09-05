@@ -1,4 +1,4 @@
-import { pgTable, text, serial, integer, doublePrecision, boolean, timestamp } from 'drizzle-orm/pg-core';
+import { pgTable, text, serial, integer, doublePrecision, boolean, timestamp, index } from 'drizzle-orm/pg-core';
 import { relations } from 'drizzle-orm';
 
 // 1. Users
@@ -41,7 +41,12 @@ export const accounts = pgTable('accounts', {
   currentBalance: doublePrecision('current_balance').notNull().default(0),
   organizationId: text('organization_id').notNull().default('org-union-main'),
   createdAt: timestamp('created_at').defaultNow(),
-});
+}, (table) => [
+  index('accounts_type_idx').on(table.type),
+  index('accounts_parent_id_idx').on(table.parentId),
+  index('accounts_is_active_idx').on(table.isActive),
+  index('accounts_org_idx').on(table.organizationId),
+]);
 
 // 4. Subledger Parties (1301 Miscellaneous Debtors / 2101 Creditors)
 export const subledgerParties = pgTable('subledger_parties', {
@@ -57,7 +62,11 @@ export const subledgerParties = pgTable('subledger_parties', {
   balance: doublePrecision('balance').notNull().default(0),
   organizationId: text('organization_id').notNull().default('org-union-main'),
   createdAt: timestamp('created_at').defaultNow(),
-});
+}, (table) => [
+  index('subledger_parties_name_idx').on(table.name),
+  index('subledger_parties_type_idx').on(table.type),
+  index('subledger_parties_org_idx').on(table.organizationId),
+]);
 
 // 5. Cost Centers & Budgets (Syndicate Projects & Funds)
 export const costCenters = pgTable('cost_centers', {
@@ -82,7 +91,7 @@ export const fiscalPeriods = pgTable('fiscal_periods', {
   createdAt: timestamp('created_at').defaultNow(),
 });
 
-// 7. Journal Entries (General Ledger)
+// 7. Journal Entries (General Ledger) — فهارس أداء حرجة لتقارير trial-balance و ledger
 export const journalEntries = pgTable('journal_entries', {
   id: text('id').primaryKey(),
   entryNumber: text('entry_number').notNull().unique(),
@@ -101,7 +110,13 @@ export const journalEntries = pgTable('journal_entries', {
   isReversed: boolean('is_reversed').notNull().default(false),
   checksum: text('checksum').notNull(),
   createdAt: timestamp('created_at').defaultNow(),
-});
+}, (table) => [
+  index('journal_entries_org_idx').on(table.organizationId),
+  index('journal_entries_date_idx').on(table.date),
+  index('journal_entries_status_idx').on(table.status),
+  index('journal_entries_period_idx').on(table.periodId),
+  index('journal_entries_org_status_date_idx').on(table.organizationId, table.status, table.date),
+]);
 
 // 8. Journal Lines (Balanced Debit / Credit Line Items)
 export const journalLines = pgTable('journal_lines', {
@@ -117,7 +132,12 @@ export const journalLines = pgTable('journal_lines', {
   attachmentUrl: text('attachment_url'), // رابط صورة الفاتورة أو المستند الورقي المرفوع بالـ OCR
   aiConfidenceScore: doublePrecision('ai_confidence_score'), // نسبة دقة قراءة الذكاء الاصطناعي للمستند لضمان المراجعة
   createdAt: timestamp('created_at').defaultNow(),
-});
+}, (table) => [
+  index('journal_lines_entry_idx').on(table.journalEntryId),
+  index('journal_lines_account_idx').on(table.accountId),
+  index('journal_lines_subledger_idx').on(table.subledgerPartyId),
+  index('journal_lines_account_entry_idx').on(table.accountId, table.journalEntryId),
+]);
 
 // 9. Receipts & Collections
 export const receipts = pgTable('receipts', {
@@ -212,7 +232,13 @@ export const auditLogs = pgTable('audit_logs', {
   details: text('details').notNull(),
   ipAddress: text('ip_address').default('127.0.0.1'),
   createdAt: timestamp('created_at').defaultNow(),
-});
+}, (table) => [
+  index('audit_logs_user_idx').on(table.userId),
+  index('audit_logs_action_idx').on(table.action),
+  index('audit_logs_timestamp_idx').on(table.timestamp),
+  index('audit_logs_entity_idx').on(table.entityType, table.entityId),
+  index('audit_logs_org_idx').on(table.organizationId),
+]);
 
 // 15. Actuarial Funds & Pension Reserves (صناديق المعاشات والتكافل والدراسات الإكتوارية)
 export const actuarialFunds = pgTable('actuarial_funds', {

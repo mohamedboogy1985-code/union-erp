@@ -8,6 +8,7 @@ import express, { Request, Response } from 'express';
 import http from 'http';
 import path from 'path';
 import fs from 'fs';
+import compression from 'compression';
 import { erpStore } from './server/db/store.js';
 import { postgresManager } from './server/db/postgresSync.js';
 import { accountingService } from './server/services/accounting.service.js';
@@ -62,11 +63,13 @@ async function startServer() {
   const PORT = Number(process.env.PORT || 3000);
 
   // ===== IMPROVEMENTS 5.1/5.2: طبقة الأمان قبل أي معالجة =====
+  app.use(compression({ threshold: 1024 })); // ضغط الاستجابات الكبيرة (تقارير، قوائم) لتقليل زمن النقل 60-80%
   app.use(securityHeadersMiddleware);
   app.use(comprehensiveAuditMiddleware); // سجل تدقيق شامل لكل عمليات API
   app.use(createRateLimiter(Number(process.env.RATE_LIMIT_MAX || 300), 60_000)); // 300 طلب/دقيقة لكل IP
 
-  app.use(express.json({ limit: '250mb' })); // دعم رفع الملفات الكبيرة base64 للمستندات
+  app.use(express.json({ limit: '50mb' })); // تم تقليله من 250mb لمنع DoS — الصور المضغوطة <4MB تكفي (IMPROVEMENTS 5.2)
+  app.use(express.urlencoded({ limit: '50mb', extended: true }));
 
   // خدمة الأصول الثابتة (صور المستخدمين وأيقونة التطبيق) — بمسارات مرشحة
   // تدعم التطوير وحزمة الإنتاج وتطبيق Electron المُغلَّف
@@ -502,10 +505,23 @@ async function startServer() {
   });
 
   // ==========================================
-  // 3. CHART OF ACCOUNTS
+  // 3. CHART OF ACCOUNTS — مع دعم بحث وترقيم صفحي (تحسين أداء P0)
   // ==========================================
   app.get('/api/accounts', (req: Request, res: Response) => {
-    res.json(erpStore.accounts);
+    let list = erpStore.accounts;
+    const { search, type, isActive, q } = req.query;
+    const query = (search || q) as string | undefined;
+    if (query) {
+      const norm = normalizeArabicText(String(query));
+      list = list.filter((a) => normalizeArabicText(a.name).includes(norm) || String(a.code).includes(norm));
+    }
+    if (type) list = list.filter((a) => a.type === type);
+    if (isActive !== undefined) list = list.filter((a) => String(a.isActive) === String(isActive));
+
+    if (req.query.page || req.query.limit) {
+      return res.json(paginationService.paginate(list, paginationService.fromQuery(req.query as any)));
+    }
+    res.json(list);
   });
 
   app.post('/api/accounts', (req: Request, res: Response) => {
@@ -542,7 +558,9 @@ async function startServer() {
     };
 
     erpStore.accounts.push(newAcc);
+    erpStore.upsertAccountIndex(newAcc as any);
     postgresManager.persistAccount(newAcc);
+    cacheService.invalidate(CACHE_KEYS.accountsList());
     erpStore.recordAudit(
       user.id,
       user.fullName,
@@ -598,6 +616,15 @@ async function startServer() {
           p.partyCode.toLowerCase().includes(q) ||
           p.phone?.includes(q)
       );
+    }
+
+    if (req.query.page || req.query.limit) {
+      return res.json(paginationService.paginate(parties, paginationService.fromQuery(req.query as any)));
+    }
+
+    // حد افتراضي 500 لتجنب إرجاع آلاف السجلات دفعة واحدة
+    if (parties.length > 500 && !search && !accountId) {
+      return res.json(parties.slice(0, 500));
     }
 
     res.json(parties);
@@ -1130,7 +1157,10 @@ async function startServer() {
   // 8. RECEIPTS & DISTRIBUTION (التحصيل وتوزيع الإيرادات)
   // ==========================================
   app.get('/api/receipts', (req: Request, res: Response) => {
-    res.json(erpStore.receipts);
+    if (req.query.page || req.query.limit) {
+      return res.json(paginationService.paginate(erpStore.receipts, paginationService.fromQuery(req.query as any)));
+    }
+    res.json(erpStore.receipts.slice(0, 500));
   });
 
   app.post('/api/receipts', (req: Request, res: Response) => {
@@ -1224,7 +1254,16 @@ async function startServer() {
   // 9. MEMBERS & CERTIFICATES (الأعضاء والشهادات)
   // ==========================================
   app.get('/api/members', (req: Request, res: Response) => {
-    res.json(erpStore.members);
+    let list = erpStore.members;
+    const q = typeof req.query.q === 'string' ? req.query.q : typeof req.query.search === 'string' ? req.query.search : '';
+    if (q) {
+      const norm = normalizeArabicText(String(q));
+      list = list.filter((m) => normalizeArabicText(m.fullName).includes(norm) || m.membershipNumber.includes(norm));
+    }
+    if (req.query.page || req.query.limit || q) {
+      return res.json(paginationService.paginate(list, paginationService.fromQuery(req.query as any)));
+    }
+    res.json(list.slice(0, 500));
   });
 
   app.post('/api/members', (req: Request, res: Response) => {
