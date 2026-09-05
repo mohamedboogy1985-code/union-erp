@@ -1,0 +1,62 @@
+# ===== Union Financial ERP — electron-builder =====
+# البناء: npm run electron:build  (مثبت NSIS + نسخة محمولة لنظام Windows)
+# ملاحظة: يمكن البناء لنظام آخر بإضافة --linux / --mac لسكربت electron-builder
+
+appId: org.unionerp.unionapp
+productName: Union Financial ERP
+copyright: Copyright © 2026 Union ERP
+
+directories:
+  output: release
+  buildResources: assets
+
+# الملفات المضمّمة في الحزمة (الخادم مُجمَّع بالكامل فلا حاجة لـ node_modules)
+files:
+  - electron/**/*
+  - dist/**/*
+  - dist-server/**/*
+  # بيانات الأعمال (CSV الحقيقية) والأصول (صور المستخدمين والشعارات)
+  - server/data/**
+  - server/db/pg-schema.sql
+  - assets/**
+  - package.json
+  - "!**/*.map"
+
+asar: true
+
+# الخادم مُجمَّع بالكامل في dist-server/index.cjs فلا حاجة لإعادة بناء
+# الوحدات الأصلية (sharp اختيارية وغير مضمنة أصلاً في الحزمة)
+npmRebuild: false
+buildDependenciesFromSource: false
+
+win:
+  # يتم تحويل PNG إلى ICO تلقائياً (256px+)
+  icon: assets/icon.png
+  target:
+    - target: nsis
+      arch:
+        - x64
+    - target: portable
+      arch:
+        - x64
+  artifactName: UnionERP-${version}-${arch}.${ext}
+
+nsis:
+  oneClick: false
+  perMachine: false
+  allowToChangeInstallationDirectory: true
+  createDesktopShortcut: true
+  createStartMenuShortcut: true
+  shortcutName: Union Financial ERP
+  uninstallDisplayName: Union Financial ERP ${version}
+  installerHeaderIcon: assets/icon.png
+
+portable:
+  artifactName: UnionERP-Portable-${version}.${ext}
+
+# لغات المثبت (العربية أولاً ثم الإنجليزية)
+nsisWeb:
+  artifactName: UnionERP-WebSetup-${version}.${ext}
+
+electronDownload:
+  cache: .cache/electron
