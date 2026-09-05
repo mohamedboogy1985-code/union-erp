@@ -8,7 +8,7 @@
     "dev": "tsx watch --ignore pgdata --clear-screen=false server.ts",
     "build": "vite build",
     "start": "NODE_ENV=production tsx server.ts",
-    "test": "tsx test/accounting.test.ts && tsx test/improvements.test.ts && tsx test/employee-affairs.test.ts && tsx test/regulation.test.ts && tsx test/attendance.test.ts",
+    "test": "tsx test/accounting.test.ts && tsx test/improvements.test.ts && tsx test/employee-affairs.test.ts && tsx test/regulation.test.ts && tsx test/attendance.test.ts && tsx test/journal-delete.test.ts",
     "test:watch": "jest --watch",
     "lint": "eslint src --ext .ts,.tsx",
     "lint:fix": "eslint src --ext .ts,.tsx --fix",
