@@ -6,7 +6,7 @@
  * - الإنتاج (الحزمة): يحمّل الخادم المجمّع dist-server/index.cjs داخل العملية
  *   الرئيسية (NODE_ENV=production) ويخدم الواجهة من dist/ ثم يفتح النافذة.
  */
-const { app, BrowserWindow, Menu, dialog, shell } = require('electron');
+const { app, BrowserWindow, Menu, dialog, shell, ipcMain } = require('electron');
 const path = require('path');
 const http = require('http');
 const { spawn } = require('child_process');
@@ -177,6 +177,14 @@ if (!gotLock) {
   app.whenReady().then(async () => {
     await startServer();
     if (!serverStarted) return;
+
+    // فتح ملف ببرنامجه الافتراضي من شاشة نماذج (تعديل/طباعة بعيداً عن المتصفح)
+    ipcMain.handle('shell:open-path', async (_event, filePath) => {
+      if (typeof filePath !== 'string' || !filePath) return { error: 'مسار غير صالح' };
+      const err = await shell.openPath(filePath);
+      return err ? { error: err } : { ok: true };
+    });
+
     createMainWindow();
 
     app.on('activate', () => {

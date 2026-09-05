@@ -27,6 +27,7 @@ const UnionCommittees = lazy(() => import('./pages/UnionCommittees.js').then((m)
 const CommitteeDataViewer = lazy(() => import('./pages/CommitteeDataViewer.js').then((m) => ({ default: m.CommitteeDataViewer })));
 const InsuredListViewer = lazy(() => import('./pages/InsuredListViewer.js').then((m) => ({ default: m.InsuredListViewer })));
 const Journal2024Viewer = lazy(() => import('./pages/Journal2024Viewer.js').then((m) => ({ default: m.Journal2024Viewer })));
+const ModelsViewer = lazy(() => import('./pages/ModelsViewer.js').then((m) => ({ default: m.ModelsViewer })));
 const TrainingAccounting2024 = lazy(() => import('./pages/TrainingAccounting2024.js').then((m) => ({ default: m.TrainingAccounting2024 })));
 const FinalAccounts2024 = lazy(() => import('./pages/FinalAccounts2024.js').then((m) => ({ default: m.FinalAccounts2024 })));
 const BalanceSheet = lazy(() => import('./pages/BalanceSheet.js').then((m) => ({ default: m.BalanceSheet })));
@@ -347,6 +348,18 @@ export function App() {
           <ErrorBoundary label="قيود يومية 2024 (بوابات)" onNavigate={setCurrentTab}>
             <Suspense fallback={lazyFallback('قيود يومية 2024')}>
             <Journal2024Viewer
+              organizationId={selectedOrgId}
+              currentUser={currentUser}
+              onShowToast={showToast}
+            />
+            </Suspense>
+          </ErrorBoundary>
+        )}
+
+        {currentTab === 'models' && (
+          <ErrorBoundary label="مكتبة النماذج والمستندات" onNavigate={setCurrentTab}>
+            <Suspense fallback={lazyFallback('مكتبة النماذج')}>
+            <ModelsViewer
               organizationId={selectedOrgId}
               currentUser={currentUser}
               onShowToast={showToast}

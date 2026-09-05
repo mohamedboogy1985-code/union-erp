@@ -5,4 +5,5 @@ contextBridge.exposeInMainWorld('electronAPI', {
   version: '1.0.0',
   isElectron: true,
   printDocument: () => window.print(),
+  openFilePath: (filePath) => ipcRenderer.invoke('shell:open-path', filePath),
 });

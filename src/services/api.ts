@@ -494,5 +494,23 @@ export const api = {
   etaCancel: (uuid: string, reason: string) =>
     request<any>(`/api/eta/documents/${uuid}/cancel`, { method: 'POST', body: JSON.stringify({ reason }) }),
   etaDownloadUrl: (uuid: string) => `/api/eta/documents/${uuid}/download`,
+
+  // ─── مكتبة النماذج والمستندات (مجلد «نماذج») ───
+  getModels: () => request<{ directory: string; files: any[]; locked: boolean }>('/api/models'),
+  unlockModels: (password: string) =>
+    request<{ unlocked: boolean }>('/api/models/unlock', { method: 'POST', body: JSON.stringify({ password }) }),
+  lockModels: () => request<{ locked: boolean }>('/api/models/lock', { method: 'POST' }),
+  uploadModel: (name: string, contentBase64: string) =>
+    request<any>('/api/models', { method: 'POST', body: JSON.stringify({ name, contentBase64 }) }),
+  replaceModelContent: (name: string, contentBase64: string) =>
+    request<any>(`/api/models/${encodeURIComponent(name)}/content`, { method: 'PUT', body: JSON.stringify({ contentBase64 }) }),
+  renameModel: (name: string, newName: string) =>
+    request<any>(`/api/models/${encodeURIComponent(name)}`, { method: 'PUT', body: JSON.stringify({ newName }) }),
+  deleteModel: (name: string) =>
+    request<{ name: string }>(`/api/models/${encodeURIComponent(name)}`, { method: 'DELETE' }),
+  openModel: (name: string) =>
+    request<{ opened: boolean; fallback?: string; temp?: string }>(`/api/models/${encodeURIComponent(name)}/open`, { method: 'POST' }),
+  modelViewUrl: (name: string) => `/api/models/${encodeURIComponent(name)}/view`,
+  modelDownloadUrl: (name: string) => `/api/models/${encodeURIComponent(name)}/download`,
 };
 

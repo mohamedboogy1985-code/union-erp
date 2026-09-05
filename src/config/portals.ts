@@ -27,6 +27,7 @@ import {
   Landmark,
   FileSpreadsheet,
   Scale,
+  FolderOpen,
 } from 'lucide-react';
 
 /**
@@ -95,6 +96,7 @@ export const SCREENS: ScreenDef[] = [
   { id: 'committee-data', label: 'بيانات اللجان والمكاتب (بيانات.xlsx)', icon: FileSpreadsheet, group: 'بيانات البوابات والملفات المستوردة', portals: ['syndicate', 'committees'] },
   { id: 'insured-list', label: 'المؤمَّن عليهم — الصندوق الاكتواري', icon: ShieldCheck, group: 'بيانات البوابات والملفات المستوردة', portals: ['syndicate'] },
   { id: 'journal-2024', label: 'قيود يومية 2024', icon: BookOpen, group: 'بيانات البوابات والملفات المستوردة', portals: ['syndicate'] },
+  { id: 'models', label: 'النماذج والمستندات', icon: FolderOpen, group: 'مكتبة النماذج', portals: ['syndicate'] },
   { id: 'training-accounting-2024', label: 'برنامج المحاسبة 2024 (مركز التدريب)', icon: Calculator, group: 'بيانات البوابات والملفات المستوردة', portals: ['training'] },
   { id: 'final-accounts-2024', label: 'الميزانية العمومية والحسابات الختامية 2024 (مركز التدريب)', icon: Scale, group: 'بيانات البوابات والملفات المستوردة', portals: ['training'] },
   // الذكاء الاصطناعي والإعدادات (مشتركة)

@@ -21,6 +21,7 @@ export const CSV_DATA_DIR =
     path.join(process.cwd(), 'server', 'data'),
     path.join(MODULE_DIR, '..', 'data'), // تطوير: server/services/../data
     path.join(MODULE_DIR, 'server', 'data'), // حزمة: dist-server/server/data أو بجوارها
+    path.join(MODULE_DIR, '..', 'server', 'data'), // Electron asar: app.asar/server/data
     path.join(MODULE_DIR, '..', '..', 'server', 'data'),
   ]) || path.join(process.cwd(), 'server', 'data');
 

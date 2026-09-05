@@ -8,6 +8,7 @@ import {
 } from '../../src/types/erp.js';
 import { erpStore } from '../db/store.js';
 import { regulationService } from './regulation.service.js';
+import { isSodExempt } from '../security/permissions.js';
 import { appendToLedgerChain } from './ledger-chain.service.js';
 import { calculateSimilarity, normalizeArabicText } from '../utils/arabic.js';
 
@@ -374,8 +375,8 @@ export class AccountingService {
       throw new Error('حالة القيد لا تسمح بالاعتماد.');
     }
 
-    // SoD Check: Maker cannot be the sole approver unless System Admin
-    if (entry.createdBy === user.id && user.role !== 'SYSTEM_ADMIN') {
+    // SoD Check: Maker cannot be the sole approver unless System Admin / exempt user
+    if (entry.createdBy === user.id && !isSodExempt(user)) {
       throw new Error('مخالفة قواعد فصل المهام (SoD): لا يجوز لمنشئ القيد اعتماده بنفسه.');
     }
 
@@ -410,7 +411,7 @@ export class AccountingService {
     const entry = erpStore.journalEntries.find((e) => e.id === entryId);
     if (!entry) throw new Error('القيد غير موجود.');
     if (entry.status === 'POSTED') throw new Error('القيد مرحل بالفعل ولا يمكن إعادة ترحيله.');
-    if (entry.status !== 'APPROVED' && user.role !== 'SYSTEM_ADMIN') {
+    if (entry.status !== 'APPROVED' && !isSodExempt(user)) {
       throw new Error('لا يمكن ترحيل القيد قبل اعتماده من المدير المالي.');
     }
 

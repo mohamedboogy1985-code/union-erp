@@ -1,6 +1,9 @@
 import dotenv from 'dotenv';
 dotenv.config();
 
+import { createRequire } from 'module';
+const _require = createRequire(import.meta.url);
+
 import express, { Request, Response } from 'express';
 import http from 'http';
 import path from 'path';
@@ -31,6 +34,8 @@ import { notificationService } from './server/services/notification.service.js';
 import { csvImportService } from './server/services/csv-import.service.js';
 import { committeesService } from './server/services/committees.service.js';
 import { portalDataService } from './server/services/portal-data.service.js';
+import { modelsService } from './server/services/models.service.js';
+import * as modelsCrypto from './server/services/models-crypto.service.js';
 import { regulationService } from './server/services/regulation.service.js';
 import { employeeAffairsService } from './server/services/employee-affairs.service.js';
 import { attendanceService } from './server/services/attendance.service.js';
@@ -43,6 +48,11 @@ import { can, isReadOnlyUser, ROLE_DEFINITIONS } from './server/security/permiss
 import { assertRuntimeSecurity, isSqlConsoleAllowed, isStrictAuth } from './server/security/runtime-config.js';
 import { debtorsAccountId, findAccountByCodeOrName, findExpenseAccount, findRevenueAccount, findTreasuryAccount } from './server/utils/account-lookup.js';
 import type { User } from './src/types/erp.js';
+
+/** هل مكتبة النماذج مقفلة بكلمة مرور حالياً؟ (كلمة المرور تعيش في ذاكرة الخادم فقط) */
+function isModelsLocked(): boolean {
+  return modelsCrypto.isLocked();
+}
 
 async function startServer() {
   // فحص أمني قبل أي شيء: الوضع الصارم يرفض الإقلاع بأسرار ضعيفة (DEMO_MODE=false)
@@ -322,6 +332,152 @@ async function startServer() {
       const result = portalDataService.deleteJournal2024Row(req.params.id);
       res.json(result);
     } catch (err: any) {
+      res.status(400).json({ error: err.message });
+    }
+  });
+
+  // ==========================================
+  // مكتبة النماذج والمستندات (مجلد «نماذج»)
+  // ==========================================
+  // قائمة الملفات الموجودة في مجلد النماذج
+  app.get('/api/models', (_req: Request, res: Response) => {
+    try {
+      res.json({
+        directory: modelsService.resolveModelsDir(),
+        files: modelsService.listModels(),
+        locked: modelsService.probeFirstEncrypted ? isModelsLocked() : false,
+      });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // فتح قفل مكتبة النماذج بكلمة مرور (لا تُخزَّن خارج ذاكرة الخادم)
+  app.post('/api/models/unlock', (req: Request, res: Response) => {
+    const { password } = req.body || {};
+    const probe = modelsService.probeFirstEncrypted ? modelsService.probeFirstEncrypted() : null;
+    const ok = modelsCrypto.tryUnlock(String(password || ''), probe);
+    if (!ok) {
+      return res.status(403).json({ error: 'كلمة المرور غير صحيحة' });
+    }
+    res.json({ unlocked: true });
+  });
+
+  // إغلاق القفل (تنظيف كلمة المرور من الذاكرة)
+  app.post('/api/models/lock', (_req: Request, res: Response) => {
+    modelsCrypto.lock();
+    res.json({ locked: true });
+  });
+
+  // تنزيل ملف (attachment) — يفتحه البرنامج الافتراضي عند الضغط، ويناسب الطباعة من برنامج Office
+  app.get('/api/models/:name/download', (req: Request, res: Response) => {
+    try {
+      const name = req.params.name;
+      const buf = modelsService.readModelBuffer(name);
+      res.setHeader('Content-Type', modelsService.mimeOf(name));
+      res.setHeader('Content-Disposition', `attachment; filename*=UTF-8''${encodeURIComponent(name)}`);
+      res.send(buf);
+    } catch (err: any) {
+      if (err?.status === 423) return res.status(423).json({ error: err.message });
+      res.status(400).json({ error: err.message });
+    }
+  });
+
+  // عرض مضمّن (inline) — يعرض الوثائق (Word/Excel) كـ PDF داخل الشاشة، والصور/PDF كما هي
+  app.get('/api/models/:name/view', (req: Request, res: Response) => {
+    try {
+      const name = req.params.name;
+      const rendered = modelsService.renderModel(name);
+      res.setHeader('Content-Type', rendered.mime);
+      res.setHeader('Content-Disposition', `inline; filename*=UTF-8''${encodeURIComponent(name)}`);
+      res.setHeader('X-Reconverted', String(rendered.converted));
+      res.send(rendered.buffer);
+    } catch (err: any) {
+      if (err?.status === 423) return res.status(423).json({ error: err.message });
+      res.status(400).json({ error: err.message });
+    }
+  });
+
+  // إضافة ملف جديد (base64 في JSON) — يُنشئ ملفاً جديداً في مجلد النماذج
+  app.post('/api/models', (req: Request, res: Response) => {
+    const user = requirePermission(req, res, 'documents:manage');
+    if (!user) return;
+    try {
+      const { name, contentBase64 } = req.body || {};
+      if (!name || typeof contentBase64 !== 'string') {
+        return res.status(400).json({ error: 'يلزم اسم الملف ومحتواه (base64)' });
+      }
+      const info = modelsService.writeModel(name, contentBase64);
+      res.json(info);
+    } catch (err: any) {
+      res.status(400).json({ error: err.message });
+    }
+  });
+
+  // استبدال محتوى ملف موجود (تعديل)
+  app.put('/api/models/:name/content', (req: Request, res: Response) => {
+    const user = requirePermission(req, res, 'documents:manage');
+    if (!user) return;
+    try {
+      const { contentBase64 } = req.body || {};
+      if (typeof contentBase64 !== 'string') {
+        return res.status(400).json({ error: 'يلزم محتوى الملف (base64)' });
+      }
+      const info = modelsService.writeModel(req.params.name, contentBase64);
+      res.json(info);
+    } catch (err: any) {
+      res.status(400).json({ error: err.message });
+    }
+  });
+
+  // إعادة تسمية ملف
+  app.put('/api/models/:name', (req: Request, res: Response) => {
+    const user = requirePermission(req, res, 'documents:manage');
+    if (!user) return;
+    try {
+      const { newName } = req.body || {};
+      if (!newName) throw new Error('يلزم الاسم الجديد');
+      const info = modelsService.renameModel(req.params.name, newName);
+      res.json(info);
+    } catch (err: any) {
+      res.status(400).json({ error: err.message });
+    }
+  });
+
+  // حذف ملف
+  app.delete('/api/models/:name', (req: Request, res: Response) => {
+    const user = requirePermission(req, res, 'documents:manage');
+    if (!user) return;
+    try {
+      const result = modelsService.deleteModel(req.params.name);
+      res.json(result);
+    } catch (err: any) {
+      res.status(400).json({ error: err.message });
+    }
+  });
+
+  // فتح الملف ببرنامجه الافتراضي عبر عملية Electron (تعديل/طباعة من التطبيق)
+  app.post('/api/models/:name/open', (req: Request, res: Response) => {
+    try {
+      const tmpFile = modelsService.exportModelToTemp(req.params.name);
+      const electron = (() => {
+        try {
+          const e = _require('electron');
+          return typeof e === 'object' && e?.shell?.openPath ? e : null;
+        } catch {
+          return null;
+        }
+      })();
+      if (!electron) {
+        // خارج Electron: نعيد محتوى الملف المشفّر كمرفق download (عبر المسار الصريح المؤقت)
+        return res.json({ opened: false, fallback: 'download', temp: tmpFile });
+      }
+      electron.shell.openPath(tmpFile).then((err: string) => {
+        if (err) return res.status(500).json({ error: err });
+        res.json({ opened: true });
+      });
+    } catch (err: any) {
+      if (err?.status === 423) return res.status(423).json({ error: err.message });
       res.status(400).json({ error: err.message });
     }
   });
@@ -2510,7 +2666,7 @@ async function startServer() {
       path.join(process.cwd(), 'dist');
 
     app.use(express.static(distPath));
-    app.get('*', (req: Request, res: Response) => {
+    app.get('/*splat', (req: Request, res: Response) => {
       res.sendFile(path.join(distPath, 'index.html'));
     });
   }

@@ -1,0 +1,114 @@
+npm warn invalid config allow-remote=true set in C:\Users\HP\.npmrc
+npm warn invalid config Must be one of: all, none, root
+npm notice run union-app@1.1.0 dev
+npm notice run tsx watch --ignore pgdata --clear-screen=false server.ts
+there are non-text parts functionCall in the response, returning concatenation of all text parts. Please refer to the non text parts for a full response from model.
+there are non-text parts functionCall in the response, returning concatenation of all text parts. Please refer to the non text parts for a full response from model.
+there are non-text parts functionCall in the response, returning concatenation of all text parts. Please refer to the non text parts for a full response from model.
+there are non-text parts functionCall in the response, returning concatenation of all text parts. Please refer to the non text parts for a full response from model.
+node:internal/fs/watchers:321
+    const error = new UVException({
+                  ^
+
+Error: EBUSY: resource busy or locked, watch 'C:\Users\HP\Downloads\union-erp-main\union-erp-main\release\win-unpacked\electron.exe'
+    at FSWatcher.<computed> (node:internal/fs/watchers:321:19)
+    at Object.watch (node:fs:2548:36)
+    at createFsWatchInstance (C:\Users\HP\Downloads\union-erp-main\union-erp-main\node_modules\vite\dist\node\chunks\dep-Dm0c1Wj2.js:22195:17)
+    at setFsWatchListener (C:\Users\HP\Downloads\union-erp-main\union-erp-main\node_modules\vite\dist\node\chunks\dep-Dm0c1Wj2.js:22242:15)
+    at NodeFsHandler._watchWithNodeFs (C:\Users\HP\Downloads\union-erp-main\union-erp-main\node_modules\vite\dist\node\chunks\dep-Dm0c1Wj2.js:22397:14)
+    at NodeFsHandler._handleFile (C:\Users\HP\Downloads\union-erp-main\union-erp-main\node_modules\vite\dist\node\chunks\dep-Dm0c1Wj2.js:22461:23)
+    at NodeFsHandler._addToNodeFs (C:\Users\HP\Downloads\union-erp-main\union-erp-main\node_modules\vite\dist\node\chunks\dep-Dm0c1Wj2.js:22703:21)
+Emitted 'error' event on FSWatcher instance at:
+    at FSWatcher._handleError (C:\Users\HP\Downloads\union-erp-main\union-erp-main\node_modules\vite\dist\node\chunks\dep-Dm0c1Wj2.js:23896:10)
+    at NodeFsHandler._addToNodeFs (C:\Users\HP\Downloads\union-erp-main\union-erp-main\node_modules\vite\dist\node\chunks\dep-Dm0c1Wj2.js:22711:18) {
+  errno: -4082,
+  syscall: 'watch',
+  code: 'EBUSY',
+  path: 'C:\\Users\\HP\\Downloads\\union-erp-main\\union-erp-main\\release\\win-unpacked\\electron.exe',
+  filename: 'C:\\Users\\HP\\Downloads\\union-erp-main\\union-erp-main\\release\\win-unpacked\\electron.exe'
+}
+
+Node.js v24.18.0
+[31mWebSocket server error: Port 24678 is already in use[39m
+node:events:487
+      throw er; // Unhandled 'error' event
+      ^
+
+Error: listen EADDRINUSE: address already in use 0.0.0.0:3000
+    at Server.setupListenHandle [as _listen2] (node:net:2009:16)
+    at listenInCluster (node:net:2066:12)
+    at node:net:2275:7
+    at process.processTicksAndRejections (node:internal/process/task_queues:90:21)
+Emitted 'error' event on Server instance at:
+    at emitErrorNT (node:net:2045:8)
+    at process.processTicksAndRejections (node:internal/process/task_queues:90:21) {
+  code: 'EADDRINUSE',
+  errno: -4091,
+  syscall: 'listen',
+  address: '0.0.0.0',
+  port: 3000
+}
+
+Node.js v24.18.0
+[31mWebSocket server error: Port 24678 is already in use[39m
+node:events:487
+      throw er; // Unhandled 'error' event
+      ^
+
+Error: listen EADDRINUSE: address already in use 0.0.0.0:3000
+    at Server.setupListenHandle [as _listen2] (node:net:2009:16)
+    at listenInCluster (node:net:2066:12)
+    at node:net:2275:7
+    at process.processTicksAndRejections (node:internal/process/task_queues:90:21)
+Emitted 'error' event on Server instance at:
+    at emitErrorNT (node:net:2045:8)
+    at process.processTicksAndRejections (node:internal/process/task_queues:90:21) {
+  code: 'EADDRINUSE',
+  errno: -4091,
+  syscall: 'listen',
+  address: '0.0.0.0',
+  port: 3000
+}
+
+Node.js v24.18.0
+node:internal/modules/run_main:107
+    triggerUncaughtException(
+    ^
+
+Error: Transform failed with 1 error:
+C:\Users\HP\Downloads\union-erp-main\union-erp-main\server\services\models.service.ts:243:52: ERROR: Cannot use an unparenthesized optional chain inside the target of "new"
+    at failureErrorWithLog (C:\Users\HP\Downloads\union-erp-main\union-erp-main\node_modules\esbuild\lib\main.js:1752:15)
+    at C:\Users\HP\Downloads\union-erp-main\union-erp-main\node_modules\esbuild\lib\main.js:1019:50
+    at responseCallbacks.<computed> (C:\Users\HP\Downloads\union-erp-main\union-erp-main\node_modules\esbuild\lib\main.js:886:9)
+    at handleIncomingPacket (C:\Users\HP\Downloads\union-erp-main\union-erp-main\node_modules\esbuild\lib\main.js:941:12)
+    at Socket.readFromStdout (C:\Users\HP\Downloads\union-erp-main\union-erp-main\node_modules\esbuild\lib\main.js:864:7)
+    at Socket.emit (node:events:509:28)
+    at addChunk (node:internal/streams/readable:563:12)
+    at readableAddChunkPushByteMode (node:internal/streams/readable:514:3)
+    at Readable.push (node:internal/streams/readable:394:5)
+    at Pipe.onStreamRead (node:internal/stream_base_commons:189:23) {
+  name: 'TransformError'
+}
+
+Node.js v24.18.0
+[31mWebSocket server error: Port 24678 is already in use[39m
+node:events:487
+      throw er; // Unhandled 'error' event
+      ^
+
+Error: listen EADDRINUSE: address already in use 0.0.0.0:3000
+    at Server.setupListenHandle [as _listen2] (node:net:2009:16)
+    at listenInCluster (node:net:2066:12)
+    at node:net:2275:7
+    at process.processTicksAndRejections (node:internal/process/task_queues:90:21)
+Emitted 'error' event on Server instance at:
+    at emitErrorNT (node:net:2045:8)
+    at process.processTicksAndRejections (node:internal/process/task_queues:90:21) {
+  code: 'EADDRINUSE',
+  errno: -4091,
+  syscall: 'listen',
+  address: '0.0.0.0',
+  port: 3000
+}
+
+Node.js v24.18.0

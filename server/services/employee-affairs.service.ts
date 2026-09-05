@@ -29,6 +29,7 @@ export const EMPLOYEE_DATA_DIR =
     path.join(process.cwd(), 'server', 'data'),
     path.join(MODULE_DIR, '..', 'data'),
     path.join(MODULE_DIR, 'server', 'data'),
+    path.join(MODULE_DIR, '..', 'server', 'data'),
     path.join(MODULE_DIR, '..', '..', 'server', 'data'),
   ]) || path.join(process.cwd(), 'server', 'data');
 

@@ -24,6 +24,11 @@ files:
 
 asar: true
 
+# مجلد النماذج يُنسخ خارج asar (قابل للكتابة) بجانب app.asar داخل resources
+extraResources:
+  - from: نماذج
+    to: نماذج
+
 # الخادم مُجمَّع بالكامل في dist-server/index.cjs فلا حاجة لإعادة بناء
 # الوحدات الأصلية (sharp اختيارية وغير مضمنة أصلاً في الحزمة)
 npmRebuild: false
@@ -53,6 +58,10 @@ nsis:
 
 portable:
   artifactName: UnionERP-Portable-${version}.${ext}
+
+# توجيه builder مباشرة إلى electron المثبت محلياً في node_modules/electron/dist
+# لتجنب خطأ EPERM عند استخراج/إعادة تسمية أرشيف electron أثناء فحص Windows Defender
+electronDist: node_modules/electron/dist
 
 # لغات المثبت (العربية أولاً ثم الإنجليزية)
 nsisWeb:

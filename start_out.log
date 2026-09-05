@@ -1,0 +1,305 @@
+📊 تم تحميل الدليل الموحد: 0 حساباً في 0 قسماً
+📒 تم تحميل [تدريب_قيود_اليومية_2024.csv]: 0 قيداً (0 مرحّلاً) بإجمالي ٠ ج.م
+📒 تم تحميل [قيود_اليومية_2022.csv]: 0 قيداً (0 مرحّلاً) بإجمالي ٠ ج.م
+📒 تم تحميل [قيود_اليومية_2024.csv]: 0 قيداً (0 مرحّلاً) بإجمالي ٠ ج.م
+📒 تم تحميل [قيود_اليومية_2024_c.csv]: 0 قيداً (0 مرحّلاً) بإجمالي ٠ ج.م
+📒 تم تحميل [قيود_لجان_الشركات_2021.csv]: 0 قيداً (0 مرحّلاً) بإجمالي ٠ ج.م
+📒 تم تحميل [قيود_لجان_الشركات_2022.csv]: 0 قيداً (0 مرحّلاً) بإجمالي ٠ ج.م
+📒 تم تحميل [قيود_لجان_الشركات_2023.csv]: 0 قيداً (0 مرحّلاً) بإجمالي ٠ ج.م
+📒 تم تحميل [قيود_لجان_الشركات_2024.csv]: 0 قيداً (0 مرحّلاً) بإجمالي ٠ ج.م
+📒 تم تحميل [قيود_لجان_الشركات_2025.csv]: 0 قيداً (0 مرحّلاً) بإجمالي ٠ ج.م
+📒 إجمالي القيود المحمّلة: 0 قيداً بإجمالي ٠ ج.م
+[employee-affairs] تم تحميل 76 عاملاً من استمارة 2 تأمينات.
+🐘 PostgreSQL يعمل بالفعل على المنفذ 5432 — سيتم استخدام القائمة الحالية.
+📦 Loading existing financial records from Cloud SQL PostgreSQL...
+📦 تم تحميل 3039 قيداً محاسبياً من PostgreSQL.
+🗂️ تم تحميل 1 مستند مؤرشف من PostgreSQL (بما فيها اللائحة).
+🎙️ [live-agent] خادم WebSocket الحي جاهز على المسار /api/live-agent
+🕐 تم بذر 212 سجل حضور تجريبي (بصمة) للشهر الحالي.
+📊 تم بذر موازنة تقديرية افتراضية لسنة 2026 (45 بنداً).
+=======================================================
+🏛️ Union Financial ERP Server running on http://0.0.0.0:3000
+📌 General Syndicate Chart of Accounts & 1301 Subledger Ready
+=======================================================
+٥:٤٦:٥٧ م [tsx] change in ./server.ts Rerunning...
+📊 تم تحميل الدليل الموحد: 0 حساباً في 0 قسماً
+📒 تم تحميل [تدريب_قيود_اليومية_2024.csv]: 0 قيداً (0 مرحّلاً) بإجمالي ٠ ج.م
+📒 تم تحميل [قيود_اليومية_2022.csv]: 0 قيداً (0 مرحّلاً) بإجمالي ٠ ج.م
+📒 تم تحميل [قيود_اليومية_2024.csv]: 0 قيداً (0 مرحّلاً) بإجمالي ٠ ج.م
+📒 تم تحميل [قيود_اليومية_2024_c.csv]: 0 قيداً (0 مرحّلاً) بإجمالي ٠ ج.م
+📒 تم تحميل [قيود_لجان_الشركات_2021.csv]: 0 قيداً (0 مرحّلاً) بإجمالي ٠ ج.م
+📒 تم تحميل [قيود_لجان_الشركات_2022.csv]: 0 قيداً (0 مرحّلاً) بإجمالي ٠ ج.م
+📒 تم تحميل [قيود_لجان_الشركات_2023.csv]: 0 قيداً (0 مرحّلاً) بإجمالي ٠ ج.م
+📒 تم تحميل [قيود_لجان_الشركات_2024.csv]: 0 قيداً (0 مرحّلاً) بإجمالي ٠ ج.م
+📒 تم تحميل [قيود_لجان_الشركات_2025.csv]: 0 قيداً (0 مرحّلاً) بإجمالي ٠ ج.م
+📒 إجمالي القيود المحمّلة: 0 قيداً بإجمالي ٠ ج.م
+[employee-affairs] تم تحميل 76 عاملاً من استمارة 2 تأمينات.
+🐘 PostgreSQL يعمل بالفعل على المنفذ 5432 — سيتم استخدام القائمة الحالية.
+📦 Loading existing financial records from Cloud SQL PostgreSQL...
+📦 تم تحميل 3039 قيداً محاسبياً من PostgreSQL.
+🗂️ تم تحميل 1 مستند مؤرشف من PostgreSQL (بما فيها اللائحة).
+🎙️ [live-agent] خادم WebSocket الحي جاهز على المسار /api/live-agent
+🕐 تم بذر 212 سجل حضور تجريبي (بصمة) للشهر الحالي.
+📊 تم بذر موازنة تقديرية افتراضية لسنة 2026 (45 بنداً).
+=======================================================
+🏛️ Union Financial ERP Server running on http://0.0.0.0:3000
+📌 General Syndicate Chart of Accounts & 1301 Subledger Ready
+=======================================================
+[2m٦:٠١:٠١ م[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mpage reload [39m[2mserver/security/permissions.ts[22m
+٦:٠١:٠٢ م [tsx] change in ./server\security\permissions.ts Restarting...
+📊 تم تحميل الدليل الموحد: 0 حساباً في 0 قسماً
+📒 تم تحميل [تدريب_قيود_اليومية_2024.csv]: 0 قيداً (0 مرحّلاً) بإجمالي ٠ ج.م
+📒 تم تحميل [قيود_اليومية_2022.csv]: 0 قيداً (0 مرحّلاً) بإجمالي ٠ ج.م
+📒 تم تحميل [قيود_اليومية_2024.csv]: 0 قيداً (0 مرحّلاً) بإجمالي ٠ ج.م
+📒 تم تحميل [قيود_اليومية_2024_c.csv]: 0 قيداً (0 مرحّلاً) بإجمالي ٠ ج.م
+📒 تم تحميل [قيود_لجان_الشركات_2021.csv]: 0 قيداً (0 مرحّلاً) بإجمالي ٠ ج.م
+📒 تم تحميل [قيود_لجان_الشركات_2022.csv]: 0 قيداً (0 مرحّلاً) بإجمالي ٠ ج.م
+📒 تم تحميل [قيود_لجان_الشركات_2023.csv]: 0 قيداً (0 مرحّلاً) بإجمالي ٠ ج.م
+📒 تم تحميل [قيود_لجان_الشركات_2024.csv]: 0 قيداً (0 مرحّلاً) بإجمالي ٠ ج.م
+📒 تم تحميل [قيود_لجان_الشركات_2025.csv]: 0 قيداً (0 مرحّلاً) بإجمالي ٠ ج.م
+📒 إجمالي القيود المحمّلة: 0 قيداً بإجمالي ٠ ج.م
+[employee-affairs] تم تحميل 76 عاملاً من استمارة 2 تأمينات.
+🐘 PostgreSQL يعمل بالفعل على المنفذ 5432 — سيتم استخدام القائمة الحالية.
+📦 Loading existing financial records from Cloud SQL PostgreSQL...
+📦 تم تحميل 3040 قيداً محاسبياً من PostgreSQL.
+٦:٠١:١٢ م [tsx] change in ./server\services\accounting.service.ts Restarting...
+📊 تم تحميل الدليل الموحد: 0 حساباً في 0 قسماً
+📒 تم تحميل [تدريب_قيود_اليومية_2024.csv]: 0 قيداً (0 مرحّلاً) بإجمالي ٠ ج.م
+📒 تم تحميل [قيود_اليومية_2022.csv]: 0 قيداً (0 مرحّلاً) بإجمالي ٠ ج.م
+📒 تم تحميل [قيود_اليومية_2024.csv]: 0 قيداً (0 مرحّلاً) بإجمالي ٠ ج.م
+📒 تم تحميل [قيود_اليومية_2024_c.csv]: 0 قيداً (0 مرحّلاً) بإجمالي ٠ ج.م
+📒 تم تحميل [قيود_لجان_الشركات_2021.csv]: 0 قيداً (0 مرحّلاً) بإجمالي ٠ ج.م
+📒 تم تحميل [قيود_لجان_الشركات_2022.csv]: 0 قيداً (0 مرحّلاً) بإجمالي ٠ ج.م
+📒 تم تحميل [قيود_لجان_الشركات_2023.csv]: 0 قيداً (0 مرحّلاً) بإجمالي ٠ ج.م
+📒 تم تحميل [قيود_لجان_الشركات_2024.csv]: 0 قيداً (0 مرحّلاً) بإجمالي ٠ ج.م
+📒 تم تحميل [قيود_لجان_الشركات_2025.csv]: 0 قيداً (0 مرحّلاً) بإجمالي ٠ ج.م
+📒 إجمالي القيود المحمّلة: 0 قيداً بإجمالي ٠ ج.م
+[employee-affairs] تم تحميل 76 عاملاً من استمارة 2 تأمينات.
+🐘 PostgreSQL يعمل بالفعل على المنفذ 5432 — سيتم استخدام القائمة الحالية.
+📦 Loading existing financial records from Cloud SQL PostgreSQL...
+📦 تم تحميل 3040 قيداً محاسبياً من PostgreSQL.
+🗂️ تم تحميل 1 مستند مؤرشف من PostgreSQL (بما فيها اللائحة).
+🎙️ [live-agent] خادم WebSocket الحي جاهز على المسار /api/live-agent
+🕐 تم بذر 212 سجل حضور تجريبي (بصمة) للشهر الحالي.
+📊 تم بذر موازنة تقديرية افتراضية لسنة 2026 (45 بنداً).
+=======================================================
+🏛️ Union Financial ERP Server running on http://0.0.0.0:3000
+📌 General Syndicate Chart of Accounts & 1301 Subledger Ready
+=======================================================
+٦:٠١:٣٥ م [tsx] change in ./server\services\accounting.service.ts Restarting...
+📊 تم تحميل الدليل الموحد: 0 حساباً في 0 قسماً
+📒 تم تحميل [تدريب_قيود_اليومية_2024.csv]: 0 قيداً (0 مرحّلاً) بإجمالي ٠ ج.م
+📒 تم تحميل [قيود_اليومية_2022.csv]: 0 قيداً (0 مرحّلاً) بإجمالي ٠ ج.م
+📒 تم تحميل [قيود_اليومية_2024.csv]: 0 قيداً (0 مرحّلاً) بإجمالي ٠ ج.م
+📒 تم تحميل [قيود_اليومية_2024_c.csv]: 0 قيداً (0 مرحّلاً) بإجمالي ٠ ج.م
+📒 تم تحميل [قيود_لجان_الشركات_2021.csv]: 0 قيداً (0 مرحّلاً) بإجمالي ٠ ج.م
+📒 تم تحميل [قيود_لجان_الشركات_2022.csv]: 0 قيداً (0 مرحّلاً) بإجمالي ٠ ج.م
+📒 تم تحميل [قيود_لجان_الشركات_2023.csv]: 0 قيداً (0 مرحّلاً) بإجمالي ٠ ج.م
+📒 تم تحميل [قيود_لجان_الشركات_2024.csv]: 0 قيداً (0 مرحّلاً) بإجمالي ٠ ج.م
+📒 تم تحميل [قيود_لجان_الشركات_2025.csv]: 0 قيداً (0 مرحّلاً) بإجمالي ٠ ج.م
+📒 إجمالي القيود المحمّلة: 0 قيداً بإجمالي ٠ ج.م
+[employee-affairs] تم تحميل 76 عاملاً من استمارة 2 تأمينات.
+🐘 PostgreSQL يعمل بالفعل على المنفذ 5432 — سيتم استخدام القائمة الحالية.
+📦 Loading existing financial records from Cloud SQL PostgreSQL...
+📦 تم تحميل 3040 قيداً محاسبياً من PostgreSQL.
+🗂️ تم تحميل 1 مستند مؤرشف من PostgreSQL (بما فيها اللائحة).
+🎙️ [live-agent] خادم WebSocket الحي جاهز على المسار /api/live-agent
+🕐 تم بذر 212 سجل حضور تجريبي (بصمة) للشهر الحالي.
+📊 تم بذر موازنة تقديرية افتراضية لسنة 2026 (45 بنداً).
+=======================================================
+🏛️ Union Financial ERP Server running on http://0.0.0.0:3000
+📌 General Syndicate Chart of Accounts & 1301 Subledger Ready
+=======================================================
+[2m٦:٠٤:٤٠ م[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mpage reload [39m[2mserver/services/accounting.service.ts[22m
+٦:٠٤:٤٠ م [tsx] change in ./server\services\accounting.service.ts Restarting...
+📊 تم تحميل الدليل الموحد: 0 حساباً في 0 قسماً
+📒 تم تحميل [تدريب_قيود_اليومية_2024.csv]: 0 قيداً (0 مرحّلاً) بإجمالي ٠ ج.م
+📒 تم تحميل [قيود_اليومية_2022.csv]: 0 قيداً (0 مرحّلاً) بإجمالي ٠ ج.م
+📒 تم تحميل [قيود_اليومية_2024.csv]: 0 قيداً (0 مرحّلاً) بإجمالي ٠ ج.م
+📒 تم تحميل [قيود_اليومية_2024_c.csv]: 0 قيداً (0 مرحّلاً) بإجمالي ٠ ج.م
+📒 تم تحميل [قيود_لجان_الشركات_2021.csv]: 0 قيداً (0 مرحّلاً) بإجمالي ٠ ج.م
+📒 تم تحميل [قيود_لجان_الشركات_2022.csv]: 0 قيداً (0 مرحّلاً) بإجمالي ٠ ج.م
+📒 تم تحميل [قيود_لجان_الشركات_2023.csv]: 0 قيداً (0 مرحّلاً) بإجمالي ٠ ج.م
+📒 تم تحميل [قيود_لجان_الشركات_2024.csv]: 0 قيداً (0 مرحّلاً) بإجمالي ٠ ج.م
+📒 تم تحميل [قيود_لجان_الشركات_2025.csv]: 0 قيداً (0 مرحّلاً) بإجمالي ٠ ج.م
+📒 إجمالي القيود المحمّلة: 0 قيداً بإجمالي ٠ ج.م
+[employee-affairs] تم تحميل 76 عاملاً من استمارة 2 تأمينات.
+🐘 PostgreSQL يعمل بالفعل على المنفذ 5432 — سيتم استخدام القائمة الحالية.
+📦 Loading existing financial records from Cloud SQL PostgreSQL...
+📦 تم تحميل 3040 قيداً محاسبياً من PostgreSQL.
+🗂️ تم تحميل 1 مستند مؤرشف من PostgreSQL (بما فيها اللائحة).
+🎙️ [live-agent] خادم WebSocket الحي جاهز على المسار /api/live-agent
+🕐 تم بذر 212 سجل حضور تجريبي (بصمة) للشهر الحالي.
+📊 تم بذر موازنة تقديرية افتراضية لسنة 2026 (45 بنداً).
+=======================================================
+🏛️ Union Financial ERP Server running on http://0.0.0.0:3000
+📌 General Syndicate Chart of Accounts & 1301 Subledger Ready
+=======================================================
+[2m٧:١٧:٤٣ م[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mpage reload [39m[2mrelease/win-unpacked/LICENSES.chromium.html[22m
+[2m٧:١٨:٣٠ م[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mpage reload [39m[2mrelease/win-unpacked.tmp/LICENSES.chromium.html[22m
+[2m٧:١٨:٣٠ م[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mpage reload [39m[2mrelease/win-unpacked.tmp/LICENSES.chromium.html[22m
+[2m٧:١٨:٣٠ م[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mpage reload [39m[2mrelease/win-unpacked.tmp/LICENSES.chromium.html[22m
+[2m٧:١٨:٣٠ م[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mpage reload [39m[2mrelease/win-unpacked.tmp/LICENSES.chromium.html[22m
+[2m٧:١٨:٣٠ م[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mpage reload [39m[2mrelease/win-unpacked.tmp/LICENSES.chromium.html[22m
+[2m٧:١٨:٣٠ م[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mpage reload [39m[2mrelease/win-unpacked.tmp/LICENSES.chromium.html[22m
+[2m٧:١٨:٣١ م[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mpage reload [39m[2mrelease/win-unpacked.tmp/LICENSES.chromium.html[22m
+[2m٧:١٨:٣٢ م[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mpage reload [39m[2mrelease/win-unpacked.tmp/LICENSES.chromium.html[22m
+[2m٧:١٨:٣٣ م[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mpage reload [39m[2mrelease/win-unpacked.tmp/LICENSES.chromium.html[22m
+[2m٧:١٨:٣٣ م[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mpage reload [39m[2mrelease/win-unpacked.tmp/LICENSES.chromium.html[22m
+[2m٧:١٨:٣٤ م[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mpage reload [39m[2mrelease/win-unpacked.tmp/LICENSES.chromium.html[22m
+[2m٧:١٨:٣٤ م[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mpage reload [39m[2mrelease/win-unpacked.tmp/LICENSES.chromium.html[22m
+[2m٧:١٨:٣٥ م[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mpage reload [39m[2mrelease/win-unpacked.tmp/LICENSES.chromium.html[22m
+[2m٧:١٨:٣٥ م[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mpage reload [39m[2mrelease/win-unpacked.tmp/LICENSES.chromium.html[22m
+[2m٧:١٨:٣٦ م[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mpage reload [39m[2mrelease/win-unpacked.tmp/LICENSES.chromium.html[22m
+[2m٧:١٨:٣٦ م[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mpage reload [39m[2mrelease/win-unpacked.tmp/LICENSES.chromium.html[22m
+[2m٧:١٨:٣٦ م[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mpage reload [39m[2mrelease/win-unpacked.tmp/LICENSES.chromium.html[22m
+[2m٧:١٨:٣٦ م[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mpage reload [39m[2mrelease/win-unpacked.tmp/LICENSES.chromium.html[22m
+[2m٧:١٨:٣٧ م[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mpage reload [39m[2mrelease/win-unpacked.tmp/LICENSES.chromium.html[22m
+[2m٧:١٩:١٠ م[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mpage reload [39m[2mrelease/win-unpacked.tmp/LICENSES.chromium.html[22m
+[2m٧:١٩:٢٠ م[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mpage reload [39m[2mrelease/win-unpacked.tmp/LICENSES.chromium.html[22m
+[2m٧:١٩:٢٠ م[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mpage reload [39m[2mrelease/win-unpacked.tmp/LICENSES.chromium.html[22m
+[2m٧:١٩:٢٠ م[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mpage reload [39m[2mrelease/win-unpacked.tmp/LICENSES.chromium.html[22m
+[2m٧:١٩:٢٠ م[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mpage reload [39m[2mrelease/win-unpacked.tmp/LICENSES.chromium.html[22m
+[2m٧:١٩:٢١ م[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mpage reload [39m[2mrelease/win-unpacked.tmp/LICENSES.chromium.html[22m
+[2m٧:١٩:٢٢ م[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mpage reload [39m[2mrelease/win-unpacked.tmp/LICENSES.chromium.html[22m
+[2m٧:١٩:٢٣ م[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mpage reload [39m[2mrelease/win-unpacked.tmp/LICENSES.chromium.html[22m
+[2m٧:١٩:٢٣ م[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mpage reload [39m[2mrelease/win-unpacked.tmp/LICENSES.chromium.html[22m
+[2m٧:١٩:٢٣ م[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mpage reload [39m[2mrelease/win-unpacked.tmp/LICENSES.chromium.html[22m
+[2m٧:١٩:٢٤ م[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mpage reload [39m[2mrelease/win-unpacked.tmp/LICENSES.chromium.html[22m
+[2m٧:١٩:٢٤ م[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mpage reload [39m[2mrelease/win-unpacked.tmp/LICENSES.chromium.html[22m
+[2m٧:٢٠:٠٣ م[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mpage reload [39m[2mrelease/win-unpacked.tmp/LICENSES.chromium.html[22m
+[2m٧:٢٦:١٨ م[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mpage reload [39m[2mrelease/win-unpacked.tmp/LICENSES.chromium.html[22m
+[2m٧:٢٦:١٨ م[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mpage reload [39m[2mrelease/win-unpacked.tmp/LICENSES.chromium.html[22m
+[2m٧:٢٦:١٨ م[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mpage reload [39m[2mrelease/win-unpacked.tmp/LICENSES.chromium.html[22m
+[2m٧:٢٦:١٨ م[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mpage reload [39m[2mrelease/win-unpacked.tmp/LICENSES.chromium.html[22m
+[2m٧:٢٦:١٨ م[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mpage reload [39m[2mrelease/win-unpacked.tmp/LICENSES.chromium.html[22m
+[2m٧:٢٦:١٨ م[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mpage reload [39m[2mrelease/win-unpacked.tmp/LICENSES.chromium.html[22m
+[2m٧:٢٦:١٩ م[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mpage reload [39m[2mrelease/win-unpacked.tmp/LICENSES.chromium.html[22m
+[2m٧:٢٦:١٩ م[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mpage reload [39m[2mrelease/win-unpacked.tmp/LICENSES.chromium.html[22m
+[2m٧:٢٦:٢٠ م[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mpage reload [39m[2mrelease/win-unpacked.tmp/LICENSES.chromium.html[22m
+[2m٧:٢٦:٢٠ م[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mpage reload [39m[2mrelease/win-unpacked.tmp/LICENSES.chromium.html[22m
+[2m٧:٢٦:٢١ م[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mpage reload [39m[2mrelease/win-unpacked.tmp/LICENSES.chromium.html[22m
+[2m٧:٢٦:٢١ م[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mpage reload [39m[2mrelease/win-unpacked.tmp/LICENSES.chromium.html[22m
+[2m٧:٢٦:٢٢ م[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mpage reload [39m[2mrelease/win-unpacked.tmp/LICENSES.chromium.html[22m
+[2m٧:٢٦:٢٢ م[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mpage reload [39m[2mrelease/win-unpacked.tmp/LICENSES.chromium.html[22m
+[2m٧:٢٦:٢٢ م[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mpage reload [39m[2mrelease/win-unpacked.tmp/LICENSES.chromium.html[22m
+[2m٧:٢٦:٢٢ م[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mpage reload [39m[2mrelease/win-unpacked.tmp/LICENSES.chromium.html[22m
+[2m٧:٢٦:٢٢ م[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mpage reload [39m[2mrelease/win-unpacked.tmp/LICENSES.chromium.html[22m
+[2m٧:٢٦:٢٣ م[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mpage reload [39m[2mrelease/win-unpacked.tmp/LICENSES.chromium.html[22m
+[2m٧:٢٦:٢٣ م[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mpage reload [39m[2mrelease/win-unpacked.tmp/LICENSES.chromium.html[22m
+[2m٧:٢٦:٢٤ م[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mpage reload [39m[2mrelease/win-unpacked.tmp/LICENSES.chromium.html[22m
+[2m٧:٢٦:٢٤ م[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mpage reload [39m[2mrelease/win-unpacked.tmp/LICENSES.chromium.html[22m
+[2m٧:٢٧:١٦ م[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mpage reload [39m[2melectron-builder.yml[22m
+[2m٧:٢٧:٢٢ م[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mpage reload [39m[2mrelease/win-unpacked.tmp/LICENSES.chromium.html[22m
+[2m٧:٢٧:٣٠ م[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mpage reload [39m[2mrelease/win-unpacked/LICENSES.chromium.html[22m
+٨:٠٥:٣٩ م [tsx] change in ./server\services\csv-import.service.ts Rerunning...
+📊 تم تحميل الدليل الموحد: 0 حساباً في 0 قسماً
+📒 تم تحميل [تدريب_قيود_اليومية_2024.csv]: 0 قيداً (0 مرحّلاً) بإجمالي ٠ ج.م
+📒 تم تحميل [قيود_اليومية_2022.csv]: 0 قيداً (0 مرحّلاً) بإجمالي ٠ ج.م
+📒 تم تحميل [قيود_اليومية_2024.csv]: 0 قيداً (0 مرحّلاً) بإجمالي ٠ ج.م
+📒 تم تحميل [قيود_اليومية_2024_c.csv]: 0 قيداً (0 مرحّلاً) بإجمالي ٠ ج.م
+📒 تم تحميل [قيود_لجان_الشركات_2021.csv]: 0 قيداً (0 مرحّلاً) بإجمالي ٠ ج.م
+📒 تم تحميل [قيود_لجان_الشركات_2022.csv]: 0 قيداً (0 مرحّلاً) بإجمالي ٠ ج.م
+📒 تم تحميل [قيود_لجان_الشركات_2023.csv]: 0 قيداً (0 مرحّلاً) بإجمالي ٠ ج.م
+📒 تم تحميل [قيود_لجان_الشركات_2024.csv]: 0 قيداً (0 مرحّلاً) بإجمالي ٠ ج.م
+📒 تم تحميل [قيود_لجان_الشركات_2025.csv]: 0 قيداً (0 مرحّلاً) بإجمالي ٠ ج.م
+📒 إجمالي القيود المحمّلة: 0 قيداً بإجمالي ٠ ج.م
+[employee-affairs] تم تحميل 76 عاملاً من استمارة 2 تأمينات.
+🐘 PostgreSQL يعمل بالفعل على المنفذ 5432 — سيتم استخدام القائمة الحالية.
+📦 Loading existing financial records from Cloud SQL PostgreSQL...
+📦 تم تحميل 3040 قيداً محاسبياً من PostgreSQL.
+🗂️ تم تحميل 1 مستند مؤرشف من PostgreSQL (بما فيها اللائحة).
+[2m٨:٠٦:٠٤ م[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m Re-optimizing dependencies because lockfile has changed
+🎙️ [live-agent] خادم WebSocket الحي جاهز على المسار /api/live-agent
+🕐 تم بذر 212 سجل حضور تجريبي (بصمة) للشهر الحالي.
+📊 تم بذر موازنة تقديرية افتراضية لسنة 2026 (45 بنداً).
+٨:٠٨:٢٤ م [tsx] change in ./server\services\employee-affairs.service.ts Rerunning...
+📊 تم تحميل الدليل الموحد: 0 حساباً في 0 قسماً
+📒 تم تحميل [تدريب_قيود_اليومية_2024.csv]: 0 قيداً (0 مرحّلاً) بإجمالي ٠ ج.م
+📒 تم تحميل [قيود_اليومية_2022.csv]: 0 قيداً (0 مرحّلاً) بإجمالي ٠ ج.م
+📒 تم تحميل [قيود_اليومية_2024.csv]: 0 قيداً (0 مرحّلاً) بإجمالي ٠ ج.م
+📒 تم تحميل [قيود_اليومية_2024_c.csv]: 0 قيداً (0 مرحّلاً) بإجمالي ٠ ج.م
+📒 تم تحميل [قيود_لجان_الشركات_2021.csv]: 0 قيداً (0 مرحّلاً) بإجمالي ٠ ج.م
+📒 تم تحميل [قيود_لجان_الشركات_2022.csv]: 0 قيداً (0 مرحّلاً) بإجمالي ٠ ج.م
+📒 تم تحميل [قيود_لجان_الشركات_2023.csv]: 0 قيداً (0 مرحّلاً) بإجمالي ٠ ج.م
+📒 تم تحميل [قيود_لجان_الشركات_2024.csv]: 0 قيداً (0 مرحّلاً) بإجمالي ٠ ج.م
+📒 تم تحميل [قيود_لجان_الشركات_2025.csv]: 0 قيداً (0 مرحّلاً) بإجمالي ٠ ج.م
+📒 إجمالي القيود المحمّلة: 0 قيداً بإجمالي ٠ ج.م
+[employee-affairs] تم تحميل 76 عاملاً من استمارة 2 تأمينات.
+🐘 PostgreSQL يعمل بالفعل على المنفذ 5432 — سيتم استخدام القائمة الحالية.
+📦 Loading existing financial records from Cloud SQL PostgreSQL...
+📦 تم تحميل 3040 قيداً محاسبياً من PostgreSQL.
+🗂️ تم تحميل 1 مستند مؤرشف من PostgreSQL (بما فيها اللائحة).
+🎙️ [live-agent] خادم WebSocket الحي جاهز على المسار /api/live-agent
+🕐 تم بذر 212 سجل حضور تجريبي (بصمة) للشهر الحالي.
+📊 تم بذر موازنة تقديرية افتراضية لسنة 2026 (45 بنداً).
+٩:٥٥:٢٨ م [tsx] change in ./server.ts Rerunning...
+📊 تم تحميل الدليل الموحد: 0 حساباً في 0 قسماً
+📒 تم تحميل [تدريب_قيود_اليومية_2024.csv]: 0 قيداً (0 مرحّلاً) بإجمالي ٠ ج.م
+📒 تم تحميل [قيود_اليومية_2022.csv]: 0 قيداً (0 مرحّلاً) بإجمالي ٠ ج.م
+📒 تم تحميل [قيود_اليومية_2024.csv]: 0 قيداً (0 مرحّلاً) بإجمالي ٠ ج.م
+📒 تم تحميل [قيود_اليومية_2024_c.csv]: 0 قيداً (0 مرحّلاً) بإجمالي ٠ ج.م
+📒 تم تحميل [قيود_لجان_الشركات_2021.csv]: 0 قيداً (0 مرحّلاً) بإجمالي ٠ ج.م
+📒 تم تحميل [قيود_لجان_الشركات_2022.csv]: 0 قيداً (0 مرحّلاً) بإجمالي ٠ ج.م
+📒 تم تحميل [قيود_لجان_الشركات_2023.csv]: 0 قيداً (0 مرحّلاً) بإجمالي ٠ ج.م
+📒 تم تحميل [قيود_لجان_الشركات_2024.csv]: 0 قيداً (0 مرحّلاً) بإجمالي ٠ ج.م
+📒 تم تحميل [قيود_لجان_الشركات_2025.csv]: 0 قيداً (0 مرحّلاً) بإجمالي ٠ ج.م
+📒 إجمالي القيود المحمّلة: 0 قيداً بإجمالي ٠ ج.م
+[employee-affairs] تم تحميل 76 عاملاً من استمارة 2 تأمينات.
+🐘 PostgreSQL يعمل بالفعل على المنفذ 5432 — سيتم استخدام القائمة الحالية.
+📦 Loading existing financial records from Cloud SQL PostgreSQL...
+📦 تم تحميل 3040 قيداً محاسبياً من PostgreSQL.
+٩:٥٥:٤٤ م [tsx] change in ./server.ts Restarting...
+📊 تم تحميل الدليل الموحد: 0 حساباً في 0 قسماً
+📒 تم تحميل [تدريب_قيود_اليومية_2024.csv]: 0 قيداً (0 مرحّلاً) بإجمالي ٠ ج.م
+📒 تم تحميل [قيود_اليومية_2022.csv]: 0 قيداً (0 مرحّلاً) بإجمالي ٠ ج.م
+📒 تم تحميل [قيود_اليومية_2024.csv]: 0 قيداً (0 مرحّلاً) بإجمالي ٠ ج.م
+📒 تم تحميل [قيود_اليومية_2024_c.csv]: 0 قيداً (0 مرحّلاً) بإجمالي ٠ ج.م
+📒 تم تحميل [قيود_لجان_الشركات_2021.csv]: 0 قيداً (0 مرحّلاً) بإجمالي ٠ ج.م
+📒 تم تحميل [قيود_لجان_الشركات_2022.csv]: 0 قيداً (0 مرحّلاً) بإجمالي ٠ ج.م
+📒 تم تحميل [قيود_لجان_الشركات_2023.csv]: 0 قيداً (0 مرحّلاً) بإجمالي ٠ ج.م
+📒 تم تحميل [قيود_لجان_الشركات_2024.csv]: 0 قيداً (0 مرحّلاً) بإجمالي ٠ ج.م
+📒 تم تحميل [قيود_لجان_الشركات_2025.csv]: 0 قيداً (0 مرحّلاً) بإجمالي ٠ ج.م
+📒 إجمالي القيود المحمّلة: 0 قيداً بإجمالي ٠ ج.م
+[employee-affairs] تم تحميل 76 عاملاً من استمارة 2 تأمينات.
+🐘 PostgreSQL يعمل بالفعل على المنفذ 5432 — سيتم استخدام القائمة الحالية.
+📦 Loading existing financial records from Cloud SQL PostgreSQL...
+📦 تم تحميل 3040 قيداً محاسبياً من PostgreSQL.
+🗂️ تم تحميل 1 مستند مؤرشف من PostgreSQL (بما فيها اللائحة).
+🎙️ [live-agent] خادم WebSocket الحي جاهز على المسار /api/live-agent
+🕐 تم بذر 212 سجل حضور تجريبي (بصمة) للشهر الحالي.
+📊 تم بذر موازنة تقديرية افتراضية لسنة 2026 (45 بنداً).
+=======================================================
+🏛️ Union Financial ERP Server running on http://0.0.0.0:3000
+📌 General Syndicate Chart of Accounts & 1301 Subledger Ready
+=======================================================
+[2m٩:٥٨:٣٧ م[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/App.tsx, /src/index.css, /src/pages/Gateways.tsx, /src/components/Layout.tsx[22m
+[2m٩:٥٨:٤٦ م[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/App.tsx, /src/index.css, /src/pages/Gateways.tsx, /src/components/Layout.tsx[22m
+[2m٩:٥٨:٥٣ م[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/App.tsx, /src/index.css[22m
+[2m٩:٥٩:٠٠ م[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/App.tsx, /src/index.css[22m
+[2m٩:٥٩:٠٩ م[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mpage reload [39m[2melectron-builder.yml[22m
+[2m٩:٥٩:١٧ م[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/index.css, /src/App.tsx[22m
+[2m٩:٥٩:٣٢ م[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/index.css, /src/App.tsx[22m
+١٠:٢٠:٣٤ م [tsx] change in ./server\services\models.service.ts Rerunning...
+١٠:٢٠:٤٠ م [tsx] change in ./server\services\models.service.ts Rerunning...
+١٠:٢٠:٤٤ م [tsx] change in ./server.ts Restarting...
+📊 تم تحميل الدليل الموحد: 0 حساباً في 0 قسماً
+📒 تم تحميل [تدريب_قيود_اليومية_2024.csv]: 0 قيداً (0 مرحّلاً) بإجمالي ٠ ج.م
+📒 تم تحميل [قيود_اليومية_2022.csv]: 0 قيداً (0 مرحّلاً) بإجمالي ٠ ج.م
+📒 تم تحميل [قيود_اليومية_2024.csv]: 0 قيداً (0 مرحّلاً) بإجمالي ٠ ج.م
+📒 تم تحميل [قيود_اليومية_2024_c.csv]: 0 قيداً (0 مرحّلاً) بإجمالي ٠ ج.م
+📒 تم تحميل [قيود_لجان_الشركات_2021.csv]: 0 قيداً (0 مرحّلاً) بإجمالي ٠ ج.م
+📒 تم تحميل [قيود_لجان_الشركات_2022.csv]: 0 قيداً (0 مرحّلاً) بإجمالي ٠ ج.م
+📒 تم تحميل [قيود_لجان_الشركات_2023.csv]: 0 قيداً (0 مرحّلاً) بإجمالي ٠ ج.م
+📒 تم تحميل [قيود_لجان_الشركات_2024.csv]: 0 قيداً (0 مرحّلاً) بإجمالي ٠ ج.م
+📒 تم تحميل [قيود_لجان_الشركات_2025.csv]: 0 قيداً (0 مرحّلاً) بإجمالي ٠ ج.م
+📒 إجمالي القيود المحمّلة: 0 قيداً بإجمالي ٠ ج.م
+[employee-affairs] تم تحميل 76 عاملاً من استمارة 2 تأمينات.
+🐘 PostgreSQL يعمل بالفعل على المنفذ 5432 — سيتم استخدام القائمة الحالية.
+📦 Loading existing financial records from Cloud SQL PostgreSQL...
+📦 تم تحميل 3040 قيداً محاسبياً من PostgreSQL.
+🗂️ تم تحميل 1 مستند مؤرشف من PostgreSQL (بما فيها اللائحة).
+[2m١٠:٢١:٠٣ م[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m Re-optimizing dependencies because lockfile has changed
+🎙️ [live-agent] خادم WebSocket الحي جاهز على المسار /api/live-agent
+🕐 تم بذر 212 سجل حضور تجريبي (بصمة) للشهر الحالي.
+📊 تم بذر موازنة تقديرية افتراضية لسنة 2026 (45 بنداً).

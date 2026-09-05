@@ -111,6 +111,15 @@ export function can(user: User | null | undefined, permission: Permission | stri
   return perms.includes('*') || perms.includes(permission);
 }
 
+/** معرفات المستخدمين المعفون من قواعد فصل المهام (SoD) — يُكملون دورة القيد كاملة (إنشاء/اعتماد/ترحيل) بأنفسهم */
+export const SOD_EXEMPT_USER_IDS = new Set<string>(['usr-mohamed-abdallah']);
+
+/** هل المستخدم معفى من قواعد فصل المهام (SoD)؟ (مدير النظام + المستخدمون المعتمدون في القائمة) */
+export function isSodExempt(user?: User | null): boolean {
+  if (!user) return false;
+  return user.role === 'SYSTEM_ADMIN' || SOD_EXEMPT_USER_IDS.has(user.id);
+}
+
 /** هل المستخدم للقراءة فقط (اطلاع/بحث/طباعة دون أي تسجيل)؟ */
 export function isReadOnlyUser(user?: User | null): boolean {
   return (
