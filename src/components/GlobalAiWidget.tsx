@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Bot, X, Send, Loader2, ShieldCheck, Sparkles, CheckCircle2, AlertTriangle, Mic, Square } from 'lucide-react';
+import { Bot, X, Send, Loader2, ShieldCheck, Sparkles, CheckCircle2, AlertTriangle, Mic, Square, Volume2, VolumeX, UserCheck } from 'lucide-react';
 import { User } from '../types/erp.js';
 import { getCurrentUserId } from '../services/api.js';
 import { streamGlobalAiChat } from '../services/ai-stream.js';
@@ -52,6 +52,8 @@ export const GlobalAiWidget: React.FC<GlobalAiWidgetProps> = ({ currentTab, sele
   const [apiConfigured, setApiConfigured] = useState<boolean | null>(null);
   const [isListening, setIsListening] = useState(false);
   const [voiceError, setVoiceError] = useState<string | null>(null);
+  const [speechEnabled, setSpeechEnabled] = useState(true);
+  const [isSpeaking, setIsSpeaking] = useState(false);
   const [pendingAction, setPendingAction] = useState<PendingAction | null>(null);
   const [executing, setExecuting] = useState(false);
   const [execResult, setExecResult] = useState<string | null>(null);
@@ -92,6 +94,26 @@ export const GlobalAiWidget: React.FC<GlobalAiWidgetProps> = ({ currentTab, sele
       }
     };
   }, []);
+
+
+  const speakText = (text: string) => {
+    if (!speechEnabled || typeof window === 'undefined' || !('speechSynthesis' in window)) return;
+    try {
+      window.speechSynthesis.cancel();
+      // Remove symbols, emojis and markdown formatting for clean, smooth Arabic voice
+      const cleanText = text.replace(/[*#•_`~[\]]/g, ' ').replace(/\n+/g, '، ');
+      const utterance = new SpeechSynthesisUtterance(cleanText);
+      utterance.lang = 'ar-EG';
+      utterance.rate = 0.95;
+      utterance.pitch = 1.0;
+      utterance.onstart = () => setIsSpeaking(true);
+      utterance.onend = () => setIsSpeaking(false);
+      utterance.onerror = () => setIsSpeaking(false);
+      window.speechSynthesis.speak(utterance);
+    } catch {
+      setIsSpeaking(false);
+    }
+  };
 
   const send = async (text?: string) => {
     const bodyText = (text ?? input).trim();
@@ -140,6 +162,7 @@ export const GlobalAiWidget: React.FC<GlobalAiWidgetProps> = ({ currentTab, sele
       );
       if (!assistantText) assistantText = 'تمت المعالجة.';
       updateAssistant();
+      speakText(assistantText);
     } catch (err: any) {
       setMessages((m) => [...m, { role: 'assistant', text: `حدث خطأ: ${err.message || 'غير معروف'}` }]);
     } finally {
@@ -285,7 +308,8 @@ export const GlobalAiWidget: React.FC<GlobalAiWidgetProps> = ({ currentTab, sele
         else if (event.error === 'not-allowed' || event.error === 'service-not-allowed')
           setVoiceError('تم رفض إذن الميكروفون — اسمح بالوصول من إعدادات المتصفح.');
         else if (event.error === 'audio-capture') setVoiceError('لا يوجد ميكروفون متاح على جهازك.');
-        else if (event.error !== 'aborted') setVoiceError(`فشل التقاط الصوت: ${event.error}`);
+        else if (event.error === 'network') setVoiceError('خطأ في شبكة التعرف الصوتي المباشر للمتصفح — يُرجى التأكد من الاتصال بالإنترنت أو الكتابة مباشرة.');
+else if (event.error !== 'aborted') setVoiceError(`فشل التقاط الصوت: ${event.error}`);
       };
 
       try {
@@ -327,7 +351,16 @@ export const GlobalAiWidget: React.FC<GlobalAiWidgetProps> = ({ currentTab, sele
                 <Sparkles className="w-4 h-4" />
               </div>
               <div>
-                <h3 className="text-sm font-bold text-slate-100">المساعد الذكي العام</h3>
+                <div className="flex items-center gap-2">
+                  <h3 className="text-sm font-bold text-slate-100">المساعد الذكي العام</h3>
+                  <div className="flex items-center gap-1 px-1.5 py-0.5 rounded bg-purple-950 border border-purple-800/40 text-[9px]">
+                    <div className="relative w-3.5 h-3.5 rounded-full bg-purple-600 flex items-center justify-center text-white overflow-hidden">
+                      <UserCheck className="w-2.5 h-2.5" />
+                      {isSpeaking && <span className="absolute inset-0 bg-purple-400/40 animate-ping rounded-full" />}
+                    </div>
+                    <span className="text-purple-300 font-bold">{isSpeaking ? 'يتحدث...' : 'صوت وصورة'}</span>
+                  </div>
+                </div>
                 <span className="text-[10px] text-slate-400 flex items-center gap-1">
                   <span
                     className={`w-1.5 h-1.5 rounded-full ${
@@ -342,12 +375,30 @@ export const GlobalAiWidget: React.FC<GlobalAiWidgetProps> = ({ currentTab, sele
                 </span>
               </div>
             </div>
-            <button
-              onClick={() => setIsOpen(false)}
-              className="text-slate-400 hover:text-white p-1 rounded"
-            >
-              <X className="w-4 h-4" />
-            </button>
+            <div className="flex items-center gap-1">
+              <button
+                type="button"
+                onClick={() => {
+                  if (speechEnabled) window.speechSynthesis?.cancel();
+                  setSpeechEnabled(!speechEnabled);
+                }}
+                className={`p-1 rounded transition-colors ${
+                  speechEnabled ? 'text-purple-300 hover:text-purple-200' : 'text-slate-500 hover:text-slate-400'
+                }`}
+                title={speechEnabled ? 'إيقاف النطق الصوتي' : 'تفعيل النطق الصوتي'}
+              >
+                {speechEnabled ? <Volume2 className="w-4 h-4" /> : <VolumeX className="w-4 h-4" />}
+              </button>
+              <button
+                onClick={() => {
+                  if (speechEnabled) window.speechSynthesis?.cancel();
+                  setIsOpen(false);
+                }}
+                className="text-slate-400 hover:text-white p-1 rounded"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
           </div>
 
           {/* Messages */}
