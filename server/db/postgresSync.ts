@@ -7,6 +7,19 @@ import fs from 'fs';
 import path from 'path';
 import { moduleDir, resolveFirst } from '../utils/runtime-paths.js';
 
+/** تحويل قيمة numeric (قد تكون string من PG) إلى number للاستخدام الداخلي */
+function toNumber(v: any): number {
+  if (v === null || v === undefined) return 0;
+  if (typeof v === 'number') return v;
+  const n = Number(v);
+  return Number.isFinite(n) ? n : 0;
+}
+function toNumericString(v: any): string {
+  if (v === null || v === undefined) return '0';
+  if (typeof v === 'string') return v;
+  return String(v);
+}
+
 export class PostgresStorageManager {
   private isInitialized = false;
   private dbAvailable = false;
@@ -208,7 +221,7 @@ export class PostgresStorageManager {
         const memoryJournalEntries = store.journalEntries.slice();
         const memoryAccounts = store.accounts.slice();
 
-        // Load Accounts from PostgreSQL
+        // Load Accounts from PostgreSQL — P1 numeric string handling
         const dbAccounts = await db.select().from(schema.accounts);
         if (dbAccounts.length > 0) {
           store.accounts = dbAccounts.map((a) => ({
@@ -223,7 +236,7 @@ export class PostgresStorageManager {
             isActive: a.isActive,
             requiresSubledger: a.requiresSubledger,
             subledgerType: (a.subledgerType || 'NONE') as any,
-            currentBalance: a.currentBalance,
+            currentBalance: toNumber(a.currentBalance),
           }));
         }
 
@@ -238,28 +251,31 @@ export class PostgresStorageManager {
           console.log(`🔁 تم دمج ${extraAccounts.length} حساباً من الذاكرة (CSV) مع PostgreSQL.`);
         }
 
-        // Load Subledger Parties
+        // Load Subledger Parties — numeric handling
         const dbParties = await db.select().from(schema.subledgerParties);
         if (dbParties.length > 0) {
-          store.subledgerParties = dbParties.map((p) => ({
-            id: p.id,
-            partyCode: p.code,
-            name: p.name,
-            normalizedName: normalizeArabicText(p.name),
-            type: (p.type || 'MISC_DEBTOR') as any,
-            associatedAccountId: 'acc-imported', // يُصحح لاحقاً إلى حساب المدينين الفعلي
-            nationalIdHash: p.nationalId || undefined,
-            taxRegistrationNumber: p.taxRegistrationNumber || undefined,
-            commercialRegister: p.commercialRegister || undefined,
-            phone: p.phone || undefined,
-            address: p.address || undefined,
-            totalDebit: p.balance > 0 ? p.balance : 0,
-            totalCredit: p.balance < 0 ? Math.abs(p.balance) : 0,
-            currentBalance: p.balance,
-            organizationId: p.organizationId,
-            createdAt: p.createdAt?.toISOString() || new Date().toISOString(),
-            updatedAt: p.createdAt?.toISOString() || new Date().toISOString(),
-          }));
+          store.subledgerParties = dbParties.map((p) => {
+            const bal = toNumber(p.balance);
+            return {
+              id: p.id,
+              partyCode: p.code,
+              name: p.name,
+              normalizedName: normalizeArabicText(p.name),
+              type: (p.type || 'MISC_DEBTOR') as any,
+              associatedAccountId: 'acc-imported', // يُصحح لاحقاً إلى حساب المدينين الفعلي
+              nationalIdHash: p.nationalId || undefined,
+              taxRegistrationNumber: p.taxRegistrationNumber || undefined,
+              commercialRegister: p.commercialRegister || undefined,
+              phone: p.phone || undefined,
+              address: p.address || undefined,
+              totalDebit: bal > 0 ? bal : 0,
+              totalCredit: bal < 0 ? Math.abs(bal) : 0,
+              currentBalance: bal,
+              organizationId: p.organizationId,
+              createdAt: p.createdAt?.toISOString() || new Date().toISOString(),
+              updatedAt: p.createdAt?.toISOString() || new Date().toISOString(),
+            };
+          });
         }
 
         // Load Members
@@ -305,8 +321,8 @@ export class PostgresStorageManager {
                   subledgerPartyId: l.subledgerPartyId || undefined,
                   subledgerPartyName: l.subledgerPartyNameInput || undefined,
                   costCenterId: l.costCenterId || undefined,
-                  debit: l.debit,
-                  credit: l.credit,
+                  debit: toNumber(l.debit),
+                  credit: toNumber(l.credit),
                   attachmentUrl: l.attachmentUrl || undefined,
                   aiConfidenceScore: l.aiConfidenceScore ?? undefined,
                   description: l.description || e.description,
@@ -325,8 +341,8 @@ export class PostgresStorageManager {
               status: e.status as any,
               description: e.description,
               journalName: e.journalName || 'يومية النقابة',
-              totalDebit: e.totalDebit,
-              totalCredit: e.totalCredit,
+              totalDebit: toNumber(e.totalDebit),
+              totalCredit: toNumber(e.totalCredit),
               lines,
               createdBy: e.createdById,
               createdByName: creator?.fullName || 'مسجل بالنظام',
@@ -427,14 +443,14 @@ export class PostgresStorageManager {
         type: entry.type,
         journalName: entry.journalName || 'يومية النقابة',
         status: entry.status,
-        totalDebit: entry.totalDebit,
-        totalCredit: entry.totalCredit,
+        totalDebit: toNumericString(entry.totalDebit),
+        totalCredit: toNumericString(entry.totalCredit),
         createdById: entry.createdBy || 'usr-cfo',
         approvedById: entry.approvedBy,
         reversalOfEntryId: entry.reversedEntryId,
         isReversed: entry.status === 'REVERSED',
         checksum: entry.checksum || 'sha256-verified',
-      }).onConflictDoNothing();
+      } as any).onConflictDoNothing();
 
       if (entry.lines && entry.lines.length > 0) {
         for (const line of entry.lines) {
@@ -445,12 +461,12 @@ export class PostgresStorageManager {
             subledgerPartyId: line.subledgerPartyId,
             subledgerPartyNameInput: line.subledgerPartyName,
             costCenterId: line.costCenterId,
-            debit: line.debit,
-            credit: line.credit,
+            debit: toNumericString(line.debit),
+            credit: toNumericString(line.credit),
             attachmentUrl: line.attachmentUrl,
             aiConfidenceScore: line.aiConfidenceScore,
             description: line.description,
-          }).onConflictDoNothing();
+          } as any).onConflictDoNothing();
         }
       }
     } catch (error) {
@@ -492,7 +508,7 @@ export class PostgresStorageManager {
         payerName: receipt.payerName,
         memberId: receipt.memberId,
         revenueTypeId: receipt.revenueTypeId || 'REV-GEN',
-        amount: receipt.amount,
+        amount: toNumericString(receipt.amount),
         paymentMethod: receipt.paymentMethod,
         notes: receipt.notes,
         date: receipt.date,
@@ -500,14 +516,14 @@ export class PostgresStorageManager {
         checksum: receipt.sha256Hash || 'SHA256',
         createdById: receipt.issuedBy || 'usr-cfo',
         journalEntryId: receipt.journalEntryId,
-      }).onConflictDoNothing();
+      } as any).onConflictDoNothing();
     } catch (error) {
       console.error('Failed to persist receipt to Cloud SQL:', error);
     }
   }
 
   /**
-   * Persist an account to PostgreSQL
+   * Persist an account to PostgreSQL — P1 numeric
    */
   public async persistAccount(acc: any) {
     if (!this.dbAvailable) return; // وضع الذاكرة: لا محاولة كتابة لقاعدة غير مهيأة
@@ -524,16 +540,16 @@ export class PostgresStorageManager {
         isActive: acc.isActive,
         requiresSubledger: acc.requiresSubledger,
         subledgerType: acc.subledgerType,
-        currentBalance: acc.currentBalance,
+        currentBalance: toNumericString(acc.currentBalance),
         organizationId: acc.organizationId || 'org-general',
-      }).onConflictDoUpdate({
+      } as any).onConflictDoUpdate({
         target: schema.accounts.code,
         set: {
           name: acc.name,
-          currentBalance: acc.currentBalance,
+          currentBalance: toNumericString(acc.currentBalance),
           isActive: acc.isActive,
         },
-      });
+      } as any);
     } catch (error) {
       console.error('Failed to persist account to Cloud SQL:', error);
     }

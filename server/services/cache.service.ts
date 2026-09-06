@@ -15,9 +15,11 @@ export class CachingStrategy {
   private redis: any = null;
   private memory: Map<string, MemoryEntry> = new Map();
   private defaultTtlSeconds: number;
+  private maxMemoryKeys: number;
 
   constructor(defaultTtlSeconds: number = Number(process.env.REDIS_TTL || 3600)) {
     this.defaultTtlSeconds = defaultTtlSeconds;
+    this.maxMemoryKeys = Number(process.env.CACHE_MAX_KEYS || 500);
 
     if (process.env.REDIS_URL) {
       import('redis')
@@ -32,6 +34,20 @@ export class CachingStrategy {
           console.log('ℹ️ Redis unavailable - using in-memory cache');
         });
     }
+
+    // تنظيف دوري للمنتهية + LRU eviction
+    setInterval(() => {
+      const now = Date.now();
+      for (const [k, v] of this.memory) {
+        if (v.expiresAt < now) this.memory.delete(k);
+      }
+      // LRU: احذف الأقدم إذا تجاوز الحد
+      while (this.memory.size > this.maxMemoryKeys) {
+        const oldestKey = this.memory.keys().next().value;
+        if (!oldestKey) break;
+        this.memory.delete(oldestKey);
+      }
+    }, 60_000).unref?.();
   }
 
   public async get<T>(key: string): Promise<T | null> {
@@ -67,7 +83,12 @@ export class CachingStrategy {
         /* تجاهل والرجوع للذاكرة */
       }
     }
+    if (this.memory.has(key)) this.memory.delete(key);
     this.memory.set(key, { value: serialized, expiresAt: Date.now() + ttl * 1000 });
+    if (this.memory.size > this.maxMemoryKeys) {
+      const oldest = this.memory.keys().next().value;
+      if (oldest) this.memory.delete(oldest);
+    }
   }
 
   /**
@@ -92,7 +113,14 @@ export class CachingStrategy {
   public setSync(key: string, value: any, ttlSeconds?: number): void {
     const ttl = ttlSeconds ?? this.defaultTtlSeconds;
     const serialized = JSON.stringify(value);
+    // LRU: احذف ثم أعد إدراج ليصبح الأحدث
+    if (this.memory.has(key)) this.memory.delete(key);
     this.memory.set(key, { value: serialized, expiresAt: Date.now() + ttl * 1000 });
+    // eviction فوري إذا تجاوز
+    if (this.memory.size > this.maxMemoryKeys) {
+      const oldest = this.memory.keys().next().value;
+      if (oldest) this.memory.delete(oldest);
+    }
   }
 
   public wrapSync<T>(key: string, producer: () => T, ttlSeconds?: number): T {

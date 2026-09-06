@@ -8,6 +8,7 @@ import express, { Request, Response } from 'express';
 import http from 'http';
 import path from 'path';
 import fs from 'fs';
+import compression from 'compression';
 import { erpStore } from './server/db/store.js';
 import { postgresManager } from './server/db/postgresSync.js';
 import { accountingService } from './server/services/accounting.service.js';
@@ -47,6 +48,8 @@ import { maybeStartEmbeddedPostgres } from './server/db/pg-embedded.js';
 import { can, isReadOnlyUser, ROLE_DEFINITIONS } from './server/security/permissions.js';
 import { assertRuntimeSecurity, isSqlConsoleAllowed, isStrictAuth } from './server/security/runtime-config.js';
 import { debtorsAccountId, findAccountByCodeOrName, findExpenseAccount, findRevenueAccount, findTreasuryAccount } from './server/utils/account-lookup.js';
+import { registerAIGatewayRoutes } from './server/routes/ai-gateway.routes.js';
+import { registerSystemRoutes } from './server/routes/system.routes.js';
 import type { User } from './src/types/erp.js';
 
 /** هل مكتبة النماذج مقفلة بكلمة مرور حالياً؟ (كلمة المرور تعيش في ذاكرة الخادم فقط) */
@@ -62,11 +65,13 @@ async function startServer() {
   const PORT = Number(process.env.PORT || 3000);
 
   // ===== IMPROVEMENTS 5.1/5.2: طبقة الأمان قبل أي معالجة =====
+  app.use(compression({ threshold: 1024 })); // ضغط الاستجابات الكبيرة — يقلل زمن النقل 60-80% (P0)
   app.use(securityHeadersMiddleware);
   app.use(comprehensiveAuditMiddleware); // سجل تدقيق شامل لكل عمليات API
   app.use(createRateLimiter(Number(process.env.RATE_LIMIT_MAX || 300), 60_000)); // 300 طلب/دقيقة لكل IP
 
-  app.use(express.json({ limit: '250mb' })); // دعم رفع الملفات الكبيرة base64 للمستندات
+  app.use(express.json({ limit: '50mb' })); // تم تقليله من 250mb لمنع DoS — الصور المضغوطة <4MB تكفي (P0)
+  app.use(express.urlencoded({ limit: '50mb', extended: true }));
 
   // خدمة الأصول الثابتة (صور المستخدمين وأيقونة التطبيق) — بمسارات مرشحة
   // تدعم التطوير وحزمة الإنتاج وتطبيق Electron المُغلَّف
@@ -167,6 +172,8 @@ async function startServer() {
   registerAIActionRoutes(app, { requirePermission });
   registerReportExportRoutes(app);
   registerEtaRoutes(app);
+  registerAIGatewayRoutes(app, { requirePermission, getActiveUser });
+  registerSystemRoutes(app, { requirePermission, getActiveUser });
 
   // ==========================================
   // 1. HEALTH & SYSTEM INFO
@@ -502,10 +509,37 @@ async function startServer() {
   });
 
   // ==========================================
-  // 3. CHART OF ACCOUNTS
+  // 3. CHART OF ACCOUNTS (P0/P1: pagination + search to reduce payload)
   // ==========================================
   app.get('/api/accounts', (req: Request, res: Response) => {
-    res.json(erpStore.accounts);
+    const { search, type, nature, isActive, parentId, page, limit } = req.query;
+    let list = erpStore.accounts;
+
+    if (search) {
+      const q = normalizeArabicText(String(search));
+      list = list.filter(
+        (a: any) =>
+          normalizeArabicText(a.name).includes(q) ||
+          a.code.includes(String(search)) ||
+          a.name.toLowerCase().includes(String(search).toLowerCase())
+      );
+    }
+    if (type) list = list.filter((a: any) => a.type === type);
+    if (nature) list = list.filter((a: any) => a.nature === nature);
+    if (isActive !== undefined) list = list.filter((a: any) => String(a.isActive) === String(isActive));
+    if (parentId) list = list.filter((a: any) => a.parentId === parentId);
+
+    if (page) {
+      const p = Math.max(1, Number(page) || 1);
+      const l = Math.min(200, Math.max(1, Number(limit) || 50));
+      const start = (p - 1) * l;
+      return res.json({
+        data: list.slice(start, start + l),
+        pagination: { page: p, limit: l, total: list.length, totalPages: Math.ceil(list.length / l) },
+      });
+    }
+
+    res.json(list);
   });
 
   app.post('/api/accounts', (req: Request, res: Response) => {
@@ -578,10 +612,10 @@ async function startServer() {
   });
 
   // ==========================================
-  // 4. SUBLEDGER PARTIES (الأستاذ المساعد - المدينون 1301)
+  // 4. SUBLEDGER PARTIES (الأستاذ المساعد - المدينون 1301) - P0 pagination
   // ==========================================
   app.get('/api/subledger-parties', (req: Request, res: Response) => {
-    const { accountId, search, type } = req.query;
+    const { accountId, search, type, page, limit } = req.query;
     let parties = erpStore.subledgerParties;
 
     if (accountId) {
@@ -598,6 +632,16 @@ async function startServer() {
           p.partyCode.toLowerCase().includes(q) ||
           p.phone?.includes(q)
       );
+    }
+
+    if (page) {
+      const p = Math.max(1, Number(page) || 1);
+      const l = Math.min(200, Math.max(1, Number(limit) || 50));
+      const start = (p - 1) * l;
+      return res.json({
+        data: parties.slice(start, start + l),
+        pagination: { page: p, limit: l, total: parties.length, totalPages: Math.ceil(parties.length / l) },
+      });
     }
 
     res.json(parties);
@@ -1130,6 +1174,15 @@ async function startServer() {
   // 8. RECEIPTS & DISTRIBUTION (التحصيل وتوزيع الإيرادات)
   // ==========================================
   app.get('/api/receipts', (req: Request, res: Response) => {
+    if (req.query.page) {
+      const p = Math.max(1, Number(req.query.page) || 1);
+      const l = Math.min(200, Math.max(1, Number(req.query.limit) || 50));
+      const start = (p - 1) * l;
+      return res.json({
+        data: erpStore.receipts.slice(start, start + l),
+        pagination: { page: p, limit: l, total: erpStore.receipts.length, totalPages: Math.ceil(erpStore.receipts.length / l) },
+      });
+    }
     res.json(erpStore.receipts);
   });
 
@@ -1224,6 +1277,15 @@ async function startServer() {
   // 9. MEMBERS & CERTIFICATES (الأعضاء والشهادات)
   // ==========================================
   app.get('/api/members', (req: Request, res: Response) => {
+    if (req.query.page) {
+      const p = Math.max(1, Number(req.query.page) || 1);
+      const l = Math.min(200, Math.max(1, Number(req.query.limit) || 50));
+      const start = (p - 1) * l;
+      return res.json({
+        data: erpStore.members.slice(start, start + l),
+        pagination: { page: p, limit: l, total: erpStore.members.length, totalPages: Math.ceil(erpStore.members.length / l) },
+      });
+    }
     res.json(erpStore.members);
   });
 
@@ -1322,6 +1384,15 @@ async function startServer() {
   });
 
   app.get('/api/membership-certificates', (req: Request, res: Response) => {
+    if (req.query.page) {
+      const p = Math.max(1, Number(req.query.page) || 1);
+      const l = Math.min(200, Math.max(1, Number(req.query.limit) || 50));
+      const start = (p - 1) * l;
+      return res.json({
+        data: erpStore.certificates.slice(start, start + l),
+        pagination: { page: p, limit: l, total: erpStore.certificates.length, totalPages: Math.ceil(erpStore.certificates.length / l) },
+      });
+    }
     res.json(erpStore.certificates);
   });
 

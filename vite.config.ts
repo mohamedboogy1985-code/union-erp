@@ -12,15 +12,17 @@ export default defineConfig(() => {
       },
     },
     build: {
-      // الحزمة الرئيسية تحوي كل وحدات العمل المحاسبية/العضوية/الموارد (تُعرض فوراً
-      // على الشاشة الأولى بلا تنقّل)، لذا نرفع عتبة التنبيه فوق حجمها المقبول.
       chunkSizeWarningLimit: 900,
       rollupOptions: {
         output: {
-          // تقسيم المكتبات الأساسية إلى حزم منفصلة لتسريع الإقلاع والاستفادة من التخزين المؤقت
+          // P1: تقسيم حقيقي لتقليل الحزمة الرئيسية — فقط الحزم الموجودة فعلاً
           manualChunks: {
             react: ['react', 'react-dom'],
             icons: ['lucide-react'],
+            excel: ['exceljs'],
+            firebase: ['firebase/app', 'firebase/auth', 'firebase/firestore'],
+            motion: ['motion'],
+            vendor: ['axios'],
           },
         },
       },
