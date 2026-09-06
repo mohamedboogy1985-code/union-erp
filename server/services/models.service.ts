@@ -324,6 +324,11 @@ export function exportModelToTemp(name: string): string {
   return tmp;
 }
 
+export function readModelText(name: string): { name: string; content: string } {
+  const buf = readModelBuffer(name);
+  return { name, content: buf.toString('utf-8') };
+}
+
 export const modelsService = {
   resolveModelsDir,
   listModels,
@@ -336,4 +341,5 @@ export const modelsService = {
   renderModel,
   exportModelToTemp,
   probeFirstEncrypted,
+  readModelText,
 };

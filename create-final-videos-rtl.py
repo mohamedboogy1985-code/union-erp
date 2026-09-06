@@ -3,7 +3,7 @@ from pathlib import Path
 from PIL import Image, ImageDraw, ImageFont
 from moviepy import ImageClip, AudioFileClip, concatenate_videoclips
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path("/app")
 PROMO = ROOT / 'promo'
 
 def font(size, bold=True):

@@ -510,6 +510,7 @@ export const api = {
     request<{ name: string }>(`/api/models/${encodeURIComponent(name)}`, { method: 'DELETE' }),
   openModel: (name: string) =>
     request<{ opened: boolean; fallback?: string; temp?: string }>(`/api/models/${encodeURIComponent(name)}/open`, { method: 'POST' }),
+  getModelText: (name: string) => request<{ name: string; content: string }>(`/api/models/${encodeURIComponent(name)}/text`),
   modelViewUrl: (name: string) => `/api/models/${encodeURIComponent(name)}/view`,
   modelDownloadUrl: (name: string) => `/api/models/${encodeURIComponent(name)}/download`,
 };

@@ -165,9 +165,15 @@ export const Layout: React.FC<LayoutProps> = ({
         {/* Syndicate Brand Header */}
         <div className="h-12 px-4 border-b border-[#334155] flex items-center justify-between bg-[#1e293b]/60">
           <div className="flex items-center gap-2.5">
-            <div className="w-7 h-7 rounded bg-sky-500/10 border border-sky-400/40 flex items-center justify-center text-sky-400">
-              <ShieldCheck className="w-4 h-4" />
-            </div>
+            {activePortalMeta ? (
+              <div className="w-8 h-8 rounded-lg bg-slate-900 border border-[#334155] p-1 flex items-center justify-center overflow-hidden shrink-0 shadow">
+                <img src={activePortalMeta.logo} alt={activePortalMeta.title} className="max-w-full max-h-full object-contain" />
+              </div>
+            ) : (
+              <div className="w-7 h-7 rounded bg-sky-500/10 border border-sky-400/40 flex items-center justify-center text-sky-400">
+                <ShieldCheck className="w-4 h-4" />
+              </div>
+            )}
             <div>
               <h1 className="font-bold text-xs text-sky-400 tracking-wide font-mono">UNION // ERP_ENGINE</h1>
             </div>
@@ -182,9 +188,9 @@ export const Layout: React.FC<LayoutProps> = ({
         <div className="px-3 py-2 border-b border-[#334155] bg-slate-900/50">
           {activePortalMeta ? (
             <div className="space-y-1.5">
-              <div className="flex items-center gap-1.5">
-                <activePortalMeta.icon className={`w-4 h-4 ${activePortalMeta.accent.text}`} />
-                <span className="text-[10px] font-bold text-slate-300">{activePortalMeta.title}</span>
+              <div className="flex items-center gap-2">
+                <img src={activePortalMeta.logo} alt="" className="w-5 h-5 object-contain" />
+                <span className="text-[10.5px] font-bold text-slate-200">{activePortalMeta.title}</span>
               </div>
               <div className="flex items-center justify-between gap-2">
                 <span className="text-[9px] font-mono text-slate-500">data: {activePortalMeta.organizationId}</span>

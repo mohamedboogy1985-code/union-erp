@@ -21,7 +21,7 @@ import arabic_reshaper
 from bidi.algorithm import get_display
 from moviepy import ImageClip, AudioFileClip, CompositeAudioClip, concatenate_audioclips, concatenate_videoclips
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path("/app")
 PROMO = ROOT / "promo"
 
 WIDE_SCENES = [

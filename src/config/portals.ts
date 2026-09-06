@@ -56,6 +56,8 @@ export interface GatewayMeta {
   accent: { text: string; bg: string; border: string; dot: string; chip: string };
   /** المنظمة/الكيان الافتراضي لهذه البوابة — يفصل بياناتها عن غيرها */
   organizationId: string;
+  /** شعار البوابة الخاص بها */
+  logo: string;
   /** الشاشة التي تُفتح تلقائياً عند اختيار البوابة */
   homeTab: string;
 }
@@ -113,6 +115,7 @@ export const GATEWAYS: GatewayMeta[] = [
     icon: Landmark,
     accent: { text: 'text-sky-400', bg: 'bg-sky-500/10', border: 'border-sky-500/40', dot: 'bg-sky-400', chip: 'bg-sky-500/15 text-sky-300' },
     organizationId: 'org-general',
+    logo: '/union-logo.png',
     homeTab: 'dashboard',
   },
   {
@@ -122,6 +125,7 @@ export const GATEWAYS: GatewayMeta[] = [
     icon: School,
     accent: { text: 'text-emerald-400', bg: 'bg-emerald-500/10', border: 'border-emerald-500/40', dot: 'bg-emerald-400', chip: 'bg-emerald-500/15 text-emerald-300' },
     organizationId: 'org-training-center',
+    logo: '/training-logo.png',
     homeTab: 'employees',
   },
   {
@@ -131,6 +135,7 @@ export const GATEWAYS: GatewayMeta[] = [
     icon: Globe,
     accent: { text: 'text-indigo-400', bg: 'bg-indigo-500/10', border: 'border-indigo-500/40', dot: 'bg-indigo-400', chip: 'bg-indigo-500/15 text-indigo-300' },
     organizationId: 'org-committees',
+    logo: '/mohasbak-ai-logo.png',
     homeTab: 'committees',
   },
 ];
