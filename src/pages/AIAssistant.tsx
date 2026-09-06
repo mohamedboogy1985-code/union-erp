@@ -98,7 +98,7 @@ export const AIAssistant: React.FC<AIAssistantProps> = ({
     {
       id: 'welcome',
       sender: 'ai',
-      text: 'أهلاً بك في استوديو الذكاء الاصطناعي المالي (Gemini 3.7 Flash Engine). يمكنك سؤالي عن تحليل مديونيات حساب 1301، فحص توازن القيود، توجيه الفواتير آلياً، كشف الشذوذ والاحتيال، أو استخدام الإملاء الصوتي للمعاملات.',
+      text: 'أهلاً بك مع Jules AI (جوليز المساعد الذكي المالي العام بصوت وصورة). يمكنك سؤالي عن تحليل مديونيات حساب 1301، فحص توازن القيود، توجيه الفواتير آلياً، كشف الشذوذ والاحتيال، أو استخدام الإملاء الصوتي المباشر.',
       timestamp: new Date().toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' }),
     },
   ]);
@@ -457,7 +457,7 @@ export const AIAssistant: React.FC<AIAssistantProps> = ({
           </div>
           <div>
             <div className="flex items-center gap-2">
-              <h2 className="font-extrabold text-sm text-slate-100">استوديو الذكاء الاصطناعي المالي (AI Financial Studio)</h2>
+              <h2 className="font-extrabold text-sm text-slate-100">Jules AI — استوديو الذكاء الاصطناعي المالي (جوليز)</h2>
               <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-purple-950 text-purple-300 border border-purple-800/50">
                 Gemini 3.7 Flash Multi-Agent
               </span>

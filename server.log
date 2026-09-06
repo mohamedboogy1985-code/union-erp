@@ -34,3 +34,9 @@
 🏛️ Union Financial ERP Server running on http://0.0.0.0:3000
 📌 General Syndicate Chart of Accounts & 1301 Subledger Ready
 =======================================================
+2026-09-06 19:18:14.517 UTC [994776] LOG:  checkpoint starting: time
+
+2026-09-06 19:18:14.962 UTC [994776] LOG:  checkpoint complete: wrote 4 buffers (0.0%), wrote 3 SLRU buffers; 0 WAL file(s) added, 0 removed, 0 recycled; write=0.429 s, sync=0.003 s, total=0.446 s; sync files=6, longest=0.002 s, average=0.001 s; distance=10 kB, estimate=10 kB; lsn=0/1C55FF0, redo lsn=0/1C55F98
+
+7:29:58 PM [vite] (client) hmr update /src/components/GlobalAiWidget.tsx, /src/index.css
+7:31:28 PM [vite] (client) hmr update /src/pages/AIAssistant.tsx, /src/index.css

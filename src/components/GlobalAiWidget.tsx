@@ -336,7 +336,7 @@ else if (event.error !== 'aborted') setVoiceError(`فشل التقاط الصو�
       <button
         onClick={() => setIsOpen((o) => !o)}
         className="fixed bottom-5 left-5 z-[70] w-14 h-14 rounded-full bg-gradient-to-br from-purple-600 to-fuchsia-600 hover:from-purple-500 hover:to-fuchsia-500 shadow-2xl shadow-purple-900/50 border border-purple-400/40 flex items-center justify-center text-white transition-all"
-        title="المساعد الذكي العام"
+        title="Jules AI — جوليز المساعد الذكي العام"
       >
         {isOpen ? <X className="w-6 h-6" /> : <Bot className="w-6 h-6" />}
       </button>
@@ -352,13 +352,13 @@ else if (event.error !== 'aborted') setVoiceError(`فشل التقاط الصو�
               </div>
               <div>
                 <div className="flex items-center gap-2">
-                  <h3 className="text-sm font-bold text-slate-100">المساعد الذكي العام</h3>
+                  <h3 className="text-sm font-bold text-slate-100">Jules AI (جوليز)</h3>
                   <div className="flex items-center gap-1 px-1.5 py-0.5 rounded bg-purple-950 border border-purple-800/40 text-[9px]">
                     <div className="relative w-3.5 h-3.5 rounded-full bg-purple-600 flex items-center justify-center text-white overflow-hidden">
                       <UserCheck className="w-2.5 h-2.5" />
                       {isSpeaking && <span className="absolute inset-0 bg-purple-400/40 animate-ping rounded-full" />}
                     </div>
-                    <span className="text-purple-300 font-bold">{isSpeaking ? 'يتحدث...' : 'صوت وصورة'}</span>
+                    <span className="text-purple-300 font-bold">{isSpeaking ? 'جوليز يتحدث...' : 'صوت وصورة'}</span>
                   </div>
                 </div>
                 <span className="text-[10px] text-slate-400 flex items-center gap-1">
@@ -370,7 +370,7 @@ else if (event.error !== 'aborted') setVoiceError(`فشل التقاط الصو�
                   {apiConfigured === null
                     ? 'فحص الاتصال...'
                     : apiConfigured
-                    ? 'Gemini متصل · ' + currentTab
+                    ? 'Jules AI متصل · ' + currentTab
                     : 'Gemini غير مضبوط (GEMINI_API_KEY)'}
                 </span>
               </div>
@@ -406,7 +406,7 @@ else if (event.error !== 'aborted') setVoiceError(`فشل التقاط الصو�
             {messages.length === 0 && (
               <div className="text-center text-slate-400 text-xs mt-6 space-y-2">
                 <Bot className="w-8 h-8 mx-auto text-purple-400" />
-                <p>أهلاً، أنا مساعدك الذكي العام.</p>
+                <p className="font-bold text-purple-200">أهلاً! أنا Jules AI (جوليز المساعد الذكي العام بصوت وصورة).</p>
                 <p className="text-slate-500">
                   اطلب مني مثلاً: «سجّل قيداً لصرف إيجار المكتب من الخزينة 4000 جنيه»
                   <br />وسأقترح القيد ثم أترحله بعد تأكيدك.
