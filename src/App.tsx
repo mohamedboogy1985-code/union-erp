@@ -1,6 +1,7 @@
 import { useState, useEffect, lazy, Suspense } from 'react';
 import { Layout } from './components/Layout.js';
 import { ToastContainer, ToastMessage } from './components/Toast.js';
+import { PortalWelcome } from './components/PortalWelcome.js';
 import { api } from './services/api.js';
 import { User } from './types/erp.js';
 
@@ -82,18 +83,20 @@ export function App() {
   const [selectedOrgId, setSelectedOrgId] = useState(portalMeta?.organizationId || 'org-general');
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
+  const [welcomePortal, setWelcomePortal] = useState<PortalId | null>(null);
 
   useEffect(() => {
     loadUser();
   }, []);
 
-  // عند تغيير البوابة: نضبط كيان/بيانات البوابة وشاشة البداية الخاصة بها
+  // عند تغيير البوابة: نضبط كيان/بيانات البوابة وشاشة البداية الخاصة بها + ترحيب ذكي صوتي
   const handleSelectGateway = (gateway: PortalId) => {
     const meta = getGatewayMeta(gateway);
     setSelectedGateway(gateway);
     setSelectedOrgId(meta?.organizationId || 'org-general');
     setCurrentTab(meta?.homeTab || 'portals');
     localStorage.setItem('union_active_portal', gateway);
+    setWelcomePortal(gateway);
   };
 
   const loadUser = async () => {
@@ -424,6 +427,15 @@ export function App() {
 
       {/* Global Toasts */}
       <ToastContainer toasts={toasts} onDismiss={handleDismissToast} />
+
+      {/* رسالة الترحيب الذكية عند اختيار بوابة — صوت + نص مع ذكر اسم البوابة */}
+      {welcomePortal && (
+        <PortalWelcome
+          portalId={welcomePortal}
+          onClose={() => setWelcomePortal(null)}
+          onContinue={() => setWelcomePortal(null)}
+        />
+      )}
     </>
   );
 }
