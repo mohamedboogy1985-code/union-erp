@@ -86,3 +86,13 @@ Success. You can now start the database server using:
 2026-09-06 10:01:46.837 UTC [423727] LOG:  checkpoint starting: time
 
 2026-09-06 10:48:34.616 UTC [423727] LOG:  checkpoint complete: wrote 1030 buffers (6.3%), wrote 3 SLRU buffers; 1 WAL file(s) added, 0 removed, 0 recycled; write=2807.209 s, sync=0.184 s, total=2807.779 s; sync files=384, longest=0.011 s, average=0.001 s; distance=5150 kB, estimate=5150 kB; lsn=0/1C53458, redo lsn=0/1C533C8
+
+2026-09-06 19:13:08.231 UTC [423723] LOG:  received fast shutdown request
+2026-09-06 19:13:08.235 UTC [423723] LOG:  aborting any active transactions
+2026-09-06 19:13:08.287 UTC [423723] LOG:  background worker "logical replication launcher" (PID 423732) exited with exit code 1
+2026-09-06 19:13:08.300 UTC [423727] LOG:  shutting down
+2026-09-06 19:13:08.306 UTC [423727] LOG:  checkpoint starting: shutdown immediate
+
+2026-09-06 19:13:08.362 UTC [423727] LOG:  checkpoint complete: wrote 0 buffers (0.0%), wrote 0 SLRU buffers; 0 WAL file(s) added, 0 removed, 0 recycled; write=0.040 s, sync=0.001 s, total=0.061 s; sync files=0, longest=0.000 s, average=0.000 s; distance=0 kB, estimate=4635 kB; lsn=0/1C53508, redo lsn=0/1C53508
+
+2026-09-06 19:13:08.484 UTC [423723] LOG:  database system is shut down

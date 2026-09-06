@@ -1,0 +1,36 @@
+
+> union-app@1.1.0 dev
+> tsx watch --ignore pgdata --clear-screen=false server.ts
+
+📊 تم تحميل الدليل الموحد: 0 حساباً في 0 قسماً
+📒 تم تحميل [تدريب_قيود_اليومية_2024.csv]: 0 قيداً (0 مرحّلاً) بإجمالي 0 ج.م
+📒 تم تحميل [قيود_اليومية_2022.csv]: 0 قيداً (0 مرحّلاً) بإجمالي 0 ج.م
+📒 تم تحميل [قيود_اليومية_2024.csv]: 0 قيداً (0 مرحّلاً) بإجمالي 0 ج.م
+📒 تم تحميل [قيود_اليومية_2024_c.csv]: 0 قيداً (0 مرحّلاً) بإجمالي 0 ج.م
+📒 تم تحميل [قيود_لجان_الشركات_2021.csv]: 0 قيداً (0 مرحّلاً) بإجمالي 0 ج.م
+📒 تم تحميل [قيود_لجان_الشركات_2022.csv]: 0 قيداً (0 مرحّلاً) بإجمالي 0 ج.م
+📒 تم تحميل [قيود_لجان_الشركات_2023.csv]: 0 قيداً (0 مرحّلاً) بإجمالي 0 ج.م
+📒 تم تحميل [قيود_لجان_الشركات_2024.csv]: 0 قيداً (0 مرحّلاً) بإجمالي 0 ج.م
+📒 تم تحميل [قيود_لجان_الشركات_2025.csv]: 0 قيداً (0 مرحّلاً) بإجمالي 0 ج.م
+📒 إجمالي القيود المحمّلة: 0 قيداً بإجمالي 0 ج.م
+[employee-affairs] تم تحميل 76 عاملاً من استمارة 2 تأمينات.
+2026-09-06 19:13:14.504 UTC [994651] LOG:  starting PostgreSQL 18.4 on x86_64-pc-linux-gnu, compiled by gcc (Ubuntu 7.5.0-3ubuntu1~18.04) 7.5.0, 64-bit
+
+2026-09-06 19:13:14.504 UTC [994651] LOG:  listening on IPv6 address "::1", port 5432
+2026-09-06 19:13:14.505 UTC [994651] LOG:  listening on IPv4 address "127.0.0.1", port 5432
+
+2026-09-06 19:13:14.507 UTC [994651] LOG:  listening on Unix socket "/tmp/.s.PGSQL.5432"
+
+2026-09-06 19:13:14.514 UTC [994778] LOG:  database system was shut down at 2026-09-06 19:13:08 UTC
+
+2026-09-06 19:13:14.532 UTC [994651] LOG:  database system is ready to accept connections
+
+🐘 PostgreSQL المضمّن يعمل الآن على المنفذ 5432 (البيانات: /app/pgdata)
+🌱 Cloud SQL PostgreSQL is empty. Seeding initial syndicate data...
+✅ Initial syndicate data successfully seeded to Cloud SQL PostgreSQL.
+🎙️ [live-agent] خادم WebSocket الحي جاهز على المسار /api/live-agent
+🕐 تم بذر 282 سجل حضور تجريبي (بصمة) للشهر الحالي.
+=======================================================
+🏛️ Union Financial ERP Server running on http://0.0.0.0:3000
+📌 General Syndicate Chart of Accounts & 1301 Subledger Ready
+=======================================================
