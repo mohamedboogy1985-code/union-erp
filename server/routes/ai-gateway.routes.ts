@@ -1,7 +1,15 @@
 import { Request, Response } from 'express';
 import { aiGateway } from '../services/ai-gateway.service.js';
 import { aiService } from '../services/ai.service.js';
+import { embeddingService } from '../services/embedding.service.js';
 import type { User } from '../../src/types/erp.js';
+
+function incAi() {
+  try {
+    const { incAiRequest } = require('./system.routes.js');
+    incAiRequest();
+  } catch {}
+}
 
 /**
  * بوابة AI موحدة — P1
@@ -10,8 +18,9 @@ import type { User } from '../../src/types/erp.js';
  */
 
 export function registerAIGatewayRoutes(app: any, deps: { requirePermission: (req: Request, res: Response, perm: string) => User | null; getActiveUser: (req: Request) => User | null }) {
-  // نقطة موحدة جديدة
+  // نقطة موحدة جديدة — P2 مع RAG
   app.post('/api/ai/gateway/chat', async (req: Request, res: Response) => {
+    incAi();
     const user = deps.getActiveUser(req);
     if (!user) return res.status(401).json({ error: 'يلزم تسجيل الدخول' });
     const { message, history, organizationId, mode } = req.body;
@@ -27,6 +36,15 @@ export function registerAIGatewayRoutes(app: any, deps: { requirePermission: (re
     } catch (err: any) {
       res.status(500).json({ error: err.message });
     }
+  });
+
+  // P2: بحث RAG مباشر
+  app.get('/api/ai/rag/search', async (req: Request, res: Response) => {
+    const q = String(req.query.q || req.query.query || '');
+    if (!q) return res.status(400).json({ error: 'الاستعلام مطلوب' });
+    const limit = Math.min(20, Number(req.query.limit) || 5);
+    const results = await embeddingService.search(q, limit);
+    res.json({ query: q, results, count: results.length });
   });
 
   // أداة lookup_accounts مباشرة (توفير تكلفة Gemini)

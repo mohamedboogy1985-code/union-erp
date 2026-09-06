@@ -44,6 +44,7 @@ import { payrollService } from './server/services/payroll.service.js';
 import { payrollImportService } from './server/services/payroll-import.service.js';
 import { attachLiveAgentWebSocketServer } from './server/services/live-agent.service.js';
 import { apiErrorHandler, notFoundHandler } from './server/middleware/error-handler.js';
+import { requestLoggerMiddleware, logger } from './server/middleware/logger.js';
 import { maybeStartEmbeddedPostgres } from './server/db/pg-embedded.js';
 import { can, isReadOnlyUser, ROLE_DEFINITIONS } from './server/security/permissions.js';
 import { assertRuntimeSecurity, isSqlConsoleAllowed, isStrictAuth } from './server/security/runtime-config.js';
@@ -67,6 +68,7 @@ async function startServer() {
   // ===== IMPROVEMENTS 5.1/5.2: طبقة الأمان قبل أي معالجة =====
   app.use(compression({ threshold: 1024 })); // ضغط الاستجابات الكبيرة — يقلل زمن النقل 60-80% (P0)
   app.use(securityHeadersMiddleware);
+  app.use(requestLoggerMiddleware); // P2: Pino + slow request tracking
   app.use(comprehensiveAuditMiddleware); // سجل تدقيق شامل لكل عمليات API
   app.use(createRateLimiter(Number(process.env.RATE_LIMIT_MAX || 300), 60_000)); // 300 طلب/دقيقة لكل IP
 
@@ -2799,10 +2801,41 @@ async function startServer() {
     }
   }
 
+  // ===== P2: Materialized Views auto-refresh every 15 min + RAG seeding =====
+  try {
+    const { embeddingService } = await import('./server/services/embedding.service.js');
+    embeddingService.seedFromKnowledgeBase();
+    console.log('🧠 RAG TF-IDF seeded');
+  } catch (e: any) {
+    console.warn('⚠️ RAG seeding failed:', e.message);
+  }
+
+  // Auto-refresh MVs every 15 minutes if DB available (P2)
+  if (process.env.MV_AUTO_REFRESH !== 'false') {
+    const mvIntervalMs = Number(process.env.MV_REFRESH_INTERVAL_MS || 15 * 60 * 1000);
+    setInterval(async () => {
+      if (!postgresManager.isDbAvailable()) return;
+      try {
+        const { getPool } = await import('./src/db/index.js');
+        const pool = getPool();
+        await pool.query('REFRESH MATERIALIZED VIEW CONCURRENTLY mv_trial_balance').catch(async () => {
+          await pool.query('REFRESH MATERIALIZED VIEW mv_trial_balance');
+        });
+        await pool.query('REFRESH MATERIALIZED VIEW CONCURRENTLY mv_monthly_income_expense').catch(async () => {
+          await pool.query('REFRESH MATERIALIZED VIEW mv_monthly_income_expense');
+        });
+        console.log('🔄 MVs auto-refreshed');
+      } catch (e: any) {
+        console.warn('⚠️ MV auto-refresh failed:', e.message);
+      }
+    }, mvIntervalMs).unref?.();
+  }
+
   httpServer.listen(PORT, '0.0.0.0', () => {
     console.log(`=======================================================`);
     console.log(`🏛️ Union Financial ERP Server running on http://0.0.0.0:${PORT}`);
     console.log(`📌 General Syndicate Chart of Accounts & 1301 Subledger Ready`);
+    console.log(`🧩 P2 Features: RAG (25 synonym groups + TF-IDF + pgvector), MV auto-refresh, Prometheus /metrics, virtualized tables, lazy hubs, asset webp`);
     console.log(`=======================================================`);
   });
 }

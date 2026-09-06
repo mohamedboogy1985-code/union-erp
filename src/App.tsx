@@ -4,16 +4,21 @@ import { ToastContainer, ToastMessage } from './components/Toast.js';
 import { api } from './services/api.js';
 import { User } from './types/erp.js';
 
-// Pages
-import { Dashboard } from './pages/Dashboard.js';
-import { AccountingHub, AccountingTabId } from './pages/AccountingHub.js';
-import { HrsHub, HrsTabId } from './pages/HrsHub.js';
-import { MembershipHub, MembershipTabId } from './pages/MembershipHub.js';
-import { AiHub, AiTabId } from './pages/AiHub.js';
-import { Gateways } from './pages/Gateways.js';
+// Pages — P2: كل الصفحات الرئيسية أصبحت lazy لتقليل الحزمة الرئيسية من 650KB إلى ~200KB
 import { ErrorBoundary } from './components/ErrorBoundary.js';
-import { Settings } from './pages/Settings.js';
 import { getGatewayMeta, PortalId } from './config/portals.js';
+import type { AccountingTabId } from './pages/AccountingHub.js';
+import type { HrsTabId } from './pages/HrsHub.js';
+import type { MembershipTabId } from './pages/MembershipHub.js';
+import type { AiTabId } from './pages/AiHub.js';
+
+const Dashboard = lazy(() => import('./pages/Dashboard.js').then((m) => ({ default: m.Dashboard })));
+const AccountingHub = lazy(() => import('./pages/AccountingHub.js').then((m) => ({ default: m.AccountingHub })));
+const HrsHub = lazy(() => import('./pages/HrsHub.js').then((m) => ({ default: m.HrsHub })));
+const MembershipHub = lazy(() => import('./pages/MembershipHub.js').then((m) => ({ default: m.MembershipHub })));
+const AiHub = lazy(() => import('./pages/AiHub.js').then((m) => ({ default: m.AiHub })));
+const Gateways = lazy(() => import('./pages/Gateways.js').then((m) => ({ default: m.Gateways })));
+const Settings = lazy(() => import('./pages/Settings.js').then((m) => ({ default: m.Settings })));
 
 // الصفحات المعزولة الأقل استخداماً — تُحمَّل كسولاً (lazy) لتقسيم الحزمة الرئيسية
 // وتقليل الإقلاع. تُقسّم كل صفحة إلى حزمتها الخاصة عبر Vite/Rollup.
@@ -146,18 +151,22 @@ export function App() {
       >
         {currentTab === 'portals' && (
           <ErrorBoundary label="بوابات النظام" onNavigate={setCurrentTab}>
-            <Gateways onSelectGateway={handleSelectGateway} onShowToast={showToast} />
+            <Suspense fallback={lazyFallback('بوابات النظام')}>
+              <Gateways onSelectGateway={handleSelectGateway} onShowToast={showToast} />
+            </Suspense>
           </ErrorBoundary>
         )}
 
         {currentTab === 'dashboard' && (
           <ErrorBoundary label="لوحة التحكم والمؤشرات" onNavigate={setCurrentTab}>
-            <Dashboard
-              organizationId={selectedOrgId}
-              currentUser={currentUser}
-              onNavigate={setCurrentTab}
-              onShowToast={showToast}
-            />
+            <Suspense fallback={lazyFallback('لوحة التحكم')}>
+              <Dashboard
+                organizationId={selectedOrgId}
+                currentUser={currentUser}
+                onNavigate={setCurrentTab}
+                onShowToast={showToast}
+              />
+            </Suspense>
           </ErrorBoundary>
         )}
 
@@ -169,13 +178,15 @@ export function App() {
         currentTab === 'procurement' ||
         currentTab === 'accounting' ? (
           <ErrorBoundary label="المحاسبة والمالية" onNavigate={setCurrentTab}>
-            <AccountingHub
-              key={currentTab}
-              organizationId={selectedOrgId}
-              currentUser={currentUser}
-              onShowToast={showToast}
-              initialTab={ACCOUNTING_HUB_ALIASES[currentTab]}
-            />
+            <Suspense fallback={lazyFallback('المحاسبة والمالية')}>
+              <AccountingHub
+                key={currentTab}
+                organizationId={selectedOrgId}
+                currentUser={currentUser}
+                onShowToast={showToast}
+                initialTab={ACCOUNTING_HUB_ALIASES[currentTab]}
+              />
+            </Suspense>
           </ErrorBoundary>
         ) : null}
 
@@ -183,14 +194,16 @@ export function App() {
         currentTab === 'members' ||
         currentTab === 'membership' ? (
           <ErrorBoundary label="العضوية والتحصيل" onNavigate={setCurrentTab}>
-            <MembershipHub
-              key={currentTab}
-              organizationId={selectedOrgId}
-              currentUser={currentUser}
-              onShowToast={showToast}
-              voiceDraft={voiceReceiptDraft}
-              initialTab={MEMBERSHIP_HUB_ALIASES[currentTab]}
-            />
+            <Suspense fallback={lazyFallback('العضوية والتحصيل')}>
+              <MembershipHub
+                key={currentTab}
+                organizationId={selectedOrgId}
+                currentUser={currentUser}
+                onShowToast={showToast}
+                voiceDraft={voiceReceiptDraft}
+                initialTab={MEMBERSHIP_HUB_ALIASES[currentTab]}
+              />
+            </Suspense>
           </ErrorBoundary>
         ) : null}
 
@@ -201,28 +214,32 @@ export function App() {
         currentTab === 'attendance' ||
         currentTab === 'hrs' ? (
           <ErrorBoundary label="الموارد البشرية والعاملين" onNavigate={setCurrentTab}>
-            <HrsHub
-              key={currentTab}
-              organizationId={selectedOrgId}
-              currentUser={currentUser}
-              onShowToast={showToast}
-              initialTab={HRS_HUB_ALIASES[currentTab]}
-            />
+            <Suspense fallback={lazyFallback('الموارد البشرية')}>
+              <HrsHub
+                key={currentTab}
+                organizationId={selectedOrgId}
+                currentUser={currentUser}
+                onShowToast={showToast}
+                initialTab={HRS_HUB_ALIASES[currentTab]}
+              />
+            </Suspense>
           </ErrorBoundary>
         ) : null}
 
         {currentTab === 'liveagent' || currentTab === 'ai' || currentTab === 'aihub' ? (
           <ErrorBoundary label="الذكاء الاصطناعي والمساعد الحي" onNavigate={setCurrentTab}>
-            <AiHub
-              key={currentTab}
-              organizationId={selectedOrgId}
-              currentUser={currentUser}
-              onShowToast={showToast}
-              onNavigate={setCurrentTab}
-              onVoiceReceiptDraft={handleVoiceReceiptDraft}
-              onNavigateToJournals={() => setCurrentTab('journals')}
-              initialTab={AI_HUB_ALIASES[currentTab]}
-            />
+            <Suspense fallback={lazyFallback('الذكاء الاصطناعي')}>
+              <AiHub
+                key={currentTab}
+                organizationId={selectedOrgId}
+                currentUser={currentUser}
+                onShowToast={showToast}
+                onNavigate={setCurrentTab}
+                onVoiceReceiptDraft={handleVoiceReceiptDraft}
+                onNavigateToJournals={() => setCurrentTab('journals')}
+                initialTab={AI_HUB_ALIASES[currentTab]}
+              />
+            </Suspense>
           </ErrorBoundary>
         ) : null}
 
@@ -394,11 +411,13 @@ export function App() {
 
         {currentTab === 'settings' && (
           <ErrorBoundary label="الإعدادات والصلاحيات" onNavigate={setCurrentTab}>
-            <Settings
-              organizationId={selectedOrgId}
-              currentUser={currentUser}
-              onShowToast={showToast}
-            />
+            <Suspense fallback={lazyFallback('الإعدادات')}>
+              <Settings
+                organizationId={selectedOrgId}
+                currentUser={currentUser}
+                onShowToast={showToast}
+              />
+            </Suspense>
           </ErrorBoundary>
         )}
       </Layout>

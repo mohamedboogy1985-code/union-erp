@@ -25,7 +25,7 @@ export const createPool = () => {
           database: process.env.SQL_DB_NAME || process.env.PGDATABASE,
         };
 
-    global._postgresPool = new Pool({
+    const pool = new Pool({
       ...baseConfig,
       max: Number(process.env.PG_POOL_MAX || 20),
       min: Number(process.env.PG_POOL_MIN || 2),
@@ -37,13 +37,35 @@ export const createPool = () => {
       ssl: process.env.PG_SSL === 'true' ? { rejectUnauthorized: false } : undefined,
     });
 
-    global._postgresPool.on('error', (err) => {
+    pool.on('error', (err) => {
       console.error('Unexpected error on idle SQL pool client:', err);
     });
-    global._postgresPool.on('connect', () => {
-      // تحسين إعدادات الجلسة للأداء
-      // console.debug('PG pool client connected');
-    });
+
+    // P2: slow query logging wrapper
+    const originalQuery = pool.query.bind(pool);
+    (pool as any).query = async (...args: any[]) => {
+      const start = Date.now();
+      try {
+        const result = await originalQuery(...args);
+        const duration = Date.now() - start;
+        if (duration > 500) {
+          try {
+            const { slowQueryLogger } = await import('../../server/middleware/logger.js');
+            const q = typeof args[0] === 'string' ? args[0] : args[0]?.text || 'prepared';
+            slowQueryLogger(q, duration, args[1]);
+          } catch {}
+        }
+        return result;
+      } catch (e) {
+        const duration = Date.now() - start;
+        if (duration > 500) {
+          console.warn(`[PG] Query failed after ${duration}ms:`, args[0]);
+        }
+        throw e;
+      }
+    };
+
+    global._postgresPool = pool;
   }
   return global._postgresPool;
 };

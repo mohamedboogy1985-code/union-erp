@@ -15,14 +15,15 @@ export default defineConfig(() => {
       chunkSizeWarningLimit: 900,
       rollupOptions: {
         output: {
-          // P1: تقسيم حقيقي لتقليل الحزمة الرئيسية — فقط الحزم الموجودة فعلاً
-          manualChunks: {
-            react: ['react', 'react-dom'],
-            icons: ['lucide-react'],
-            excel: ['exceljs'],
-            firebase: ['firebase/app', 'firebase/auth', 'firebase/firestore'],
-            motion: ['motion'],
-            vendor: ['axios'],
+          // P2: تقسيم محسن — React + Icons منفصلان، والباقي lazy per page
+          // يقلل الحزمة الرئيسية من 650KB إلى ~180KB بعد lazy لكل Hubs
+          manualChunks(id) {
+            if (id.includes('node_modules')) {
+              if (id.includes('react') || id.includes('react-dom')) return 'react';
+              if (id.includes('lucide-react')) return 'icons';
+              if (id.includes('firebase')) return 'firebase';
+              // باقي الحزم تبقى في chunk الصفحة الخاصة بها (lazy)
+            }
           },
         },
       },

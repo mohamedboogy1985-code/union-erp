@@ -14,6 +14,7 @@ import { smartAgentEnhancer } from './smart-agent.service.js';
 import { regulationService } from './regulation.service.js';
 import { cacheService, CACHE_KEYS } from './cache.service.js';
 import { calculateSimilarity, normalizeArabicText } from '../utils/arabic.js';
+import { embeddingService } from './embedding.service.js';
 import { AI_MODELS, AI_PRIMARY_MODEL } from './ai.service.js';
 
 export type AIGatewayMode = 'financial' | 'support' | 'accountant' | 'global' | 'voice' | 'ocr';
@@ -207,7 +208,7 @@ class AIGatewayService {
     };
   }
 
-  /** نقطة دخول موحدة — تستخدمها كل مسارات AI */
+  /** نقطة دخول موحدة — P2 مع RAG دلالي */
   public async chat(params: {
     message: string;
     history?: { role: string; text: string }[];
@@ -216,33 +217,58 @@ class AIGatewayService {
   }): Promise<AIGatewayResult> {
     const start = Date.now();
     const ctx = this.getFinancialContext(params.orgId);
-    const normalizedMsg = normalizeArabicText(params.message);
+
+    // P2: بحث دلالي RAG أولاً (TF-IDF + pgvector)
+    let ragResults: any[] = [];
+    try {
+      ragResults = await embeddingService.search(params.message, 3);
+    } catch {
+      ragResults = [];
+    }
 
     // مسار سريع محلي بدون Gemini (توفير تكلفة)
     const localAnswer = smartAgentEnhancer.handleComplexQueries(params.message, params.orgId);
+
+    // دمج نتائج RAG في المصادر
+    const ragSources = ragResults.map((r) => ({
+      type: r.type,
+      reference: r.reference,
+      excerpt: r.excerpt,
+    }));
+
+    const combinedSources = [...localAnswer.sources, ...ragSources];
+    // إزالة التكرار حسب reference
+    const uniqueSources = Array.from(new Map(combinedSources.map((s) => [s.reference, s])).values());
+
+    // إذا كانت نتائج RAG عالية الثقة، عزز الإجابة
+    let answer = localAnswer.answer;
+    if (ragResults.length > 0 && ragResults[0].score > 0.3) {
+      const ragContext = ragResults.map((r) => `📌 [${r.type}] ${r.reference}: ${r.excerpt}`).join('\n');
+      answer = `${answer}\n\n🔍 نتائج بحث دلالي:\n${ragContext}`;
+    }
+
     const isSimpleQuery = localAnswer.confidence >= 0.85 && !/أنشئ|سجل|قيد|ترحيل|صرف|قبض/.test(params.message);
 
     if (isSimpleQuery) {
       return {
-        answer: localAnswer.answer,
-        confidence: localAnswer.confidence,
-        sources: localAnswer.sources,
+        answer,
+        confidence: Math.min(0.95, localAnswer.confidence + (ragResults[0]?.score || 0) * 0.1),
+        sources: uniqueSources,
         latencyMs: Date.now() - start,
-        modelUsed: 'local-smart-agent',
+        modelUsed: ragResults.length > 0 ? 'local-smart-agent+rag-tfidf' : 'local-smart-agent',
         contextUsed: true,
       };
     }
 
     // إن لم يكن سؤال بسيط، نعيد إجابة المساعد الذكي المحلي مع إثراء سياق
-    // (المسار الحقيقي لـ Gemini يبقى في ai.service.ts، لكن البوابة توحد المنطق)
-    const enrichedAnswer = `${localAnswer.answer}\n\n📊 سياق مالي: إجمالي المدينين 1301 = ${ctx.debtors1301.balance.toLocaleString()} ج.م (${ctx.debtors1301.count} طرف)، قيود معلقة ${ctx.pendingEntries.count} بإجمالي ${ctx.pendingEntries.totalValue.toLocaleString()} ج.م`;
+    const enrichedAnswer = `${answer}\n\n📊 سياق مالي: إجمالي المدينين 1301 = ${ctx.debtors1301.balance.toLocaleString()} ج.م (${ctx.debtors1301.count} طرف)، قيود معلقة ${ctx.pendingEntries.count} بإجمالي ${ctx.pendingEntries.totalValue.toLocaleString()} ج.م`;
 
     return {
       answer: enrichedAnswer,
       confidence: localAnswer.confidence,
-      sources: localAnswer.sources,
+      sources: uniqueSources,
       latencyMs: Date.now() - start,
-      modelUsed: 'local-smart-agent+context',
+      modelUsed: ragResults.length > 0 ? 'local-smart-agent+context+rag' : 'local-smart-agent+context',
       contextUsed: true,
       actionIntent: localAnswer.suggestedActions?.[0]
         ? { kind: 'action', actionId: localAnswer.suggestedActions[0].action, args: localAnswer.suggestedActions[0].params || {} }
