@@ -83,3 +83,6 @@ Success. You can now start the database server using:
 🏛️ Union Financial ERP Server running on http://0.0.0.0:3000
 📌 General Syndicate Chart of Accounts & 1301 Subledger Ready
 =======================================================
+2026-09-06 10:01:46.837 UTC [423727] LOG:  checkpoint starting: time
+
+2026-09-06 10:48:34.616 UTC [423727] LOG:  checkpoint complete: wrote 1030 buffers (6.3%), wrote 3 SLRU buffers; 1 WAL file(s) added, 0 removed, 0 recycled; write=2807.209 s, sync=0.184 s, total=2807.779 s; sync files=384, longest=0.011 s, average=0.001 s; distance=5150 kB, estimate=5150 kB; lsn=0/1C53458, redo lsn=0/1C533C8
