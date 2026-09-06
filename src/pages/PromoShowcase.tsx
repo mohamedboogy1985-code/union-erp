@@ -77,8 +77,9 @@ export const PromoShowcase: React.FC = () => {
             <video
               className="aspect-video w-full"
               controls
+              autoPlay
               playsInline
-              preload="metadata"
+              preload="auto"
               onError={() => setVideoStatus('missing')}
             >
               <source src={VIDEO_URL} type="video/mp4" />
