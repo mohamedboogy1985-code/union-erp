@@ -1,0 +1,85 @@
+
+> union-app@1.1.0 dev
+> tsx watch --ignore pgdata --clear-screen=false server.ts
+
+📊 تم تحميل الدليل الموحد: 0 حساباً في 0 قسماً
+📒 تم تحميل [تدريب_قيود_اليومية_2024.csv]: 0 قيداً (0 مرحّلاً) بإجمالي 0 ج.م
+📒 تم تحميل [قيود_اليومية_2022.csv]: 0 قيداً (0 مرحّلاً) بإجمالي 0 ج.م
+📒 تم تحميل [قيود_اليومية_2024.csv]: 0 قيداً (0 مرحّلاً) بإجمالي 0 ج.م
+📒 تم تحميل [قيود_اليومية_2024_c.csv]: 0 قيداً (0 مرحّلاً) بإجمالي 0 ج.م
+📒 تم تحميل [قيود_لجان_الشركات_2021.csv]: 0 قيداً (0 مرحّلاً) بإجمالي 0 ج.م
+📒 تم تحميل [قيود_لجان_الشركات_2022.csv]: 0 قيداً (0 مرحّلاً) بإجمالي 0 ج.م
+📒 تم تحميل [قيود_لجان_الشركات_2023.csv]: 0 قيداً (0 مرحّلاً) بإجمالي 0 ج.م
+📒 تم تحميل [قيود_لجان_الشركات_2024.csv]: 0 قيداً (0 مرحّلاً) بإجمالي 0 ج.م
+📒 تم تحميل [قيود_لجان_الشركات_2025.csv]: 0 قيداً (0 مرحّلاً) بإجمالي 0 ج.م
+📒 إجمالي القيود المحمّلة: 0 قيداً بإجمالي 0 ج.م
+[employee-affairs] تم تحميل 76 عاملاً من استمارة 2 تأمينات.
+The files belonging to this database system will be owned by user "jules".
+This user must also own the server process.
+
+
+The database cluster will be initialized with this locale configuration:
+  locale provider:   libc
+  LC_COLLATE:  C.UTF-8
+  LC_CTYPE:    C.UTF-8
+  LC_MESSAGES: en_US.utf8
+  LC_MONETARY: C.UTF-8
+  LC_NUMERIC:  C.UTF-8
+  LC_TIME:     C.UTF-8
+The default database encoding has accordingly been set to "UTF8".
+The default text search configuration will be set to "english".
+
+Data page checksums are enabled.
+
+creating directory /app/pgdata ...
+ok
+
+creating subdirectories ...
+ok
+
+selecting dynamic shared memory implementation ... posix
+selecting default "max_connections" ...
+100
+selecting default "shared_buffers" ...
+128MB
+selecting default time zone ...
+Etc/UTC
+creating configuration files ...
+ok
+running bootstrap script ...
+ok
+
+performing post-bootstrap initialization ...
+ok
+syncing data to disk ...
+ok
+
+Success. You can now start the database server using:
+
+    '/app/node_modules/@embedded-postgres/linux-x64/native/bin/pg_ctl' -D /app/pgdata -l logfile start
+
+
+🆕 تم تهيئة مجلد بيانات PostgreSQL المضمّن لأول مرة...
+2026-09-06 09:56:46.766 UTC [423723] LOG:  starting PostgreSQL 18.4 on x86_64-pc-linux-gnu, compiled by gcc (Ubuntu 7.5.0-3ubuntu1~18.04) 7.5.0, 64-bit
+
+2026-09-06 09:56:46.767 UTC [423723] LOG:  listening on IPv6 address "::1", port 5432
+
+2026-09-06 09:56:46.767 UTC [423723] LOG:  listening on IPv4 address "127.0.0.1", port 5432
+
+2026-09-06 09:56:46.771 UTC [423723] LOG:  listening on Unix socket "/tmp/.s.PGSQL.5432"
+
+2026-09-06 09:56:46.776 UTC [423729] LOG:  database system was shut down at 2026-09-06 09:56:45 UTC
+
+2026-09-06 09:56:46.780 UTC [423723] LOG:  database system is ready to accept connections
+
+🐘 PostgreSQL المضمّن يعمل الآن على المنفذ 5432 (البيانات: /app/pgdata)
+🆕 تم إنشاء قاعدة البيانات [union_app]
+🗃️ تم إنشاء جداول قاعدة البيانات (15 جدولاً) من المخطط المرجعي.
+🌱 Cloud SQL PostgreSQL is empty. Seeding initial syndicate data...
+✅ Initial syndicate data successfully seeded to Cloud SQL PostgreSQL.
+🎙️ [live-agent] خادم WebSocket الحي جاهز على المسار /api/live-agent
+🕐 تم بذر 282 سجل حضور تجريبي (بصمة) للشهر الحالي.
+=======================================================
+🏛️ Union Financial ERP Server running on http://0.0.0.0:3000
+📌 General Syndicate Chart of Accounts & 1301 Subledger Ready
+=======================================================
