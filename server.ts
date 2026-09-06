@@ -2710,7 +2710,246 @@ async function startServer() {
   });
 
   // ==========================================
-  // 13b. معالجة المسارات غير المعروفة وأخطاء الـ API (Phase 2)
+  // 13b. Skills Unified System — نظام المهارات الموحد
+  // يغطي: HR, Training, AI Agent, Accounting Procedures
+  // متاح في كل البوابات (ALL)
+  // ==========================================
+  app.get('/api/skills', (req: Request, res: Response) => {
+    const { category, search, isActive } = req.query;
+    let list = erpStore.skills;
+    if (category) list = list.filter((s) => s.category === category);
+    if (search) {
+      const q = String(search).toLowerCase();
+      list = list.filter((s) => s.name.toLowerCase().includes(q) || s.code.toLowerCase().includes(q) || s.description.toLowerCase().includes(q));
+    }
+    if (isActive !== undefined) list = list.filter((s) => String(s.isActive) === String(isActive));
+    res.json(list);
+  });
+
+  app.get('/api/skills/summary', (req: Request, res: Response) => {
+    const byCategory: any = { HR: 0, TRAINING: 0, AI_AGENT: 0, ACCOUNTING: 0 };
+    erpStore.skills.forEach((s) => { byCategory[s.category] = (byCategory[s.category] || 0) + 1; });
+    const topMap: Record<string, number> = {};
+    erpStore.employeeSkills.forEach((es) => { topMap[es.skillId] = (topMap[es.skillId] || 0) + 1; });
+    const topSkills = Object.entries(topMap).sort((a,b)=>b[1]-a[1]).slice(0,5).map(([skillId,count])=>{
+      const skill = erpStore.skills.find((s)=>s.id===skillId);
+      return { skillId, skillName: skill?.name || skillId, count };
+    });
+    const now = new Date();
+    const expiringSoon = erpStore.employeeSkills.filter((es)=>{
+      if (!es.expiryDate) return false;
+      const diff = (new Date(es.expiryDate).getTime() - now.getTime()) / (1000*60*60*24);
+      return diff >=0 && diff <= 30;
+    }).slice(0,10);
+    res.json({
+      totalSkills: erpStore.skills.length,
+      byCategory,
+      totalEmployeeSkills: erpStore.employeeSkills.length,
+      totalTrainingPrograms: erpStore.trainingPrograms.length,
+      totalEnrollments: erpStore.trainingEnrollments.length,
+      totalAiSkills: erpStore.aiAgentSkills.length,
+      totalProcedures: erpStore.accountingProcedures.length,
+      topSkills,
+      expiringSoon,
+    });
+  });
+
+  app.post('/api/skills', (req: Request, res: Response) => {
+    const user = requirePermission(req, res, 'hr:manage');
+    if (!user) return;
+    const { name, description, category, level, icon, color, estimatedHours } = req.body;
+    if (!name || !category) return res.status(400).json({ error: 'اسم المهارة وفئتها مطلوبان.' });
+    const now = new Date().toISOString();
+    const skill = {
+      id: `skl-${Date.now()}`,
+      code: `SKL-${String(erpStore.skills.length + 1).padStart(3,'0')}`,
+      name: String(name),
+      description: String(description || ''),
+      category,
+      level: level || 'INTERMEDIATE',
+      icon: icon || 'Award',
+      color: color || 'text-indigo-400',
+      isActive: true,
+      estimatedHours: Number(estimatedHours) || 0,
+      organizationId: user.organizationId,
+      createdAt: now,
+      updatedAt: now,
+    };
+    erpStore.skills.unshift(skill as any);
+    erpStore.recordAudit(user.id, user.fullName, user.role, user.organizationId, 'SKILL_CREATED', 'SKILL', skill.id, `إنشاء مهارة جديدة [${skill.name}] فئة ${category}`);
+    res.status(201).json(skill);
+  });
+
+  app.put('/api/skills/:id', (req: Request, res: Response) => {
+    const user = requirePermission(req, res, 'hr:manage');
+    if (!user) return;
+    const skill = erpStore.skills.find((s)=>s.id===req.params.id);
+    if (!skill) return res.status(404).json({ error: 'المهارة غير موجودة.' });
+    Object.assign(skill, req.body, { updatedAt: new Date().toISOString() });
+    res.json(skill);
+  });
+
+  app.delete('/api/skills/:id', (req: Request, res: Response) => {
+    const user = requirePermission(req, res, 'hr:manage');
+    if (!user) return;
+    const idx = erpStore.skills.findIndex((s)=>s.id===req.params.id);
+    if (idx===-1) return res.status(404).json({ error: 'المهارة غير موجودة.' });
+    erpStore.skills.splice(idx,1);
+    res.json({ success: true });
+  });
+
+  // Employee Skills
+  app.get('/api/employee-skills', (req: Request, res: Response) => {
+    const { employeeId, skillId, category } = req.query;
+    let list = erpStore.employeeSkills;
+    if (employeeId) list = list.filter((es)=>es.employeeId===employeeId);
+    if (skillId) list = list.filter((es)=>es.skillId===skillId);
+    if (category) list = list.filter((es)=>es.skillCategory===category);
+    res.json(list);
+  });
+
+  app.post('/api/employee-skills', (req: Request, res: Response) => {
+    const user = requirePermission(req, res, 'hr:manage');
+    if (!user) return;
+    const { employeeId, employeeName, skillId, level, proficiency, acquiredDate, expiryDate, notes } = req.body;
+    if (!employeeId || !skillId) return res.status(400).json({ error: 'الموظف والمهارة مطلوبان.' });
+    const skill = erpStore.skills.find((s)=>s.id===skillId);
+    const now = new Date().toISOString();
+    const es = {
+      id: `es-${Date.now()}`,
+      employeeId: String(employeeId),
+      employeeName: String(employeeName || employeeId),
+      skillId: String(skillId),
+      skillName: skill?.name || skillId,
+      skillCategory: skill?.category || 'HR',
+      level: level || skill?.level || 'INTERMEDIATE',
+      proficiency: Number(proficiency) || 50,
+      acquiredDate: acquiredDate || now.split('T')[0],
+      expiryDate,
+      verified: false,
+      notes,
+      createdAt: now,
+    };
+    erpStore.employeeSkills.unshift(es as any);
+    res.status(201).json(es);
+  });
+
+  app.delete('/api/employee-skills/:id', (req: Request, res: Response) => {
+    const user = requirePermission(req, res, 'hr:manage');
+    if (!user) return;
+    const idx = erpStore.employeeSkills.findIndex((es)=>es.id===req.params.id);
+    if (idx===-1) return res.status(404).json({ error: 'غير موجود.' });
+    erpStore.employeeSkills.splice(idx,1);
+    res.json({ success: true });
+  });
+
+  // Training Programs
+  app.get('/api/training-programs', (req: Request, res: Response) => {
+    res.json(erpStore.trainingPrograms);
+  });
+
+  app.post('/api/training-programs', (req: Request, res: Response) => {
+    const user = requirePermission(req, res, 'hr:manage');
+    if (!user) return;
+    const { title, description, category, durationHours, maxParticipants, instructor, skillsGranted } = req.body;
+    if (!title) return res.status(400).json({ error: 'عنوان البرنامج مطلوب.' });
+    const now = new Date().toISOString();
+    const prog = {
+      id: `trn-${Date.now()}`,
+      code: `TRN-${new Date().getFullYear()}-${String(erpStore.trainingPrograms.length+1).padStart(3,'0')}`,
+      title: String(title),
+      description: String(description||''),
+      category: category || 'TRAINING',
+      durationHours: Number(durationHours)||0,
+      maxParticipants: Number(maxParticipants)||20,
+      instructor,
+      status: 'OPEN',
+      skillsGranted: Array.isArray(skillsGranted) ? skillsGranted : [],
+      organizationId: user.organizationId,
+      createdAt: now,
+    };
+    erpStore.trainingPrograms.unshift(prog as any);
+    res.status(201).json(prog);
+  });
+
+  app.get('/api/training-enrollments', (req: Request, res: Response) => {
+    const { programId, employeeId } = req.query;
+    let list = erpStore.trainingEnrollments;
+    if (programId) list = list.filter((e)=>e.programId===programId);
+    if (employeeId) list = list.filter((e)=>e.employeeId===employeeId);
+    res.json(list);
+  });
+
+  app.post('/api/training-enrollments', (req: Request, res: Response) => {
+    const user = requirePermission(req, res, 'hr:manage');
+    if (!user) return;
+    const { programId, employeeId, employeeName } = req.body;
+    if (!programId || !employeeId) return res.status(400).json({ error: 'البرنامج والموظف مطلوبان.' });
+    const prog = erpStore.trainingPrograms.find((p)=>p.id===programId);
+    const enr = {
+      id: `enr-${Date.now()}`,
+      programId: String(programId),
+      programTitle: prog?.title || programId,
+      employeeId: String(employeeId),
+      employeeName: String(employeeName || employeeId),
+      status: 'ENROLLED',
+      progress: 0,
+      enrolledAt: new Date().toISOString(),
+    };
+    erpStore.trainingEnrollments.unshift(enr as any);
+    res.status(201).json(enr);
+  });
+
+  app.put('/api/training-enrollments/:id/progress', (req: Request, res: Response) => {
+    const user = requirePermission(req, res, 'hr:manage');
+    if (!user) return;
+    const enr = erpStore.trainingEnrollments.find((e)=>e.id===req.params.id);
+    if (!enr) return res.status(404).json({ error: 'التسجيل غير موجود.' });
+    const { progress, status, score } = req.body;
+    if (progress !== undefined) enr.progress = Math.min(100, Math.max(0, Number(progress)));
+    if (status) (enr as any).status = status;
+    if (score !== undefined) (enr as any).score = Number(score);
+    if (enr.progress >= 100 && enr.status !== 'COMPLETED') {
+      enr.status = 'COMPLETED' as any;
+      (enr as any).completedAt = new Date().toISOString();
+    }
+    res.json(enr);
+  });
+
+  // AI Agent Skills
+  app.get('/api/ai-agent-skills', (req: Request, res: Response) => {
+    res.json(erpStore.aiAgentSkills);
+  });
+
+  app.put('/api/ai-agent-skills/:id/toggle', (req: Request, res: Response) => {
+    const user = requirePermission(req, res, 'system:admin');
+    if (!user) return;
+    const skill = erpStore.aiAgentSkills.find((s)=>s.id===req.params.id);
+    if (!skill) return res.status(404).json({ error: 'غير موجود.' });
+    skill.isEnabled = !skill.isEnabled;
+    res.json(skill);
+  });
+
+  // Accounting Procedures
+  app.get('/api/accounting-procedures', (req: Request, res: Response) => {
+    const { category } = req.query;
+    let list = erpStore.accountingProcedures;
+    if (category) list = list.filter((p)=>p.category===category);
+    res.json(list);
+  });
+
+  app.post('/api/accounting-procedures/:id/execute', (req: Request, res: Response) => {
+    const user = requirePermission(req, res, 'journal:create');
+    if (!user) return;
+    const proc = erpStore.accountingProcedures.find((p)=>p.id===req.params.id);
+    if (!proc) return res.status(404).json({ error: 'الإجراء غير موجود.' });
+    // محاكاة تنفيذ إجراء محاسبي آلي
+    erpStore.recordAudit(user.id, user.fullName, user.role, user.organizationId, 'ACCOUNTING_PROCEDURE_EXECUTED', 'ACCOUNTING_PROCEDURE', proc.id, `تنفيذ إجراء محاسبي [${proc.title}]`);
+    res.json({ success: true, message: `تم تنفيذ «${proc.title}» بنجاح`, procedure: proc, executedAt: new Date().toISOString() });
+  });
+
+  // ==========================================
+  // 13c. معالجة المسارات غير المعروفة وأخطاء الـ API (Phase 2)
   // ==========================================
   app.use('/api', notFoundHandler);
 
