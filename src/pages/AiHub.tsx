@@ -1,12 +1,13 @@
 import React, { useState } from 'react';
-import { Bot, Radio, Headset, Calculator } from 'lucide-react';
+import { Bot, Radio, Headset, Calculator, Brain, Sparkles } from 'lucide-react';
 import { AIAssistant } from './AIAssistant.js';
 import { LiveAgent } from './LiveAgent.js';
 import { AccountingChat } from './AccountingChat.js';
+import { AiAgentOverview } from './AiAgentOverview.js';
 import { ModuleTabs, ModuleTabDef } from '../components/ModuleTabs.js';
 import { User } from '../types/erp.js';
 
-export type AiTabId = 'ai' | 'accountant' | 'liveagent';
+export type AiTabId = 'overview' | 'ai' | 'accountant' | 'liveagent';
 
 interface AiHubProps {
   organizationId: string;
@@ -23,6 +24,7 @@ interface AiHubProps {
 }
 
 const SUB_TABS: ModuleTabDef<AiTabId>[] = [
+  { id: 'overview', label: 'نظرة عامة — AI Agent المتكامل', icon: Brain, badge: '4 قدرات ✅' },
   { id: 'ai', label: 'استوديو الذكاء الاصطناعي (Gemini)', icon: Bot, badge: 'OCR/Forensics' },
   { id: 'accountant', label: 'الخبير المحاسبي', icon: Calculator, badge: 'Expert' },
   { id: 'liveagent', label: 'المساعد الحي صوت وصورة', icon: Radio, badge: 'Live/Gemini' },
@@ -37,7 +39,7 @@ export const AiHub: React.FC<AiHubProps> = ({
   onNavigateToJournals,
   initialTab = 'ai',
 }) => {
-  const [activeTab, setActiveTab] = useState<AiTabId>(initialTab);
+  const [activeTab, setActiveTab] = useState<AiTabId>(initialTab || 'overview');
 
   return (
     <div className="space-y-4">
@@ -50,6 +52,16 @@ export const AiHub: React.FC<AiHubProps> = ({
       />
 
       <div>
+        {activeTab === 'overview' && (
+          <AiAgentOverview
+            organizationId={organizationId}
+            onNavigate={(tab) => {
+              if (['ai','accountant','liveagent'].includes(tab)) setActiveTab(tab as AiTabId);
+              else onNavigate(tab);
+            }}
+            onShowToast={onShowToast}
+          />
+        )}
         {activeTab === 'ai' && (
           <AIAssistant
             organizationId={organizationId}
