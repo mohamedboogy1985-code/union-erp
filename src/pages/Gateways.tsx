@@ -57,8 +57,8 @@ export const Gateways: React.FC<GatewayProps> = ({ onSelectGateway, onShowToast 
               }}
               className={`text-right rounded-2xl bg-slate-900 border ${g.accent.border} hover:-translate-y-1 transition-all p-6 flex flex-col gap-4 group shadow-lg`}
             >
-              <div className={`w-14 h-14 rounded-2xl ${g.accent.bg} flex items-center justify-center`}>
-                <Icon className={`w-7 h-7 ${g.accent.text}`} />
+              <div className={`w-16 h-16 rounded-2xl ${g.accent.bg} p-2 flex items-center justify-center border ${g.accent.border} overflow-hidden bg-slate-950/80 shrink-0 shadow-md`}>
+                <img src={g.logo} alt={g.title} className="max-w-full max-h-full object-contain drop-shadow" />
               </div>
               <div>
                 <h2 className="text-lg font-bold text-white flex items-center gap-2">

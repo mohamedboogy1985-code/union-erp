@@ -7,6 +7,12 @@ import {
   Landmark,
   ShieldCheck,
   Scale,
+  Mic,
+  Square,
+  Volume2,
+  VolumeX,
+  Radio,
+  UserCheck,
 } from 'lucide-react';
 import { api } from '../services/api.js';
 import { User } from '../types/erp.js';
@@ -62,8 +68,74 @@ export const AccountingChat: React.FC<AccountingChatProps> = ({
   ]);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
+  const [isListening, setIsListening] = useState(false);
+  const [speechEnabled, setSpeechEnabled] = useState(true);
+  const [isSpeaking, setIsSpeaking] = useState(false);
+  const recognitionRef = useRef<any>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const msgIdRef = useRef(2);
+
+
+  const speakText = (text: string) => {
+    if (!speechEnabled || typeof window === 'undefined' || !('speechSynthesis' in window)) return;
+    try {
+      window.speechSynthesis.cancel();
+      const cleanText = text.replace(/[*#•_`~[\]]/g, ' ').replace(/\n+/g, '، ');
+      const utterance = new SpeechSynthesisUtterance(cleanText);
+      utterance.lang = 'ar-EG';
+      utterance.rate = 1.0;
+      utterance.pitch = 1.0;
+      utterance.onstart = () => setIsSpeaking(true);
+      utterance.onend = () => setIsSpeaking(false);
+      utterance.onerror = () => setIsSpeaking(false);
+      window.speechSynthesis.speak(utterance);
+    } catch {
+      setIsSpeaking(false);
+    }
+  };
+
+  const handleVoiceToggle = () => {
+    if (recognitionRef.current) {
+      recognitionRef.current.stop();
+      return;
+    }
+    if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
+      const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+      const recognition = new SpeechRecognition();
+      recognition.lang = 'ar-EG';
+      recognition.continuous = false;
+      recognition.interimResults = false;
+      recognitionRef.current = recognition;
+      setIsListening(true);
+
+      recognition.onresult = (event: any) => {
+        const spoken = event.results?.[0]?.[0]?.transcript;
+        if (spoken) {
+          setInput(spoken);
+          handleSend(spoken);
+        }
+      };
+
+      recognition.onend = () => {
+        recognitionRef.current = null;
+        setIsListening(false);
+      };
+
+      recognition.onerror = () => {
+        recognitionRef.current = null;
+        setIsListening(false);
+      };
+
+      try {
+        recognition.start();
+      } catch {
+        recognitionRef.current = null;
+        setIsListening(false);
+      }
+    } else {
+      onShowToast('warning', 'التعرف الصوتي غير مدعوم في هذا المتصفح.');
+    }
+  };
 
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' });
@@ -88,17 +160,19 @@ export const AccountingChat: React.FC<AccountingChatProps> = ({
     try {
       const res = await api.askAccountantExpert(message, history, organizationId);
       const sources = Array.isArray(res.sources) ? res.sources : [];
+      const botText = res.answer || 'لا يوجد رد متاح حالياً.';
       setMessages((prev) => [
         ...prev,
         {
           id: msgIdRef.current++,
           sender: 'bot',
-          text: res.answer || 'لا يوجد رد متاح حالياً.',
+          text: botText,
           timestamp: new Date().toLocaleString('ar-EG'),
           confidence: res.confidence,
           sources,
         },
       ]);
+      speakText(botText);
     } catch (err: any) {
       onShowToast('error', err.message);
       setMessages((prev) => [
@@ -136,14 +210,37 @@ export const AccountingChat: React.FC<AccountingChatProps> = ({
           </div>
         </div>
         <div className="flex items-center gap-3 text-[11px]">
-          <span className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-950 border border-slate-800 text-slate-300 font-bold">
-            <Landmark className="w-3.5 h-3.5 text-amber-400" />
-            بيانات حية من سجل القيود
-          </span>
-          <span className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-950 border border-slate-800 text-slate-300 font-bold">
-            <Scale className="w-3.5 h-3.5 text-amber-400" />
-            لائحة مالية نافذة (86 مادة)
-          </span>
+          <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-slate-950 border border-amber-800/40">
+            <div className="relative w-8 h-8 rounded-full bg-gradient-to-br from-amber-500 to-orange-600 flex items-center justify-center text-white overflow-hidden shadow-md">
+              <UserCheck className="w-4 h-4" />
+              {isSpeaking && (
+                <span className="absolute inset-0 bg-amber-400/30 animate-ping rounded-full" />
+              )}
+            </div>
+            <div className="flex flex-col">
+              <span className="font-bold text-amber-300 text-[10px]">الخبير المحاسبي الحي</span>
+              <span className="text-[9px] text-slate-400 flex items-center gap-1">
+                <span className={`w-1.5 h-1.5 rounded-full ${isSpeaking ? 'bg-emerald-400 animate-pulse' : 'bg-amber-400'}`} />
+                {isSpeaking ? 'يتحدث مع المحادثة...' : 'مستعد للحوار صوت وصورة'}
+              </span>
+            </div>
+          </div>
+
+          <button
+            type="button"
+            onClick={() => {
+              if (speechEnabled) window.speechSynthesis?.cancel();
+              setSpeechEnabled(!speechEnabled);
+            }}
+            className={`p-2 rounded-xl border transition-colors ${
+              speechEnabled
+                ? 'bg-amber-950/60 border-amber-700/60 text-amber-300'
+                : 'bg-slate-950 border-slate-800 text-slate-500'
+            }`}
+            title={speechEnabled ? 'إيقاف النطق الصوتي' : 'تفعيل النطق الصوتي'}
+          >
+            {speechEnabled ? <Volume2 className="w-4 h-4" /> : <VolumeX className="w-4 h-4" />}
+          </button>
         </div>
       </div>
 
@@ -230,11 +327,24 @@ export const AccountingChat: React.FC<AccountingChatProps> = ({
         >
           <input
             type="text"
-            placeholder="اسأل الخبير المحاسبي عن القيود، المدينون، اللائحة، أو أي استفسار محاسبي..."
+            placeholder={isListening ? 'أستمع إليك الآن... تحدث كأنك تخاطب الخبير المحاسبي' : 'اسأل الخبير المحاسبي عن القيود، المدينون، اللائحة، أو أي استفسار محاسبي...'}
             value={input}
             onChange={(e) => setInput(e.target.value)}
             className="flex-1 px-4 py-3 bg-slate-950 border border-slate-800 focus:border-amber-500 rounded-xl text-xs text-slate-200 placeholder:text-slate-500 outline-hidden transition-colors"
           />
+          <button
+            type="button"
+            onClick={handleVoiceToggle}
+            disabled={loading}
+            title="التحدث مع الخبير المحاسبي بصوتك"
+            className={`px-3 py-3 rounded-xl border shrink-0 transition-colors ${
+              isListening
+                ? 'bg-rose-600 border-rose-500 text-white animate-pulse'
+                : 'bg-slate-950 border-slate-800 hover:border-amber-500 text-slate-300 hover:text-amber-400'
+            }`}
+          >
+            {isListening ? <Square className="w-4 h-4" /> : <Mic className="w-4 h-4" />}
+          </button>
           <button
             type="submit"
             disabled={!input.trim() || loading}
