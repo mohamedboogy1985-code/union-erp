@@ -13,6 +13,22 @@ interface GatewayProps {
  * عند اختيار بوابة تنقل التطبيق إلى شاشتها الأولى وتحمل بيانات/منظمة البوابة نفسها.
  * التنقل داخل البوابة من الشريط الجانبي المخصص لبوابة واحدة فقط.
  */
+
+function speakWelcomeMessage(text: string) {
+  if (typeof window !== "undefined" && "speechSynthesis" in window) {
+    try {
+      window.speechSynthesis.cancel(); // Cancel any ongoing speech
+      const utterance = new SpeechSynthesisUtterance(text);
+      utterance.lang = "ar-EG";
+      utterance.rate = 0.95;
+      utterance.pitch = 1.0;
+      window.speechSynthesis.speak(utterance);
+    } catch {
+      /* Speech synthesis not supported or blocked */
+    }
+  }
+}
+
 export const Gateways: React.FC<GatewayProps> = ({ onSelectGateway, onShowToast }) => {
   return (
     <div className="p-6 max-w-6xl mx-auto space-y-6">
@@ -34,6 +50,8 @@ export const Gateways: React.FC<GatewayProps> = ({ onSelectGateway, onShowToast 
             <button
               key={g.id}
               onClick={() => {
+                const welcomeText = `أهلاً بك في ${g.title}. ${g.subtitle}`;
+                speakWelcomeMessage(welcomeText);
                 onSelectGateway(g.id);
                 onShowToast('info', `تم فتح ${g.title} ببيانات منفصلة (${g.organizationId})`);
               }}
