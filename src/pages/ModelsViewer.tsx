@@ -78,6 +78,12 @@ export const ModelsViewer: React.FC<ModelsViewerProps> = ({ organizationId, curr
   const [editFile, setEditFile] = useState<ModelFile | null>(null);
   const [addOpen, setAddOpen] = useState(false);
 
+  // In-App Direct Text Editor state
+  const [inAppEditFile, setInAppEditFile] = useState<ModelFile | null>(null);
+  const [inAppText, setInAppText] = useState("");
+  const [loadingText, setLoadingText] = useState(false);
+  const [savingText, setSavingText] = useState(false);
+
   // Upload / edit state
   const [uploading, setUploading] = useState(false);
   const [deleting, setDeleting] = useState(false);
@@ -238,6 +244,43 @@ export const ModelsViewer: React.FC<ModelsViewerProps> = ({ organizationId, curr
       onShowToast('error', err?.message || 'تعذر تحديث المحتوى');
     } finally {
       setUploading(false);
+    }
+  };
+
+  const openInAppEditor = async (f: ModelFile) => {
+    if (!guardUnlock()) return;
+    setInAppEditFile(f);
+    setLoadingText(true);
+    try {
+      const data = await api.getModelText(f.name);
+      setInAppText(data.content || "");
+    } catch (err: any) {
+      onShowToast("error", err?.message || "تعذر قراءة محتوى الملف للنص");
+      setInAppEditFile(null);
+    } finally {
+      setLoadingText(false);
+    }
+  };
+
+  const handleSaveInAppText = async () => {
+    if (!inAppEditFile) return;
+    setSavingText(true);
+    try {
+      // utf-8 to base64
+      const utf8Bytes = new TextEncoder().encode(inAppText);
+      let binary = "";
+      for (let i = 0; i < utf8Bytes.byteLength; i++) {
+        binary += String.fromCharCode(utf8Bytes[i]);
+      }
+      const base64 = btoa(binary);
+      await api.replaceModelContent(inAppEditFile.name, base64);
+      onShowToast("success", `تم حفظ التعديلات على «${inAppEditFile.name}» بنجاح`);
+      setInAppEditFile(null);
+      loadData(true);
+    } catch (err: any) {
+      onShowToast("error", err?.message || "تعذر حفظ التعديلات");
+    } finally {
+      setSavingText(false);
     }
   };
 
@@ -556,6 +599,13 @@ export const ModelsViewer: React.FC<ModelsViewerProps> = ({ organizationId, curr
                               <Download className="w-4 h-4" />
                             </button>
                             <button
+                              title="تعديل مباشر داخل التطبيق"
+                              onClick={() => openInAppEditor(f)}
+                              className="p-1.5 rounded-lg text-slate-400 hover:text-emerald-400 hover:bg-slate-800 transition"
+                            >
+                              <Pencil className="w-4 h-4 text-emerald-400" />
+                            </button>
+                            <button
                               title="تعديل (إعادة تسمية / استبدال المحتوى)"
                               onClick={() => {
                                 setEditFile(f);
@@ -563,7 +613,7 @@ export const ModelsViewer: React.FC<ModelsViewerProps> = ({ organizationId, curr
                               }}
                               className="p-1.5 rounded-lg text-slate-400 hover:text-purple-300 hover:bg-slate-800 transition"
                             >
-                              <Pencil className="w-4 h-4" />
+                              <FilePlus2 className="w-4 h-4" />
                             </button>
                             <button
                               title="حذف"
@@ -723,6 +773,73 @@ export const ModelsViewer: React.FC<ModelsViewerProps> = ({ organizationId, curr
             <p className="text-[10px] text-slate-500 leading-relaxed">
               كلمة المرور تُستخدم لفك تشفير الملفات أثناء العرض ولا تُخزَّن أو تُرفع مع المشروع على GitHub.
             </p>
+          </div>
+        </div>
+      )}
+
+            {/* In-App Direct Text/Document Editor Modal */}
+      {inAppEditFile && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 bg-black/75 backdrop-blur-xs overflow-y-auto">
+          <div className="relative w-full max-w-4xl bg-[#1e293b] border border-emerald-500/40 text-slate-100 rounded-2xl shadow-2xl overflow-hidden my-4">
+            <div className="flex items-center justify-between px-5 py-3 border-b border-[#334155] bg-[#1e293b]">
+              <div className="flex items-center gap-2.5">
+                <div className="h-9 w-9 rounded-xl bg-emerald-500/15 border border-emerald-500/30 flex items-center justify-center text-emerald-400">
+                  <Pencil className="w-4 h-4" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-bold text-slate-100">تعديل النموذج داخل التطبيق: {inAppEditFile.name}</h3>
+                  <p className="text-[11px] text-slate-400">محرر داخلي مدمج — يمكنك تعديل النص وحفظ التغييرات مباشرة</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setInAppEditFile(null)}
+                className="p-1.5 text-slate-400 hover:text-slate-100 hover:bg-slate-800 rounded-lg transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="p-5 bg-[#0f172a] space-y-3">
+              {loadingText ? (
+                <div className="flex flex-col items-center justify-center py-20 gap-3">
+                  <Loader2 className="w-8 h-8 text-emerald-400 animate-spin" />
+                  <p className="text-xs text-slate-400">جارٍ قراءة محتوى الملف للنص...</p>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between text-xs text-slate-400">
+                    <span>محتوى الملف النصي/المستند:</span>
+                    <span className="font-mono text-[10px] text-emerald-400">حفظ مباشر إلى مجلد «نماذج»</span>
+                  </div>
+                  <textarea
+                    value={inAppText}
+                    onChange={(e) => setInAppText(e.target.value)}
+                    rows={16}
+                    dir="auto"
+                    className="w-full p-4 rounded-xl bg-[#151321] border border-slate-700 text-slate-100 font-mono text-sm leading-relaxed focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500"
+                    placeholder="محتوى النموذج..."
+                  />
+                </div>
+              )}
+            </div>
+
+            <div className="flex items-center justify-between px-5 py-3.5 border-t border-[#334155] bg-[#1e293b]">
+              <button
+                onClick={() => setInAppEditFile(null)}
+                disabled={savingText}
+                className="px-4 py-2 text-xs rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-300 transition"
+              >
+                إلغاء
+              </button>
+              <button
+                onClick={handleSaveInAppText}
+                disabled={savingText || loadingText}
+                className="inline-flex items-center gap-2 px-5 py-2 text-xs font-bold rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white disabled:opacity-40 disabled:cursor-not-allowed transition"
+              >
+                {savingText ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle2 className="w-4 h-4" />}
+                حفظ التعديلات في النموذج
+              </button>
+            </div>
           </div>
         </div>
       )}

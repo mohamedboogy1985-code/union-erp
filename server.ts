@@ -370,6 +370,17 @@ async function startServer() {
   });
 
   // تنزيل ملف (attachment) — يفتحه البرنامج الافتراضي عند الضغط، ويناسب الطباعة من برنامج Office
+  // قراءة المحتوى النصي المباشر للتعديل داخل الشاشة
+  app.get('/api/models/:name/text', (req: Request, res: Response) => {
+    try {      const name = req.params.name;
+      const data = modelsService.readModelText(name);
+      res.json(data);
+    } catch (err: any) {
+      if (err?.status === 423) return res.status(423).json({ error: err.message });
+      res.status(400).json({ error: err.message });
+    }
+  });
+
   app.get('/api/models/:name/download', (req: Request, res: Response) => {
     try {
       const name = req.params.name;
