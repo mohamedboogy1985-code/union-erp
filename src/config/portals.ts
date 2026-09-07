@@ -53,11 +53,11 @@ export interface GatewayMeta {
   title: string;
   subtitle: string;
   icon: React.ComponentType<{ className?: string }>;
+  /** شعار خاص بالبوابة يُعرض في صفحة الهبوط والشريط الجانبي والترويسة — مسار عام يخدّمه الخادم من assets/ */
+  logo: string;
   accent: { text: string; bg: string; border: string; dot: string; chip: string };
   /** المنظمة/الكيان الافتراضي لهذه البوابة — يفصل بياناتها عن غيرها */
   organizationId: string;
-  /** شعار البوابة الخاص بها */
-  logo: string;
   /** الشاشة التي تُفتح تلقائياً عند اختيار البوابة */
   homeTab: string;
 }
@@ -114,9 +114,9 @@ export const GATEWAYS: GatewayMeta[] = [
     title: 'بوابة النقابة العامة',
     subtitle: 'كل شاشات إدارة النقابة العامة للعاملين — المحاسبة، العضوية، الموارد البشرية، والرقابة.',
     icon: Landmark,
+    logo: '/assets/logos/union-logo.png',
     accent: { text: 'text-sky-400', bg: 'bg-sky-500/10', border: 'border-sky-500/40', dot: 'bg-sky-400', chip: 'bg-sky-500/15 text-sky-300' },
     organizationId: 'org-general',
-    logo: '/union-logo.png',
     homeTab: 'dashboard',
   },
   {
@@ -124,9 +124,9 @@ export const GATEWAYS: GatewayMeta[] = [
     title: 'بوابة مركز تدريب النقابة العامة',
     subtitle: 'كل شاشات إدارة مركز التدريب — شئون العاملين، المرتبات، الحضور، والسلف والتدريب.',
     icon: School,
+    logo: '/assets/logos/training-logo.png',
     accent: { text: 'text-emerald-400', bg: 'bg-emerald-500/10', border: 'border-emerald-500/40', dot: 'bg-emerald-400', chip: 'bg-emerald-500/15 text-emerald-300' },
     organizationId: 'org-training-center',
-    logo: '/training-logo.png',
     homeTab: 'employees',
   },
   {
@@ -134,9 +134,9 @@ export const GATEWAYS: GatewayMeta[] = [
     title: 'بوابة اللجان',
     subtitle: 'كل شاشات إدارة اللجان النقابية للشركات والمهنية — وعرض اللجان وتفاصيلها.',
     icon: Globe,
+    logo: '/assets/logos/mohasbak-ai-logo.png',
     accent: { text: 'text-indigo-400', bg: 'bg-indigo-500/10', border: 'border-indigo-500/40', dot: 'bg-indigo-400', chip: 'bg-indigo-500/15 text-indigo-300' },
     organizationId: 'org-committees',
-    logo: '/mohasbak-ai-logo.png',
     homeTab: 'committees',
   },
 ];

@@ -322,6 +322,9 @@ export const api = {
   getAnomaliesAI: () => request<any[]>('/api/ai/anomalies'),
   parseVoiceDictationAI: (spokenText: string) =>
     request<any>('/api/ai/voice-dictation', { method: 'POST', body: JSON.stringify({ spokenText }) }),
+  // تحويل صوت مسجل (dataUrl) إلى نص عبر Gemini — بديل موثوق لـ Web Speech API
+  transcribeVoiceAI: (dataUrl: string) =>
+    request<{ text: string }>('/api/ai/stt', { method: 'POST', body: JSON.stringify({ dataUrl }) }),
   getFinancialForecastAI: (horizon: number = 12) =>
     request<any>(`/api/ai/financial-forecast?horizon=${horizon}`),
 

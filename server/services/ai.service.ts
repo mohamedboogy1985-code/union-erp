@@ -581,6 +581,44 @@ ${accountsListStr}
   }
 
   /**
+   * تحويل تسجيل صوتي (dataUrl) إلى نص عبر Gemini.
+   * بديل موثوق عن Web Speech API التي تفشل بخطأ network عند حجب/انقطاع
+   * الوصول لخوادم Google من داخل متصفح Electron.
+   */
+  public async transcribeAudio(dataUrl: string): Promise<string> {
+    const ai = getAIClient();
+    if (!ai) throw new Error('لم يتم تفعيل مفتاح Gemini (GEMINI_API_KEY) على الخادم.');
+
+    const match = dataUrl.match(/^data:([^;,]+);base64,(.+)$/s);
+    if (!match) throw new Error('تنسيق صوتي غير صالح (dataUrl).');
+    const mimeType = match[1];
+    const base64 = match[2];
+
+    const model = 'gemini-3.6-flash';
+    const response = await ai.models.generateContent({
+      model,
+      contents: [
+        {
+          role: 'user',
+          parts: [
+            { text: 'سمع هذا التسجيل الصوتي بدقة. انسخ النطق العربي نصاً حرفياً دون إضافات ولا شرح، مع كتابة الأرقام أرقاماً وليس كلمات. إن لم يوجد كلام واضح، أعد النص الصريح "لا كلام واضح" فقط.' },
+            { inlineData: { mimeType, data: base64 } },
+          ],
+        },
+      ],
+      config: {
+        temperature: 0,
+      },
+    });
+
+    const text = (response?.text || '').trim();
+    if (!text) return '';
+    const cleaned = text.replace(/^"|"$/g, '');
+    if (/^\s*(لا كلام واضح|لا يوجد كلام|empty)\s*$/i.test(cleaned)) return '';
+    return cleaned;
+  }
+
+  /**
    * Voice-to-Transaction Parser (Arabic Speech Command Engine)
    */
   public async parseVoiceDictation(spokenText: string): Promise<VoiceParsedTransaction> {

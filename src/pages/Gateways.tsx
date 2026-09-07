@@ -2,6 +2,8 @@ import React from 'react';
 import { ArrowRight, Landmark, Film, Sparkles } from 'lucide-react';
 import { GATEWAYS, PortalId, screensForPortal } from '../config/portals.js';
 import { PromoShowcase } from './PromoShowcase.js';
+import { speakArabic, welcomeMessageFor } from '../utils/speech.js';
+import { PORTAL_LOGOS } from '../components/PortalLogo.js';
 
 interface GatewayProps {
   onSelectGateway: (gatewayId: PortalId) => void;
@@ -44,7 +46,6 @@ export const Gateways: React.FC<GatewayProps> = ({ onSelectGateway, onShowToast 
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-5 mt-4">
         {GATEWAYS.map((g) => {
-          const Icon = g.icon;
           const screenCount = screensForPortal(g.id).length;
           return (
             <button
@@ -54,11 +55,17 @@ export const Gateways: React.FC<GatewayProps> = ({ onSelectGateway, onShowToast 
                 speakWelcomeMessage(welcomeText);
                 onSelectGateway(g.id);
                 onShowToast('info', `تم فتح ${g.title} ببيانات منفصلة (${g.organizationId})`);
+                speakArabic(welcomeMessageFor(g.title, screenCount));
               }}
               className={`text-right rounded-2xl bg-slate-900 border ${g.accent.border} hover:-translate-y-1 transition-all p-6 flex flex-col gap-4 group shadow-lg`}
             >
-              <div className={`w-16 h-16 rounded-2xl ${g.accent.bg} p-2 flex items-center justify-center border ${g.accent.border} overflow-hidden bg-slate-950/80 shrink-0 shadow-md`}>
-                <img src={g.logo} alt={g.title} className="max-w-full max-h-full object-contain drop-shadow" />
+<div className={`w-14 h-14 rounded-2xl ${g.accent.bg} flex items-center justify-center overflow-hidden p-1`}>
+                <img
+                  src={PORTAL_LOGOS[g.id]}
+                  alt={g.title}
+                  className="w-full h-full object-contain"
+                  draggable={false}
+                />
               </div>
               <div>
                 <h2 className="text-lg font-bold text-white flex items-center gap-2">

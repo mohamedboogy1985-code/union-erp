@@ -14,10 +14,13 @@ import {
   Layers,
   UserCheck,
   UsersRound,
+  Scale,
+  Calculator,
 } from 'lucide-react';
 import { Organization, User, SyncStatus } from '../types/erp.js';
 import { api, setCurrentUserId } from '../services/api.js';
 import { getGatewayMeta, PortalId, screensForPortal } from '../config/portals.js';
+import { PortalLogo } from './PortalLogo.js';
 import { NotificationCenter } from './NotificationCenter.js';
 import { OfflineSyncModal } from './OfflineSyncModal.js';
 import { ImportExportModal } from './ImportExportModal.js';
@@ -90,11 +93,21 @@ export const Layout: React.FC<LayoutProps> = ({
   }
 
   // الوحدات المدمجة: كل شاشة تابعة تُعرض داخل بند رئيسي واحد كالسابق (المحاسبة والمالية، العضوية، الموارد البشرية)
-  const HUB_DEFS = [
-    { id: 'accounting', label: 'المحاسبة والمالية', icon: Layers, tabs: ['journals', 'reports', 'subledgers', 'accounts', 'banking', 'procurement'] },
-    { id: 'membership', label: 'العضوية والتحصيل', icon: UserCheck, tabs: ['members', 'receipts'] },
-    { id: 'hrs', label: 'الموارد البشرية والعاملين', icon: UsersRound, tabs: ['employees', 'payroll', 'attendance', 'advances'] },
-  ];
+  // «الرقابة والإعدادات» تُدمج في بوابة النقابة فقط؛ في بوابات التدريب واللجان تبقى الإعدادات منفصلة.
+  const HUB_DEFS = selectedGateway === 'syndicate'
+    ? [
+        { id: 'accounting', label: 'المحاسبة والمالية', icon: Layers, tabs: ['journals', 'reports', 'subledgers', 'accounts', 'banking', 'procurement', 'journal-2024'] },
+        { id: 'membership', label: 'العضوية والتحصيل واللجان', icon: UserCheck, tabs: ['members', 'receipts'] },
+        { id: 'hrs', label: 'الموارد البشرية والعاملين', icon: UsersRound, tabs: ['employees', 'payroll', 'attendance', 'advances'] },
+        { id: 'regulation-budgets', label: 'الرقابة المالية والموازنات', icon: Scale, tabs: ['regulation', 'budgets'] },
+        { id: 'audit-settings', label: 'الرقابة والإعدادات', icon: ShieldCheck, tabs: ['audit', 'settings'] },
+        { id: 'insured-actuarial', label: 'الصندوق الإكتواري', icon: Calculator, tabs: ['insured-list', 'actuarial'] },
+      ]
+    : [
+        { id: 'accounting', label: 'المحاسبة والمالية', icon: Layers, tabs: ['journals', 'reports', 'subledgers', 'accounts', 'banking', 'procurement'] },
+        { id: 'membership', label: 'العضوية والتحصيل', icon: UserCheck, tabs: ['members', 'receipts'] },
+        { id: 'hrs', label: 'الموارد البشرية والعاملين', icon: UsersRound, tabs: ['employees', 'payroll', 'attendance', 'advances'] },
+      ];
 
   const activePortalMeta = getGatewayMeta(selectedGateway);
   const portalScreens = screensForPortal(selectedGateway);
@@ -141,17 +154,26 @@ export const Layout: React.FC<LayoutProps> = ({
     accounts: 'accounting',
     banking: 'accounting',
     procurement: 'accounting',
+    'journal-2024': 'accounting',
     'balance-sheet': 'balance-sheet',
     balanceSheet: 'balance-sheet',
     membership: 'membership',
     members: 'membership',
     receipts: 'membership',
+    committees: 'membership',
     hrs: 'hrs',
     employees: 'hrs',
     payroll: 'hrs',
     attendance: 'hrs',
     advances: 'hrs',
-    actuarial: 'actuarial',
+    'regulation-budgets': 'regulation-budgets',
+    regulation: 'regulation-budgets',
+    budgets: 'regulation-budgets',
+    'audit-settings': 'audit-settings',
+    audit: 'audit-settings',
+    settings: 'audit-settings',
+    'insured-actuarial': 'insured-actuarial',
+    'insured-list': 'insured-actuarial',
     ai: 'aihub',
     aiHub: 'aihub',
     liveagent: 'aihub',
@@ -167,15 +189,7 @@ export const Layout: React.FC<LayoutProps> = ({
         {/* Syndicate Brand Header */}
         <div className="h-12 px-4 border-b border-[#334155] flex items-center justify-between bg-[#1e293b]/60">
           <div className="flex items-center gap-2.5">
-            {activePortalMeta ? (
-              <div className="w-8 h-8 rounded-lg bg-slate-900 border border-[#334155] p-1 flex items-center justify-center overflow-hidden shrink-0 shadow">
-                <img src={activePortalMeta.logo} alt={activePortalMeta.title} className="max-w-full max-h-full object-contain" />
-              </div>
-            ) : (
-              <div className="w-7 h-7 rounded bg-sky-500/10 border border-sky-400/40 flex items-center justify-center text-sky-400">
-                <ShieldCheck className="w-4 h-4" />
-              </div>
-            )}
+<PortalLogo gatewayId={selectedGateway} className="w-7 h-7" alt="شعار البوابة" />
             <div>
               <h1 className="font-bold text-xs text-sky-400 tracking-wide font-mono">UNION // ERP_ENGINE</h1>
             </div>
@@ -191,8 +205,11 @@ export const Layout: React.FC<LayoutProps> = ({
           {activePortalMeta ? (
             <div className="space-y-1.5">
               <div className="flex items-center gap-2">
-                <img src={activePortalMeta.logo} alt="" className="w-5 h-5 object-contain" />
-                <span className="text-[10.5px] font-bold text-slate-200">{activePortalMeta.title}</span>
+<PortalLogo gatewayId={activePortalMeta.id} className="w-6 h-6" alt={activePortalMeta.title} />
+                <div className="flex items-center gap-1.5">
+                  <activePortalMeta.icon className={`w-4 h-4 ${activePortalMeta.accent.text}`} />
+                  <span className="text-[10px] font-bold text-slate-300">{activePortalMeta.title}</span>
+                </div>
               </div>
               <div className="flex items-center justify-between gap-2">
                 <span className="text-[9px] font-mono text-slate-500">data: {activePortalMeta.organizationId}</span>
@@ -269,6 +286,7 @@ export const Layout: React.FC<LayoutProps> = ({
         <header data-print-hidden className="h-12 bg-[#1e293b] border-b border-[#334155] flex items-center justify-between px-4 shrink-0">
           {/* Organization Switcher & Telemetry */}
           <div className="flex items-center gap-3">
+            <PortalLogo gatewayId={selectedGateway} className="w-7 h-7 hidden sm:block" alt="شعار البوابة" />
             <div className="relative">
               <button
                 onClick={() => setIsOrgDropdownOpen(!isOrgDropdownOpen)}

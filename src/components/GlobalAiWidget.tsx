@@ -1,8 +1,9 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Bot, X, Send, Loader2, ShieldCheck, Sparkles, CheckCircle2, AlertTriangle, Mic, Square } from 'lucide-react';
+import { Bot, X, Send, Loader2, ShieldCheck, Sparkles, CheckCircle2, AlertTriangle, Mic, Square, Volume2, VolumeX } from 'lucide-react';
 import { User } from '../types/erp.js';
-import { getCurrentUserId } from '../services/api.js';
+import { api, getCurrentUserId } from '../services/api.js';
 import { streamGlobalAiChat } from '../services/ai-stream.js';
+import { speakArabic, cleanArabicTextForSpeech, isSpeechSupported, preloadVoices } from '../utils/speech.js';
 
 interface MessageItem {
   role: 'user' | 'assistant';
@@ -52,12 +53,18 @@ export const GlobalAiWidget: React.FC<GlobalAiWidgetProps> = ({ currentTab, sele
   const [apiConfigured, setApiConfigured] = useState<boolean | null>(null);
   const [isListening, setIsListening] = useState(false);
   const [voiceError, setVoiceError] = useState<string | null>(null);
+  const [speakEnabled, setSpeakEnabled] = useState<boolean>(
+    () => typeof window !== 'undefined' && window.localStorage.getItem('union.speakEnabled') !== '0'
+  );
+  const [speechError, setSpeechError] = useState<string | null>(null);
   const [pendingAction, setPendingAction] = useState<PendingAction | null>(null);
   const [executing, setExecuting] = useState(false);
   const [execResult, setExecResult] = useState<string | null>(null);
   const [execError, setExecError] = useState<string | null>(null);
   const recognitionRef = useRef<any>(null);
   const spokenTextRef = useRef('');
+  const mediaRecorderRef = useRef<any>(null);
+  const recordingChunksRef = useRef<Blob[]>([]);
   const bodyRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -83,12 +90,25 @@ export const GlobalAiWidget: React.FC<GlobalAiWidgetProps> = ({ currentTab, sele
     };
   }, [isOpen]);
 
+  // تهيئة أصوات النطق عند الإقلاع (Chrome تحمّل الأصوات بشكل غير متزامن)
+  useEffect(() => {
+    preloadVoices();
+  }, []);
+
   // إيقاف جلسة التعرف الصوتي عند إغلاق المكوّن
   useEffect(() => {
     return () => {
       if (recognitionRef.current) {
         recognitionRef.current.abort();
         recognitionRef.current = null;
+      }
+      if (mediaRecorderRef.current) {
+        try {
+          mediaRecorderRef.current.stop();
+        } catch {
+          /* تجاهل */
+        }
+        mediaRecorderRef.current = null;
       }
     };
   }, []);
@@ -140,11 +160,39 @@ export const GlobalAiWidget: React.FC<GlobalAiWidgetProps> = ({ currentTab, sele
       );
       if (!assistantText) assistantText = 'تمت المعالجة.';
       updateAssistant();
+      speakAssistant(assistantText);
     } catch (err: any) {
       setMessages((m) => [...m, { role: 'assistant', text: `حدث خطأ: ${err.message || 'غير معروف'}` }]);
     } finally {
       setLoading(false);
     }
+  };
+
+  // ==== النطق الصوتي لردود المساعد (Web Speech) ====
+  const speakAssistant = (text: string) => {
+    if (!speakEnabled) return;
+    if (!isSpeechSupported()) {
+      setSpeechError('القراءة الصوتية غير مدعومة في هذا المتصفح.');
+      return;
+    }
+    const cleaned = cleanArabicTextForSpeech(text);
+    if (!cleaned) return;
+    setSpeechError(null);
+    const ok = speakArabic(cleaned, {
+      onError: (msg) => setSpeechError(msg),
+    });
+    if (!ok) setSpeechError('تعذر بدء القراءة الصوتية — تحقق من إذن الصوت بالمتصفح.');
+  };
+
+  const toggleSpeak = () => {
+    setSpeakEnabled((enabled) => {
+      const next = !enabled;
+      if (typeof window !== 'undefined') {
+        window.localStorage.setItem('union.speakEnabled', next ? '1' : '0');
+      }
+      return next;
+    });
+    setSpeechError(null);
   };
 
   const confirmPost = async () => {
@@ -241,7 +289,14 @@ export const GlobalAiWidget: React.FC<GlobalAiWidgetProps> = ({ currentTab, sele
   // ==== الإدخال الصوتي داخل المساعد العائم ====
   const handleVoiceToggle = () => {
     setVoiceError(null);
-    // ضغطة ثانية أثناء الاستماع = إيقاف
+
+    // ضغطة ثانية أثناء التسجيل المحلي = إيقاف وإرسال للتحويل
+    const mr = mediaRecorderRef.current;
+    if (mr && mr.state !== 'inactive') {
+      mr.stop();
+      return;
+    }
+    // ضغطة ثانية أثناء الاستماع بـ Web Speech = إيقاف
     if (recognitionRef.current) {
       recognitionRef.current.stop();
       return;
@@ -249,6 +304,85 @@ export const GlobalAiWidget: React.FC<GlobalAiWidgetProps> = ({ currentTab, sele
     recognitionRef.current?.abort();
     recognitionRef.current = null;
 
+    // المسار الأساسي: تسجيل صوتي محلي + تحويل إلى نص عبر خادم المشروع (Gemini).
+    // يعمل حتى لو حُجب الوصول لخدمات Google السحابية (خطأ network في Web Speech).
+    if (typeof window !== 'undefined' && 'MediaRecorder' in window && window.navigator?.mediaDevices?.getUserMedia) {
+      const startLocalRecording = async () => {
+        try {
+          const stream = await window.navigator.mediaDevices.getUserMedia({
+            audio: { channelCount: 1, echoCancellation: true, noiseSuppression: true },
+          });
+          recordingChunksRef.current = [];
+          const recorder = new MediaRecorder(stream, { mimeType: 'audio/webm' });
+          mediaRecorderRef.current = recorder;
+
+          recorder.ondataavailable = (event: any) => {
+            if (event.data && event.data.size > 0) recordingChunksRef.current.push(event.data);
+          };
+
+          recorder.onstop = () => {
+            stream.getTracks().forEach((t) => t.stop());
+            mediaRecorderRef.current = null;
+            setIsListening(false);
+            const blob = new Blob(recordingChunksRef.current, { type: recorder.mimeType || 'audio/webm' });
+            if (!blob.size) {
+              setVoiceError('لم يُلتقط أي صوت — حاول مجدداً.');
+              return;
+            }
+            setVoiceError('جارٍ تحويل الصوت إلى نص...');
+            const reader = new FileReader();
+            reader.onloadend = () => {
+              const dataUrl = reader.result as string;
+              api.transcribeVoiceAI(dataUrl)
+                .then((res) => {
+                  const text = (res?.text || '').trim();
+                  if (!text) {
+                    setVoiceError('لم يسمع النظام كلاماً واضحاً — حاول مجدداً بوضوح أكبر.');
+                    return;
+                  }
+                  setVoiceError(null);
+                  setInput(text);
+                  send(text);
+                })
+                .catch((err: any) => {
+                  setVoiceError(
+                    err?.message?.includes('Gemini') || err?.message?.includes('API')
+                      ? 'تعذر تحويل الصوت: مفتاح Gemini غير مفعّل على الخادم — استكمل عبر الكتابة.'
+                      : err?.message || 'تعذر تحويل الصوت إلى نص عبر الخادم.'
+                  );
+                });
+            };
+            reader.onerror = () => setVoiceError('تعذر قراءة التسجيل الصوتي.');
+            reader.readAsDataURL(blob);
+          };
+
+          recorder.onerror = () => {
+            stream.getTracks().forEach((t) => t.stop());
+            mediaRecorderRef.current = null;
+            setIsListening(false);
+            setVoiceError('فشل التسجيل الصوتي — حاول مجدداً.');
+          };
+
+          recorder.start();
+          setIsListening(true);
+        } catch (err: any) {
+          mediaRecorderRef.current = null;
+          setIsListening(false);
+          const kind = err?.name || '';
+          if (kind === 'NotAllowedError' || kind === 'PermissionDeniedError') {
+            setVoiceError('تم رفض إذن الميكروفون — اسمح بالوصول من إعدادات المتصفح.');
+          } else if (kind === 'NotFoundError' || kind === 'DevicesNotFoundError') {
+            setVoiceError('لا يوجد ميكروفون متاح على جهازك.');
+          } else {
+            setVoiceError('تعذر الوصول إلى الميكروفون — تحقق من الإذن ثم حاول مجدداً.');
+          }
+        }
+      };
+      startLocalRecording();
+      return;
+    }
+
+    // مسار احتياطي: Web Speech API (يُستخدم فقط لو لم تتوفر وسيلة التسجيل المحلي)
     if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
       const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
       const recognition = new SpeechRecognition();
@@ -285,6 +419,8 @@ export const GlobalAiWidget: React.FC<GlobalAiWidgetProps> = ({ currentTab, sele
         else if (event.error === 'not-allowed' || event.error === 'service-not-allowed')
           setVoiceError('تم رفض إذن الميكروفون — اسمح بالوصول من إعدادات المتصفح.');
         else if (event.error === 'audio-capture') setVoiceError('لا يوجد ميكروفون متاح على جهازك.');
+        else if (event.error === 'network')
+          setVoiceError('تعذر الاتصال بخدمة التعرف الصوتي السحابية — يدعم هذا التطبيق التسجيل عبر الميكروفون مباشرة، فأعد المحاولة.');
         else if (event.error !== 'aborted') setVoiceError(`فشل التقاط الصوت: ${event.error}`);
       };
 
@@ -342,12 +478,23 @@ export const GlobalAiWidget: React.FC<GlobalAiWidgetProps> = ({ currentTab, sele
                 </span>
               </div>
             </div>
-            <button
-              onClick={() => setIsOpen(false)}
-              className="text-slate-400 hover:text-white p-1 rounded"
-            >
-              <X className="w-4 h-4" />
-            </button>
+            <div className="flex items-center gap-1">
+              <button
+                onClick={toggleSpeak}
+                title={speakEnabled ? 'إيقاف قراءة الردود صوتياً' : 'قراءة الردود صوتياً'}
+                className={`p-1.5 rounded text-slate-400 hover:text-white transition-colors ${
+                  speakEnabled ? 'bg-purple-600/20 text-purple-300' : ''
+                }`}
+              >
+                {speakEnabled ? <Volume2 className="w-4 h-4" /> : <VolumeX className="w-4 h-4" />}
+              </button>
+              <button
+                onClick={() => setIsOpen(false)}
+                className="text-slate-400 hover:text-white p-1.5 rounded"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
           </div>
 
           {/* Messages */}
@@ -550,6 +697,11 @@ export const GlobalAiWidget: React.FC<GlobalAiWidgetProps> = ({ currentTab, sele
             )}
             {voiceError && !isListening && (
               <p className="mt-1.5 text-[10px] text-rose-400 text-center">{voiceError}</p>
+            )}
+            {speechError && (
+              <p className="mt-1.5 text-[10px] text-amber-300 text-center flex items-center justify-center gap-1">
+                <VolumeX className="w-3 h-3" /> {speechError}
+              </p>
             )}
             {!isListening && !voiceError && (
               <p className="mt-1.5 text-[9px] text-slate-500 text-center">

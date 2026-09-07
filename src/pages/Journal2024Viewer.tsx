@@ -4,6 +4,7 @@ import { api } from '../services/api.js';
 import { JournalRow, User } from '../types/erp.js';
 import { Modal } from '../components/Modal.js';
 import { hasPerm } from '../utils/permissions.js';
+import { createVoiceCapture } from '../utils/voiceCapture.js';
 
 interface Journal2024ViewerProps {
   organizationId: string;
@@ -30,7 +31,7 @@ export const Journal2024Viewer: React.FC<Journal2024ViewerProps> = ({
   const [isListening, setIsListening] = useState(false);
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
-  const recognitionRef = useRef<any>(null);
+  const voiceCapture = useRef<any>(null);
 
   // Form State
   const [formData, setFormData] = useState<Partial<JournalRow>>({
@@ -126,55 +127,25 @@ export const Journal2024Viewer: React.FC<Journal2024ViewerProps> = ({
 
   // Speech Recognition (الأوامر الصوتية)
   const toggleListening = () => {
-    if (isListening) {
-      stopListening();
-    } else {
-      startListening();
+    if (!voiceCapture.current) {
+      voiceCapture.current = createVoiceCapture({
+        onListeningChange: (listening) => {
+          setIsListening(listening);
+          if (listening) onShowToast('info', 'المساعد يستمع الآن... تحدث ببيان القيد والمبلغ');
+          else onShowToast('info', 'تم الانتهاء من الاستماع');
+        },
+        onError: (message) => onShowToast('error', message),
+        onText: (text) => parseVoiceToEntry(text),
+      });
     }
-  };
-
-  const startListening = () => {
-    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-    if (!SpeechRecognition) {
-      onShowToast('error', 'خاصية التعرف على الصوت غير مدعومة في هذا المتصفح.');
-      return;
-    }
-
-    try {
-      const recognition = new SpeechRecognition();
-      recognition.lang = 'ar-EG';
-      recognition.continuous = true;
-      recognition.interimResults = false;
-
-      recognition.onstart = () => {
-        setIsListening(true);
-        onShowToast('info', 'الذكاء الإصطناعي يستمع الآن... تحدث ببيان القيد والمبلغ');
-      };
-
-      recognition.onresult = (event: any) => {
-        const transcript = event.results[event.results.length - 1][0].transcript;
-        parseVoiceToEntry(transcript);
-      };
-
-      recognition.onerror = () => {
-        setIsListening(false);
-      };
-
-      recognition.onend = () => {
-        setIsListening(false);
-      };
-
-      recognition.start();
-      recognitionRef.current = recognition;
-    } catch (err) {
-      onShowToast('error', 'تعذر بدء الاستماع الصوتي');
-    }
+    voiceCapture.current.toggle();
   };
 
   const stopListening = () => {
-    if (recognitionRef.current) {
-      recognitionRef.current.stop();
-      recognitionRef.current = null;
+    if (voiceCapture.current) {
+      if (voiceCapture.current.isActive()) voiceCapture.current.toggle();
+      voiceCapture.current.cleanup();
+      voiceCapture.current = null;
     }
     setIsListening(false);
   };
