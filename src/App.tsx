@@ -22,6 +22,7 @@ const Budgets = lazy(() => import('./pages/Budgets.js').then((m) => ({ default: 
 const FixedAssets = lazy(() => import('./pages/FixedAssets.js').then((m) => ({ default: m.FixedAssets })));
 const EInvoicing = lazy(() => import('./pages/EInvoicing.js').then((m) => ({ default: m.EInvoicing })));
 const AuditLog = lazy(() => import('./pages/AuditLog.js').then((m) => ({ default: m.AuditLog })));
+const JulesDashboard = lazy(() => import('./pages/JulesDashboard.js').then((m) => ({ default: m.JulesDashboard })));
 const FinancialRegulation = lazy(() => import('./pages/FinancialRegulation.js').then((m) => ({ default: m.FinancialRegulation })));
 const UnionCommittees = lazy(() => import('./pages/UnionCommittees.js').then((m) => ({ default: m.UnionCommittees })));
 const CommitteeDataViewer = lazy(() => import('./pages/CommitteeDataViewer.js').then((m) => ({ default: m.CommitteeDataViewer })));
@@ -388,6 +389,19 @@ export function App() {
               currentUser={currentUser}
               onShowToast={showToast}
             />
+            </Suspense>
+          </ErrorBoundary>
+        )}
+
+        {currentTab === 'jules' && (
+          <ErrorBoundary label="وكيل البرمجة Jules" onNavigate={setCurrentTab}>
+            <Suspense fallback={lazyFallback('لوحة Jules')}>
+              <JulesDashboard
+                key={currentUser?.id || 'signed-out'}
+                currentUser={currentUser}
+                onUserChange={setCurrentUser}
+                onShowToast={showToast}
+              />
             </Suspense>
           </ErrorBoundary>
         )}

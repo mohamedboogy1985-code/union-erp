@@ -16,6 +16,8 @@ import { registerAIActionRoutes } from './server/routes/ai-action.routes.js';
 import { registerAIRoutes } from './server/routes/ai.routes.js';
 import { registerReportExportRoutes } from './server/routes/report-export.routes.js';
 import { registerEtaRoutes } from './server/routes/eta.routes.js';
+import { registerJulesRoutes } from './server/routes/jules.routes.js';
+import { configureAdminCredentials, publicUser } from './server/security/admin-credentials.js';
 import { receiptsService } from './server/services/receipts.service.js';
 import { reportsService } from './server/services/reports.service.js';
 import { calculateSimilarity, normalizeArabicText } from './server/utils/arabic.js';
@@ -57,6 +59,7 @@ function isModelsLocked(): boolean {
 async function startServer() {
   // فحص أمني قبل أي شيء: الوضع الصارم يرفض الإقلاع بأسرار ضعيفة (DEMO_MODE=false)
   assertRuntimeSecurity();
+  configureAdminCredentials(erpStore.users);
 
   const app = express();
   const PORT = Number(process.env.PORT || 3000);
@@ -66,6 +69,8 @@ async function startServer() {
   app.use(comprehensiveAuditMiddleware); // سجل تدقيق شامل لكل عمليات API
   app.use(createRateLimiter(Number(process.env.RATE_LIMIT_MAX || 300), 60_000)); // 300 طلب/دقيقة لكل IP
 
+  // Coding-agent inputs are text only; do not inherit the document-upload limit.
+  app.use('/api/jules', express.json({ limit: '64kb' }));
   app.use(express.json({ limit: '250mb' })); // دعم رفع الملفات الكبيرة base64 للمستندات
 
   // خدمة الأصول الثابتة (صور المستخدمين وأيقونة التطبيق) — بمسارات مرشحة
@@ -167,6 +172,10 @@ async function startServer() {
   registerAIActionRoutes(app, { requirePermission });
   registerReportExportRoutes(app);
   registerEtaRoutes(app);
+  registerJulesRoutes(app, {
+    requirePermission,
+    persistAudit: (event) => postgresManager.persistAuditLog(event),
+  });
 
   // ==========================================
   // 1. HEALTH & SYSTEM INFO
@@ -196,7 +205,7 @@ async function startServer() {
   app.get('/api/auth/me', (req: Request, res: Response) => {
     const user = getActiveUser(req);
     if (!user) return res.status(401).json({ error: 'يلزم تسجيل الدخول (الوضع الصارم).' });
-    res.json(user);
+    res.json(publicUser(user));
   });
 
   // ==========================================
@@ -225,7 +234,8 @@ async function startServer() {
       String(username),
       String(code),
       req.ip || 'unknown',
-      req.headers['user-agent']
+      req.headers['user-agent'],
+      req.body.password
     );
     res.status(result.success ? 200 : 401).json(result);
   });
@@ -271,14 +281,14 @@ async function startServer() {
 
   app.get('/api/auth/users', (req: Request, res: Response) => {
     // المستخدمون الفعليون المعتمدون فقط (التجريبيون الداخليون مخفيون)
-    res.json(erpStore.users.filter((u) => !u.isDemo));
+    res.json(erpStore.users.filter((u) => !u.isDemo).map(publicUser));
   });
 
   app.post('/api/auth/switch-user', (req: Request, res: Response) => {
     const { userId } = req.body;
     const user = erpStore.users.find((u) => u.id === userId);
     if (!user) return res.status(404).json({ error: 'User not found' });
-    res.json(user);
+    res.json(publicUser(user));
   });
 
   app.get('/api/organizations', (req: Request, res: Response) => {
