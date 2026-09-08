@@ -27,7 +27,7 @@ const InsuredActuarialHub = lazy(() => import('./pages/InsuredActuarialHub.js').
 // وتقليل الإقلاع. تُقسّم كل صفحة إلى حزمتها الخاصة عبر Vite/Rollup.
 // ملاحظة: Budgets/AuditLog/FinancialRegulation/InsuredListViewer/Journal2024Viewer
 // باتت تُستورَد داخل المحاور الموحّدة (ModuleTabs) فلم تعد هنا.
-const PromoShowcase = lazy(() => import('./pages/PromoShowcase.js').then((m) => ({ default: m.PromoShowcase })));
+
 const FixedAssets = lazy(() => import('./pages/FixedAssets.js').then((m) => ({ default: m.FixedAssets })));
 const EInvoicing = lazy(() => import('./pages/EInvoicing.js').then((m) => ({ default: m.EInvoicing })));
 const AuditLog = lazy(() => import('./pages/AuditLog.js').then((m) => ({ default: m.AuditLog })));
@@ -259,15 +259,7 @@ currentTab === 'membership' ||
           </ErrorBoundary>
         ) : null}
 
-        {currentTab === 'promo' && (
-          <ErrorBoundary label="الفيديو والعرض الترويجي" onNavigate={setCurrentTab}>
-            <div className="p-6">
-              <Suspense fallback={lazyFallback('العرض الترويجي')}>
-                <PromoShowcase />
-              </Suspense>
-            </div>
-          </ErrorBoundary>
-        )}
+        
 
         {currentTab === 'budgets' ||
         currentTab === 'regulation' ||
