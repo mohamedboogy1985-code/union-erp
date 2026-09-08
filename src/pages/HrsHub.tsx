@@ -33,7 +33,7 @@ export const HrsHub: React.FC<HrsHubProps> = ({
   const [activeTab, setActiveTab] = useState<HrsTabId>(initialTab);
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4" data-assistant-screen={activeTab}>
       <ModuleTabs
         title="الموارد البشرية وشئون العاملين — وحدة موحدة"
         tabs={SUB_TABS}

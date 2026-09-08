@@ -1,0 +1,164 @@
+npm warn invalid config allow-remote=true set in C:\Users\HP\.npmrc
+npm warn invalid config Must be one of: all, none, root
+npm notice run union-app@1.1.0 dev
+npm notice run tsx watch --ignore pgdata --clear-screen=false server.ts
+📊 تم تحميل الدليل الموحد: 0 حساباً في 0 قسماً
+📒 تم تحميل [تدريب_قيود_اليومية_2024.csv]: 0 قيداً (0 مرحّلاً) بإجمالي ٠ ج.م
+📒 تم تحميل [قيود_اليومية_2022.csv]: 0 قيداً (0 مرحّلاً) بإجمالي ٠ ج.م
+📒 تم تحميل [قيود_اليومية_2024.csv]: 0 قيداً (0 مرحّلاً) بإجمالي ٠ ج.م
+📒 تم تحميل [قيود_اليومية_2024_c.csv]: 0 قيداً (0 مرحّلاً) بإجمالي ٠ ج.م
+📒 تم تحميل [قيود_لجان_الشركات_2021.csv]: 0 قيداً (0 مرحّلاً) بإجمالي ٠ ج.م
+📒 تم تحميل [قيود_لجان_الشركات_2022.csv]: 0 قيداً (0 مرحّلاً) بإجمالي ٠ ج.م
+📒 تم تحميل [قيود_لجان_الشركات_2023.csv]: 0 قيداً (0 مرحّلاً) بإجمالي ٠ ج.م
+📒 تم تحميل [قيود_لجان_الشركات_2024.csv]: 0 قيداً (0 مرحّلاً) بإجمالي ٠ ج.م
+📒 تم تحميل [قيود_لجان_الشركات_2025.csv]: 0 قيداً (0 مرحّلاً) بإجمالي ٠ ج.م
+📒 إجمالي القيود المحمّلة: 0 قيداً بإجمالي ٠ ج.م
+[employee-affairs] تم تحميل 76 عاملاً من استمارة 2 تأمينات.
+🐘 PostgreSQL يعمل بالفعل على المنفذ 5432 — سيتم استخدام القائمة الحالية.
+📦 Loading existing financial records from Cloud SQL PostgreSQL...
+📦 تم تحميل 3040 قيداً محاسبياً من PostgreSQL.
+🗂️ تم تحميل 1 مستند مؤرشف من PostgreSQL (بما فيها اللائحة).
+[31mWebSocket server error: Port 24678 is already in use[39m
+[2m٩:٢٥:٠٤ ص[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m Re-optimizing dependencies because vite config has changed
+🎙️ [live-agent] خادم WebSocket الحي جاهز على المسار /api/live-agent
+🕐 تم بذر 422 سجل حضور تجريبي (بصمة) للشهر الحالي.
+📊 تم بذر موازنة تقديرية افتراضية لسنة 2026 (45 بنداً).
+=======================================================
+🏛️ Union Financial ERP Server running on http://0.0.0.0:3000
+📌 General Syndicate Chart of Accounts & 1301 Subledger Ready
+=======================================================
+٩:٣٣:٤٠ ص [tsx] unlink in ./server\db\store.ts Restarting...
+📊 تم تحميل الدليل الموحد: 0 حساباً في 0 قسماً
+📒 تم تحميل [تدريب_قيود_اليومية_2024.csv]: 0 قيداً (0 مرحّلاً) بإجمالي ٠ ج.م
+📒 تم تحميل [قيود_اليومية_2022.csv]: 0 قيداً (0 مرحّلاً) بإجمالي ٠ ج.م
+📒 تم تحميل [قيود_اليومية_2024.csv]: 0 قيداً (0 مرحّلاً) بإجمالي ٠ ج.م
+📒 تم تحميل [قيود_اليومية_2024_c.csv]: 0 قيداً (0 مرحّلاً) بإجمالي ٠ ج.م
+📒 تم تحميل [قيود_لجان_الشركات_2021.csv]: 0 قيداً (0 مرحّلاً) بإجمالي ٠ ج.م
+📒 تم تحميل [قيود_لجان_الشركات_2022.csv]: 0 قيداً (0 مرحّلاً) بإجمالي ٠ ج.م
+📒 تم تحميل [قيود_لجان_الشركات_2023.csv]: 0 قيداً (0 مرحّلاً) بإجمالي ٠ ج.م
+📒 تم تحميل [قيود_لجان_الشركات_2024.csv]: 0 قيداً (0 مرحّلاً) بإجمالي ٠ ج.م
+📒 تم تحميل [قيود_لجان_الشركات_2025.csv]: 0 قيداً (0 مرحّلاً) بإجمالي ٠ ج.م
+📒 إجمالي القيود المحمّلة: 0 قيداً بإجمالي ٠ ج.م
+[employee-affairs] تم تحميل 76 عاملاً من استمارة 2 تأمينات.
+🐘 PostgreSQL يعمل بالفعل على المنفذ 5432 — سيتم استخدام القائمة الحالية.
+📦 Loading existing financial records from Cloud SQL PostgreSQL...
+📦 تم تحميل 3040 قيداً محاسبياً من PostgreSQL.
+🗂️ تم تحميل 1 مستند مؤرشف من PostgreSQL (بما فيها اللائحة).
+[31mWebSocket server error: Port 24678 is already in use[39m
+🎙️ [live-agent] خادم WebSocket الحي جاهز على المسار /api/live-agent
+🕐 تم بذر 422 سجل حضور تجريبي (بصمة) للشهر الحالي.
+📊 تم بذر موازنة تقديرية افتراضية لسنة 2026 (45 بنداً).
+=======================================================
+🏛️ Union Financial ERP Server running on http://0.0.0.0:3000
+📌 General Syndicate Chart of Accounts & 1301 Subledger Ready
+=======================================================
+٩:٥١:٠٧ ص [tsx] unlink in ./server.ts Restarting...
+٩:٥١:١٠ ص [tsx] change in ./src\types\erp.ts Restarting...
+📊 تم تحميل الدليل الموحد: 0 حساباً في 0 قسماً
+📒 تم تحميل [تدريب_قيود_اليومية_2024.csv]: 0 قيداً (0 مرحّلاً) بإجمالي ٠ ج.م
+📒 تم تحميل [قيود_اليومية_2022.csv]: 0 قيداً (0 مرحّلاً) بإجمالي ٠ ج.م
+📒 تم تحميل [قيود_اليومية_2024.csv]: 0 قيداً (0 مرحّلاً) بإجمالي ٠ ج.م
+📒 تم تحميل [قيود_اليومية_2024_c.csv]: 0 قيداً (0 مرحّلاً) بإجمالي ٠ ج.م
+📒 تم تحميل [قيود_لجان_الشركات_2021.csv]: 0 قيداً (0 مرحّلاً) بإجمالي ٠ ج.م
+📒 تم تحميل [قيود_لجان_الشركات_2022.csv]: 0 قيداً (0 مرحّلاً) بإجمالي ٠ ج.م
+📒 تم تحميل [قيود_لجان_الشركات_2023.csv]: 0 قيداً (0 مرحّلاً) بإجمالي ٠ ج.م
+📒 تم تحميل [قيود_لجان_الشركات_2024.csv]: 0 قيداً (0 مرحّلاً) بإجمالي ٠ ج.م
+📒 تم تحميل [قيود_لجان_الشركات_2025.csv]: 0 قيداً (0 مرحّلاً) بإجمالي ٠ ج.م
+📒 إجمالي القيود المحمّلة: 0 قيداً بإجمالي ٠ ج.م
+[employee-affairs] تم تحميل 76 عاملاً من استمارة 2 تأمينات.
+🐘 PostgreSQL يعمل بالفعل على المنفذ 5432 — سيتم استخدام القائمة الحالية.
+📦 Loading existing financial records from Cloud SQL PostgreSQL...
+📦 تم تحميل 3040 قيداً محاسبياً من PostgreSQL.
+🗂️ تم تحميل 1 مستند مؤرشف من PostgreSQL (بما فيها اللائحة).
+[31mWebSocket server error: Port 24678 is already in use[39m
+[2m٩:٥١:٣٨ ص[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m Re-optimizing dependencies because lockfile has changed
+🎙️ [live-agent] خادم WebSocket الحي جاهز على المسار /api/live-agent
+🕐 تم بذر 422 سجل حضور تجريبي (بصمة) للشهر الحالي.
+📊 تم بذر موازنة تقديرية افتراضية لسنة 2026 (45 بنداً).
+=======================================================
+🏛️ Union Financial ERP Server running on http://0.0.0.0:3000
+📌 General Syndicate Chart of Accounts & 1301 Subledger Ready
+=======================================================
+١٠:٠٩:٠٢ ص [tsx] change in ./server\services\jules.service.ts Restarting...
+📊 تم تحميل الدليل الموحد: 0 حساباً في 0 قسماً
+📒 تم تحميل [تدريب_قيود_اليومية_2024.csv]: 0 قيداً (0 مرحّلاً) بإجمالي ٠ ج.م
+📒 تم تحميل [قيود_اليومية_2022.csv]: 0 قيداً (0 مرحّلاً) بإجمالي ٠ ج.م
+📒 تم تحميل [قيود_اليومية_2024.csv]: 0 قيداً (0 مرحّلاً) بإجمالي ٠ ج.م
+📒 تم تحميل [قيود_اليومية_2024_c.csv]: 0 قيداً (0 مرحّلاً) بإجمالي ٠ ج.م
+📒 تم تحميل [قيود_لجان_الشركات_2021.csv]: 0 قيداً (0 مرحّلاً) بإجمالي ٠ ج.م
+📒 تم تحميل [قيود_لجان_الشركات_2022.csv]: 0 قيداً (0 مرحّلاً) بإجمالي ٠ ج.م
+📒 تم تحميل [قيود_لجان_الشركات_2023.csv]: 0 قيداً (0 مرحّلاً) بإجمالي ٠ ج.م
+📒 تم تحميل [قيود_لجان_الشركات_2024.csv]: 0 قيداً (0 مرحّلاً) بإجمالي ٠ ج.م
+📒 تم تحميل [قيود_لجان_الشركات_2025.csv]: 0 قيداً (0 مرحّلاً) بإجمالي ٠ ج.م
+📒 إجمالي القيود المحمّلة: 0 قيداً بإجمالي ٠ ج.م
+[employee-affairs] تم تحميل 76 عاملاً من استمارة 2 تأمينات.
+🐘 PostgreSQL يعمل بالفعل على المنفذ 5432 — سيتم استخدام القائمة الحالية.
+📦 Loading existing financial records from Cloud SQL PostgreSQL...
+📦 تم تحميل 3040 قيداً محاسبياً من PostgreSQL.
+🗂️ تم تحميل 1 مستند مؤرشف من PostgreSQL (بما فيها اللائحة).
+[31mWebSocket server error: Port 24678 is already in use[39m
+[2m١٠:٠٩:٢٢ ص[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m Re-optimizing dependencies because vite config has changed
+🎙️ [live-agent] خادم WebSocket الحي جاهز على المسار /api/live-agent
+🕐 تم بذر 422 سجل حضور تجريبي (بصمة) للشهر الحالي.
+📊 تم بذر موازنة تقديرية افتراضية لسنة 2026 (45 بنداً).
+=======================================================
+🏛️ Union Financial ERP Server running on http://0.0.0.0:3000
+📌 General Syndicate Chart of Accounts & 1301 Subledger Ready
+=======================================================
+[2m٥:٠٣:١٠ م[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/components/JournalAiAssistant.tsx[22m
+[2m٥:٠٣:١٢ م[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/components/JournalAiAssistant.tsx[22m
+[2m٥:٤٩:٤١ م[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/components/JournalAiAssistant.tsx[22m
+[2m٥:٤٩:٤٢ م[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/components/Combobox.tsx[22m
+٥:٤٩:٤٣ م [tsx] change in ./server\services\live-agent.service.ts Restarting...
+📊 تم تحميل الدليل الموحد: 0 حساباً في 0 قسماً
+📒 تم تحميل [تدريب_قيود_اليومية_2024.csv]: 0 قيداً (0 مرحّلاً) بإجمالي ٠ ج.م
+📒 تم تحميل [قيود_اليومية_2022.csv]: 0 قيداً (0 مرحّلاً) بإجمالي ٠ ج.م
+📒 تم تحميل [قيود_اليومية_2024.csv]: 0 قيداً (0 مرحّلاً) بإجمالي ٠ ج.م
+📒 تم تحميل [قيود_اليومية_2024_c.csv]: 0 قيداً (0 مرحّلاً) بإجمالي ٠ ج.م
+📒 تم تحميل [قيود_لجان_الشركات_2021.csv]: 0 قيداً (0 مرحّلاً) بإجمالي ٠ ج.م
+📒 تم تحميل [قيود_لجان_الشركات_2022.csv]: 0 قيداً (0 مرحّلاً) بإجمالي ٠ ج.م
+📒 تم تحميل [قيود_لجان_الشركات_2023.csv]: 0 قيداً (0 مرحّلاً) بإجمالي ٠ ج.م
+📒 تم تحميل [قيود_لجان_الشركات_2024.csv]: 0 قيداً (0 مرحّلاً) بإجمالي ٠ ج.م
+📒 تم تحميل [قيود_لجان_الشركات_2025.csv]: 0 قيداً (0 مرحّلاً) بإجمالي ٠ ج.م
+📒 إجمالي القيود المحمّلة: 0 قيداً بإجمالي ٠ ج.م
+[employee-affairs] تم تحميل 76 عاملاً من استمارة 2 تأمينات.
+🐘 PostgreSQL يعمل بالفعل على المنفذ 5432 — سيتم استخدام القائمة الحالية.
+📦 Loading existing financial records from Cloud SQL PostgreSQL...
+📦 تم تحميل 3040 قيداً محاسبياً من PostgreSQL.
+🗂️ تم تحميل 1 مستند مؤرشف من PostgreSQL (بما فيها اللائحة).
+[31mWebSocket server error: Port 24678 is already in use[39m
+[2m٥:٥٠:٤١ م[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m Re-optimizing dependencies because vite config has changed
+🕐 تم بذر 422 سجل حضور تجريبي (بصمة) للشهر الحالي.
+📊 تم بذر موازنة تقديرية افتراضية لسنة 2026 (45 بنداً).
+=======================================================
+🏛️ Union Financial ERP Server running on http://0.0.0.0:3000
+📌 General Syndicate Chart of Accounts & 1301 Subledger Ready
+=======================================================
+Error: [31m  Failed to scan for dependencies from entries:
+  C:/Users/HP/union-erp/index.html
+C:/Users/HP/union-erp/promo-video.html
+C:/Users/HP/union-erp/assets/promo/index.html
+C:/Users/HP/union-erp/release/win-unpacked/LICENSES.chromium.html
+
+  [39m[31mX [41;31m[[41;97mERROR[41;31m][0m [1mUnexpected "<<"[0m
+
+    src/App.tsx:17:0:
+[37m      17 │ [32m<<[37m<<<<< HEAD
+         ╵ [32m~~[0m
+
+
+    at failureErrorWithLog (C:\Users\HP\union-erp\node_modules\vite\node_modules\esbuild\lib\main.js:1467:15)
+    at C:\Users\HP\union-erp\node_modules\vite\node_modules\esbuild\lib\main.js:926:25
+    at runOnEndCallbacks (C:\Users\HP\union-erp\node_modules\vite\node_modules\esbuild\lib\main.js:1307:45)
+    at buildResponseToResult (C:\Users\HP\union-erp\node_modules\vite\node_modules\esbuild\lib\main.js:924:7)
+    at C:\Users\HP\union-erp\node_modules\vite\node_modules\esbuild\lib\main.js:936:9
+    at new Promise (<anonymous>)
+    at requestCallbacks.on-end (C:\Users\HP\union-erp\node_modules\vite\node_modules\esbuild\lib\main.js:935:54)
+    at handleRequest (C:\Users\HP\union-erp\node_modules\vite\node_modules\esbuild\lib\main.js:628:17)
+    at handleIncomingPacket (C:\Users\HP\union-erp\node_modules\vite\node_modules\esbuild\lib\main.js:653:7)
+    at Socket.readFromStdout (C:\Users\HP\union-erp\node_modules\vite\node_modules\esbuild\lib\main.js:581:7)
+    at Socket.emit (node:events:509:28)
+    at addChunk (node:internal/streams/readable:563:12)
+    at readableAddChunkPushByteMode (node:internal/streams/readable:514:3)
+    at Readable.push (node:internal/streams/readable:394:5)
+    at Pipe.onStreamRead (node:internal/stream_base_commons:189:23)

@@ -35,8 +35,8 @@ import {
   ExternalLink,
 } from 'lucide-react';
 import { api } from '../services/api.js';
-import { streamGlobalAiChat } from '../services/ai-stream.js';
 import type { User } from '../types/erp.js';
+import { streamGlobalAiChat } from '../services/ai-stream.js';
 
 interface ModelsViewerProps {
   organizationId: string;

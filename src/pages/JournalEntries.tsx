@@ -220,9 +220,12 @@ export const JournalEntries: React.FC<JournalEntriesProps> = ({
 
   // Update line field
   const handleLineChange = (index: number, field: keyof NewLineState, value: any) => {
-    const updated = [...lines];
-    updated[index] = { ...updated[index], [field]: value };
-    setLines(updated);
+    // Debit/credit inputs update two fields in one event. Keep both updates when React batches them.
+    setLines((previous) => {
+      const updated = [...previous];
+      updated[index] = { ...updated[index], [field]: value };
+      return updated;
+    });
   };
 
   // تعبئة النموذج من اقتراح المساعد الذكي الصوتي (يقوم هو بملء الحقول، والحفظ يبقى بيد المستخدم)
@@ -774,7 +777,7 @@ export const JournalEntries: React.FC<JournalEntriesProps> = ({
         subtitle="توازن المدين والدائن إلزامي - يتم إنشاء كشف حساب أستاذ مساعد تلقائي للمدينين 1301"
         maxWidth="4xl"
       >
-        <form onSubmit={handleCreateSubmit} className="space-y-6">
+        <form data-assistant-draft onSubmit={handleCreateSubmit} className="space-y-6">
           {/* مساعد الصوت والذكاء الاصطناعي المدمج في نافذة تسجيل القيد — يتحدث معك ويستمع ويقوم بملء النموذج */}
           <JournalAiAssistant
             organizationId={organizationId}
@@ -848,7 +851,8 @@ export const JournalEntries: React.FC<JournalEntriesProps> = ({
               <input
                 type="date"
                 required
-                value={entryDate}
+                aria-label="تاريخ القيد المحاسبي"
+                  value={entryDate}
                 onChange={(e) => setEntryDate(e.target.value)}
                 className="w-full px-3 py-2 bg-slate-900 border border-slate-800 rounded-lg text-xs text-slate-200 outline-hidden focus:border-emerald-500"
               />
@@ -866,6 +870,7 @@ export const JournalEntries: React.FC<JournalEntriesProps> = ({
                   type="text"
                   required
                   placeholder="مثال: إثبات مديونية مستحقة على شركة الأمل... أو اختر من القائمة ▾"
+                  aria-label="البيان المحاسبي"
                   value={entryDescription}
                   onChange={(e) => {
                     setEntryDescription(e.target.value);
@@ -958,6 +963,7 @@ export const JournalEntries: React.FC<JournalEntriesProps> = ({
                         {/* Account Selector */}
                         <td className="p-2">
                           <select
+                            aria-label={`حساب السطر ${idx + 1}`}
                             value={line.accountId}
                             onChange={(e) => handleLineChange(idx, 'accountId', e.target.value)}
                             className="w-full px-2.5 py-1.5 bg-slate-900 border border-slate-800 rounded-lg text-xs text-slate-200 outline-hidden focus:border-emerald-500"
@@ -980,6 +986,7 @@ export const JournalEntries: React.FC<JournalEntriesProps> = ({
                                 type="text"
                                 required
                                 placeholder="اسم الشخص أو الجهة (إنشاء/ربط تلقائي)..."
+                                aria-label={`الجهة أو الشخص في السطر ${idx + 1}`}
                                 value={line.subledgerPartyNameInput || ''}
                                 onChange={(e) => handleLineChange(idx, 'subledgerPartyNameInput', e.target.value)}
                                 className="w-full px-2.5 py-1.5 bg-amber-950/30 border border-amber-800/60 rounded-lg text-xs text-amber-200 placeholder:text-amber-500/60 outline-hidden focus:border-amber-400"
@@ -992,6 +999,7 @@ export const JournalEntries: React.FC<JournalEntriesProps> = ({
                             <input
                               type="text"
                               placeholder="شرح فرعي للسطر..."
+                              aria-label={`البيان الفرعي للسطر ${idx + 1}`}
                               value={line.description}
                               onChange={(e) => handleLineChange(idx, 'description', e.target.value)}
                               className="w-full px-2.5 py-1.5 bg-slate-900 border border-slate-800 rounded-lg text-xs text-slate-300 outline-hidden focus:border-emerald-500"
@@ -1006,6 +1014,7 @@ export const JournalEntries: React.FC<JournalEntriesProps> = ({
                             step="0.01"
                             min="0"
                             placeholder="0.00"
+                            aria-label={`مدين السطر ${idx + 1}`}
                             value={line.debit}
                             onChange={(e) => {
                               handleLineChange(idx, 'debit', e.target.value);
@@ -1022,6 +1031,7 @@ export const JournalEntries: React.FC<JournalEntriesProps> = ({
                             step="0.01"
                             min="0"
                             placeholder="0.00"
+                            aria-label={`دائن السطر ${idx + 1}`}
                             value={line.credit}
                             onChange={(e) => {
                               handleLineChange(idx, 'credit', e.target.value);

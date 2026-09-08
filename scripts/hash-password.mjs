@@ -9,8 +9,8 @@ if (!process.stdin.isTTY || !process.stdout.isTTY) {
 
 emitKeypressEvents(process.stdin);
 async function readSecret(prompt) {
-  process.stdout.write(prompt);
   process.stdin.setRawMode(true);
+  process.stdout.write(prompt);
   process.stdin.resume();
   return new Promise((resolve, reject) => {
     let value = '';

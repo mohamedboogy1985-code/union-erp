@@ -29,3 +29,22 @@ export function publicUser(user: User): Omit<User, 'passwordHash'> {
   const { passwordHash: _passwordHash, ...safe } = user;
   return safe;
 }
+
+
+/** Optional provisioning for existing non-admin ERP users; never changes roles or creates accounts. */
+export function configureUserCredentials(users: User[], env: Record<string, string | undefined> = process.env): void {
+  const raw = env.ERP_USER_PASSWORD_HASHES?.trim();
+  if (!raw) return;
+  let values: unknown;
+  try { if (raw.length > 16000) throw new Error(); values = JSON.parse(raw); }
+  catch { throw new Error('ERP_USER_PASSWORD_HASHES must be a valid server-side JSON map.'); }
+  if (!values || typeof values !== 'object' || Array.isArray(values) || Object.keys(values).length > 50) throw new Error('Invalid ERP_USER_PASSWORD_HASHES map.');
+  const updates = Object.entries(values).map(([id, hash]) => {
+    const user = users.find(item => item.id === id);
+    if (!user || user.isDemo || !user.isActive || typeof hash !== 'string' || !/^\$2[aby]\$(1[0-6])\$[./A-Za-z0-9]{53}$/.test(hash)) {
+      throw new Error('Password provisioning requires existing active non-demo users and valid bcrypt hashes (cost 10–16).');
+    }
+    return { user, hash };
+  });
+  for (const { user, hash } of updates) user.passwordHash = hash;
+}
