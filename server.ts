@@ -2,7 +2,7 @@ import dotenv from 'dotenv';
 dotenv.config();
 
 import { createRequire } from 'module';
-const _require = createRequire(import.meta.url);
+const _require = createRequire(typeof __filename !== 'undefined' ? __filename : import.meta.url);
 
 import express, { Request, Response } from 'express';
 import http from 'http';
@@ -16,8 +16,9 @@ import { registerAIActionRoutes } from './server/routes/ai-action.routes.js';
 import { registerAIRoutes } from './server/routes/ai.routes.js';
 import { registerReportExportRoutes } from './server/routes/report-export.routes.js';
 import { registerEtaRoutes } from './server/routes/eta.routes.js';
+import { registerOperatorAssistantRoutes } from './server/routes/operator-assistant.routes.js';
 import { registerJulesRoutes } from './server/routes/jules.routes.js';
-import { configureAdminCredentials, publicUser } from './server/security/admin-credentials.js';
+import { configureAdminCredentials, configureUserCredentials, publicUser } from './server/security/admin-credentials.js';
 import { receiptsService } from './server/services/receipts.service.js';
 import { reportsService } from './server/services/reports.service.js';
 import { calculateSimilarity, normalizeArabicText } from './server/utils/arabic.js';
@@ -59,6 +60,7 @@ function isModelsLocked(): boolean {
 async function startServer() {
   // فحص أمني قبل أي شيء: الوضع الصارم يرفض الإقلاع بأسرار ضعيفة (DEMO_MODE=false)
   assertRuntimeSecurity();
+  configureUserCredentials(erpStore.users);
   configureAdminCredentials(erpStore.users);
 
   const app = express();
@@ -71,6 +73,7 @@ async function startServer() {
 
   // Coding-agent inputs are text only; do not inherit the document-upload limit.
   app.use('/api/jules', express.json({ limit: '64kb' }));
+  app.use('/api/operator-assistant', express.json({ limit: '3mb' }));
   app.use(express.json({ limit: '250mb' })); // دعم رفع الملفات الكبيرة base64 للمستندات
 
   // خدمة الأصول الثابتة (صور المستخدمين وأيقونة التطبيق) — بمسارات مرشحة
@@ -172,6 +175,7 @@ async function startServer() {
   registerAIActionRoutes(app, { requirePermission });
   registerReportExportRoutes(app);
   registerEtaRoutes(app);
+  registerOperatorAssistantRoutes(app, { persistAudit: (event) => postgresManager.persistAuditLog(event) });
   registerJulesRoutes(app, {
     requirePermission,
     persistAudit: (event) => postgresManager.persistAuditLog(event),

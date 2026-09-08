@@ -316,7 +316,7 @@ export const Receipts: React.FC<ReceiptsProps> = ({
         subtitle="توليد قيد يومية متوازن وتوزيع حصص اللجان تلقائياً"
         maxWidth="lg"
       >
-        <form onSubmit={handleCreateSubmit} className="space-y-4">
+        <form data-assistant-draft onSubmit={handleCreateSubmit} className="space-y-4">
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="block text-xs font-bold text-slate-300 mb-1">اسم المسدد / العضو أو الجهة:</label>

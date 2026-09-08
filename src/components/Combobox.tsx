@@ -63,7 +63,7 @@ export function Combobox<T = string>({
   const hasOptions = options.length > 0;
 
   return (
-    <div ref={boxRef} className={`relative ${className ?? ''}`}>
+    <div ref={boxRef} data-assistant-ignore={onSelect ? '' : undefined} className={`relative ${className ?? ''}`}>
       <input
         ref={inputRef}
         type="text"

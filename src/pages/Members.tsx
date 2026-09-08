@@ -218,7 +218,7 @@ export const Members: React.FC<MembersProps> = ({
         subtitle="حماية البيانات الشخصية وتوليد رقم العضوية الموحد"
         maxWidth="md"
       >
-        <form onSubmit={handleRegisterSubmit} className="space-y-4">
+        <form data-assistant-draft onSubmit={handleRegisterSubmit} className="space-y-4">
           <div>
             <label className="block text-xs font-bold text-slate-300 mb-1">الاسم الرباعي للعضو:</label>
             <input

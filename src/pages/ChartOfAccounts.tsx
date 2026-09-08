@@ -220,7 +220,7 @@ export const ChartOfAccounts: React.FC<ChartOfAccountsProps> = ({
         subtitle="تحديد الهيكل والنوع وطبيعة الحساب والربط بالأستاذ المساعد"
         maxWidth="md"
       >
-        <form onSubmit={handleCreateSubmit} className="space-y-4">
+        <form data-assistant-draft onSubmit={handleCreateSubmit} className="space-y-4">
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="block text-xs font-bold text-slate-300 mb-1">كود الحساب المحاسبي:</label>

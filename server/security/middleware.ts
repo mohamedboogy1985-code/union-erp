@@ -22,7 +22,7 @@ export function securityHeadersMiddleware(req: Request, res: Response, next: Nex
   res.setHeader('Cross-Origin-Resource-Policy', 'same-site');
   if (process.env.NODE_ENV === 'production') {
     res.setHeader('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
-    res.setHeader('Content-Security-Policy', "default-src 'self'; img-src 'self' data: blob:; style-src 'self' 'unsafe-inline'; script-src 'self'; connect-src 'self'");
+    res.setHeader('Content-Security-Policy', "default-src 'self'; img-src 'self' data: blob:; style-src 'self' 'unsafe-inline'; script-src 'self'; connect-src 'self'; media-src 'self' blob:; worker-src 'self'");
   }
   next();
 }
@@ -109,7 +109,7 @@ export function comprehensiveAuditMiddleware(req: Request, res: Response, next: 
 
     // العمليات المغيّرة للحالة تُدرج في سلسلة التدقيق الرسمية
     if (['POST', 'PUT', 'PATCH', 'DELETE'].includes(req.method) && res.statusCode < 500) {
-      const activeUserId = req.path.startsWith('/api/jules')
+      const activeUserId = (req.path.startsWith('/api/jules') || req.path.startsWith('/api/operator-assistant'))
         ? res.locals.authenticatedUser?.id || 'anonymous'
         : (req.headers['x-user-id'] as string) || 'usr-cfo';
       const user = res.locals.authenticatedUser || erpStore.users.find((u) => u.id === activeUserId);

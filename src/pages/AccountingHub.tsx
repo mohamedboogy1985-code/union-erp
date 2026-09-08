@@ -46,7 +46,7 @@ export const AccountingHub: React.FC<AccountingHubProps> = ({
   const [activeTab, setActiveTab] = useState<AccountingTabId>(initialTab);
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4" data-assistant-screen={activeTab}>
       <ModuleTabs
         title="المحاسبة والمالية — وحدة موحدة"
         tabs={SUB_TABS}

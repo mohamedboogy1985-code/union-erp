@@ -26,6 +26,8 @@ import { OfflineSyncModal } from './OfflineSyncModal.js';
 import { ImportExportModal } from './ImportExportModal.js';
 import { DocumentManagerModal } from './DocumentManagerModal.js';
 import { offlineSync } from '../services/offlineSync.js';
+import type { AssistantScreen } from '../types/operator-assistant.js';
+import { ErrorBoundary } from './ErrorBoundary.js';
 import { GlobalAiWidget } from './GlobalAiWidget.js';
 
 interface LayoutProps {
@@ -35,7 +37,8 @@ interface LayoutProps {
   selectedOrgId: string;
   onOrgChange: (orgId: string) => void;
   currentUser: User | null;
-  onUserChange: (user: User) => void;
+  onUserChange: (user: User | null) => void;
+  onAssistantNavigate: (target: AssistantScreen) => void;
   children: React.ReactNode;
 }
 
@@ -47,6 +50,7 @@ export const Layout: React.FC<LayoutProps> = ({
   onOrgChange,
   currentUser,
   onUserChange,
+  onAssistantNavigate,
   children,
 }) => {
   const [organizations, setOrganizations] = useState<Organization[]>([]);
@@ -438,7 +442,7 @@ export const Layout: React.FC<LayoutProps> = ({
 
         {/* Dynamic View Canvas */}
         <main className="flex-1 overflow-y-auto p-4 bg-[#0f172a]">
-          {children}
+          <div data-erp-workspace data-assistant-screen={currentTab}>{children}</div>
         </main>
       </div>
 
@@ -467,11 +471,16 @@ export const Layout: React.FC<LayoutProps> = ({
       />
 
       {/* المساعد الذكي العام العائم — متاح في جميع الشاشات */}
+      <ErrorBoundary key={currentUser?.id || 'signed-out'} label="المساعد الصوتي المرئي">
       <GlobalAiWidget
+        key={currentUser?.id || 'signed-out'}
         currentTab={currentTab}
         selectedOrgId={selectedOrgId}
         currentUser={currentUser}
+        onNavigate={onAssistantNavigate}
+        onUserChange={onUserChange}
       />
+      </ErrorBoundary>
     </div>
   );
 };

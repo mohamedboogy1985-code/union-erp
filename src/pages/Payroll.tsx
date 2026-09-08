@@ -436,7 +436,7 @@ export const Payroll: React.FC<PayrollProps> = ({ currentUser, onShowToast }) =>
 
       {/* GENERATE MODAL */}
       <Modal isOpen={isGenerateModalOpen} onClose={() => setIsGenerateModalOpen(false)} title="توليد مسير مرتبات شهري" subtitle="يُبنى آلياً من بيانات استمارة 2 والشئون المعتمدة وأقساط السلف" maxWidth="md">
-        <form onSubmit={handleGenerate} className="space-y-4">
+        <form data-assistant-draft onSubmit={handleGenerate} className="space-y-4">
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="block text-xs font-bold text-slate-300 mb-1">السنة:</label>
