@@ -5,6 +5,7 @@ import { encryptionService } from '../../src/services/encryption.service.js';
 import { buildOtpAuthUrl, generateTotpSecret, verifyTotp } from '../utils/totp.js';
 import { getJwtSecret, isStrictAuth, warnDemoLoginOnce } from '../security/runtime-config.js';
 import type { User, UserSecurityState } from '../../src/types/erp.js';
+import { publicUser } from '../security/admin-credentials.js';
 
 /**
  * ===== IMPROVEMENTS.md 5.1: معايير أمان قوية - التحقق متعدد المستويات =====
@@ -42,7 +43,7 @@ export class AdvancedAuthService {
       (u) => u.username === identifier || u.email === identifier || u.id === identifier
     );
 
-    if (!user) {
+    if (!user || !user.isActive) {
       erpStore.recordAudit(
         'anonymous',
         identifier,
@@ -118,13 +119,20 @@ export class AdvancedAuthService {
   /**
    * إكمال الدخول بعد التحقق الثنائي
    */
-  public loginWithTwoFactor(identifier: string, totpCode: string, ipAddress: string, userAgent?: string): LoginResult {
+  public loginWithTwoFactor(identifier: string, totpCode: string, ipAddress: string, userAgent?: string, password?: string): LoginResult {
     const user = erpStore.users.find((u) => u.username === identifier || u.email === identifier || u.id === identifier);
-    if (!user) return { success: false, message: 'بيانات الدخول غير صحيحة.' };
+    if (!user || !user.isActive) return { success: false, message: 'بيانات الدخول غير صحيحة.' };
 
     const security = erpStore.getSecurityState(user.id);
     if (security.lockedUntil && new Date(security.lockedUntil) > new Date()) {
       return { success: false, message: 'الحساب مقفل مؤقتاً.', lockedUntil: security.lockedUntil };
+    }
+
+    // TOTP is a second factor, not a password bypass for the new authenticated dashboard.
+    if (isStrictAuth() || user.passwordHash) {
+      if (!user.passwordHash || typeof password !== 'string' || !password || !bcrypt.compareSync(password, user.passwordHash)) {
+        return this.registerFailedAttempt(user, security, ipAddress, userAgent, 'كلمة مرور غير صحيحة أثناء التحقق الثنائي');
+      }
     }
 
     if (!security.twoFactorEnabled || !security.twoFactorSecret) {
@@ -158,7 +166,7 @@ export class AdvancedAuthService {
       `تسجيل دخول ناجح من ${ipAddress}${userAgent ? ` عبر ${userAgent.slice(0, 80)}` : ''}`
     );
 
-    return { success: true, token, user, message: 'تم تسجيل الدخول بنجاح.' };
+    return { success: true, token, user: publicUser(user), message: 'تم تسجيل الدخول بنجاح.' };
   }
 
   private registerFailedAttempt(
@@ -230,6 +238,8 @@ export class AdvancedAuthService {
         role: user.role,
         organizationId: user.organizationId,
         status: 'ACTIVE',
+        // Demo-issued JWTs must not unlock an external coding agent after a mode change.
+        authMode: isStrictAuth() && user.passwordHash ? 'password' : 'demo',
       },
       secret,
       { expiresIn: JWT_EXPIRES as jwt.SignOptions['expiresIn'] }
@@ -241,7 +251,7 @@ export class AdvancedAuthService {
    */
   public verifyToken(token: string): { valid: boolean; payload?: any; message?: string } {
     try {
-      const payload = jwt.verify(token, getJwtSecret());
+      const payload = jwt.verify(token, getJwtSecret(), { algorithms: ['HS256'] });
       return { valid: true, payload };
     } catch (err: any) {
       return { valid: false, message: err?.message || 'توكن غير صالح' };

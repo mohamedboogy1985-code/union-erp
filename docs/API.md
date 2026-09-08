@@ -15,7 +15,7 @@
 | Method | Endpoint | الوصف |
 |--------|----------|-------|
 | POST | `/auth/login` | دخول بإصدار JWT — body: `{username, password?}` |
-| POST | `/auth/login/2fa` | إكمال الدخول برمز TOTP — `{username, code}` |
+| POST | `/auth/login/2fa` | إكمال الدخول برمز TOTP — `{username, code, password}` (كلمة المرور مطلوبة للحسابات المؤمّنة/الوضع الصارم) |
 | POST | `/auth/2fa/setup` | تفعيل 2FA وإرجاع `otpauth://` للـ QR |
 | POST | `/auth/2fa/disable` | إيقاف التحقق الثنائي |
 | GET | `/security/state` | حالة أمان المستخدم (محاولات/قفل/2FA) |
@@ -154,3 +154,10 @@ curl -X POST http://localhost:3000/api/employee-advances/adv-XXX/payments \
 | 401 | مصادقة فاشلة أو حساب مقفل |
 | 404 | الكيان غير موجود |
 | 429 | تجاوز حد معدل الطلبات (مع `retryAfterMs`) |
+
+
+## وكيل البرمجة Jules
+
+واجهة المدير تحت `/api/jules/*` تستخدم JWT حقيقياً (ولا تقبل تبديل مستخدم العرض لأي اتصال فعلي).
+تشمل الحالة والمستودع والجلسات والأنشطة وإنشاء المهام واعتماد الخطة وإرسال الملاحظات.
+التكامل معطّل افتراضياً؛ راجع [دليل Jules ونقاط API وحدود الأمان](./JULES.md).

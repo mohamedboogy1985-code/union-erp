@@ -20,6 +20,8 @@
 const WEAK_SECRETS = new Set([
   'union-erp-dev-secret',
   'your_super_secret_jwt_key_change_in_production',
+  'replace_with_a_strong_random_32_byte_hex_key',
+  '<strong-random-secret>',
   'change_me_32_byte_random_master_key',
   'default-key',
   'secret',

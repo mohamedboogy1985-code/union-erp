@@ -1,0 +1,12 @@
+{
+  "extends": "./tsconfig.json",
+  "include": [
+    "server/routes/jules.routes.ts",
+    "server/services/jules.service.ts",
+    "server/security/admin-credentials.ts",
+    "src/pages/JulesDashboard.tsx",
+    "src/services/jules-api.ts",
+    "src/types/jules.ts",
+    "src/utils/jules.ts"
+  ]
+}
