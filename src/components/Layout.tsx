@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { isReadOnly } from '../utils/permissions.js';
+import { hasPerm, isReadOnly } from '../utils/permissions.js';
 import {
   ShieldCheck,
   Bot,
@@ -107,6 +107,8 @@ export const Layout: React.FC<LayoutProps> = ({
   const addedHubs = new Set<string>();
 
   for (const s of portalScreens) {
+    // Signed-out users can reach the login screen; non-admins never see the dashboard link.
+    if (s.id === 'jules' && currentUser && (!currentUser.isActive || currentUser.isDemo || !hasPerm(currentUser, 'system:admin'))) continue;
     const hub = HUB_DEFS.find((h) => h.tabs.includes(s.id));
     if (hub) {
       if (!addedHubs.has(hub.id)) {
@@ -125,7 +127,7 @@ export const Layout: React.FC<LayoutProps> = ({
       id: s.id,
       label: s.label,
       icon: s.icon,
-      isAi: s.id === 'aihub' || s.id === 'ai',
+      isAi: s.id === 'aihub' || s.id === 'ai' || s.id === 'jules',
     });
   }
 
