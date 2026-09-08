@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
-import { Printer, Receipt } from 'lucide-react';
-import { User } from '../types/erp.js';
+import React, { useState, useEffect } from 'react';
+import { Printer, Receipt, Building2 } from 'lucide-react';
+import { User, JournalRow } from '../types/erp.js';
+import { api } from '../services/api.js';
 
 interface ExpenseVoucherFormProps {
   currentUser: User | null;
@@ -52,10 +53,95 @@ export const ExpenseVoucherForm: React.FC<ExpenseVoucherFormProps> = ({
 
   const [voucherNo, setVoucherNo] = useState(entryNumber || '');
   const [voucherDate, setVoucherDate] = useState(today);
+  const [disbursementBank, setDisbursementBank] = useState('');
+  const [depositBank, setDepositBank] = useState('');
+  const [checkNo, setCheckNo] = useState('');
   const [payee, setPayee] = useState('');
   const [amount, setAmount] = useState('');
   const [description, setDescription] = useState('');
   const [notes, setNotes] = useState('');
+  const [journalRows, setJournalRows] = useState<JournalRow[]>([]);
+
+  useEffect(() => {
+    loadJournalData();
+  }, []);
+
+  const loadJournalData = async () => {
+    try {
+      const rows = await api.getJournal2024();
+      setJournalRows(rows || []);
+
+      // اكتشاف آخر رقم إذن صرف مسجل وكتابة الرقم التالي تلقائياً
+      if (!entryNumber) {
+        let maxPermit = 0;
+        for (const r of rows || []) {
+          const num = parseInt(r.permitNo, 10);
+          if (!isNaN(num) && num > maxPermit) {
+            maxPermit = num;
+          }
+        }
+        if (maxPermit > 0) {
+          setVoucherNo(String(maxPermit + 1));
+        } else {
+          setVoucherNo('35256');
+        }
+      }
+    } catch (err) {
+      if (!entryNumber && !voucherNo) {
+        setVoucherNo('35256');
+      }
+    }
+  };
+
+  // عند اختيار بنك من "صرف من البنك"، يتم اكتشاف آخر رقم شيك مسجل للبنك المحدد وتوليد الرقم التالي
+  const handleDisbursementBankChange = (selectedBank: string) => {
+    setDisbursementBank(selectedBank);
+    if (!selectedBank) {
+      setCheckNo('');
+      return;
+    }
+
+    let maxCheck = 0;
+    for (const r of journalRows) {
+      const matchesBank =
+        r.creditAccount?.includes(selectedBank) ||
+        r.debitAccount?.includes(selectedBank) ||
+        r.description?.includes(selectedBank);
+
+      if (matchesBank && r.checkNo) {
+        const num = parseInt(r.checkNo.trim(), 10);
+        if (!isNaN(num) && num > maxCheck) {
+          maxCheck = num;
+        }
+      }
+    }
+
+    // إذا لم يعثر على شيكات مخصصة للبنك، يتم البحث في كافة القيود
+    if (maxCheck === 0) {
+      for (const r of journalRows) {
+        if (r.checkNo) {
+          const num = parseInt(r.checkNo.trim(), 10);
+          if (!isNaN(num) && num > maxCheck) {
+            maxCheck = num;
+          }
+        }
+      }
+    }
+
+    if (maxCheck > 0) {
+      setCheckNo(String(maxCheck + 1));
+    } else {
+      if (selectedBank === 'بنك مصر') {
+        setCheckNo('76297065');
+      } else if (selectedBank === 'بنك التنمية الصناعية') {
+        setCheckNo('69979336');
+      } else {
+        setCheckNo('100001');
+      }
+    }
+
+    onShowToast('info', `تم تحديد آخر رقم شيك مسجل لـ (${selectedBank}) وكتابة الرقم التالي تلقائياً.`);
+  };
 
   const numericAmount = Number(amount.replace(/,/g, ''));
   const formattedAmount = isNaN(numericAmount)
@@ -109,15 +195,15 @@ export const ExpenseVoucherForm: React.FC<ExpenseVoucherFormProps> = ({
           </div>
         </div>
 
-        {/* رقم وتاريخ */}
+        {/* رقم الإذن والتاريخ */}
         <div className="mt-4 grid grid-cols-2 gap-4">
           <div>
-            <label className={labelCls}>رقم الإذن</label>
+            <label className={labelCls}>رقم الإذن (تلقائي بناءً على آخر رقم إذن مسجل)</label>
             <input
               value={voucherNo}
               onChange={(e) => setVoucherNo(e.target.value)}
-              placeholder="....."
-              className={inputCls}
+              placeholder="رقم الإذن التلقائي..."
+              className={`${inputCls} font-mono font-bold`}
             />
           </div>
           <div>
@@ -126,6 +212,43 @@ export const ExpenseVoucherForm: React.FC<ExpenseVoucherFormProps> = ({
               value={voucherDate}
               onChange={(e) => setVoucherDate(e.target.value)}
               className={inputCls}
+            />
+          </div>
+        </div>
+
+        {/* حقول البنك والشيك: صرف من البنك / إيداع البنك / رقم الشيك */}
+        <div className="mt-4 grid grid-cols-1 sm:grid-cols-3 gap-4 bg-slate-50 p-3 rounded-lg border border-slate-200">
+          <div>
+            <label className={labelCls}>صرف من البنك</label>
+            <select
+              value={disbursementBank}
+              onChange={(e) => handleDisbursementBankChange(e.target.value)}
+              className={`${inputCls} font-bold`}
+            >
+              <option value="">-- اختر البنك --</option>
+              <option value="بنك مصر">بنك مصر</option>
+              <option value="بنك التنمية الصناعية">بنك التنمية الصناعية</option>
+            </select>
+          </div>
+          <div>
+            <label className={labelCls}>إيداع البنك</label>
+            <select
+              value={depositBank}
+              onChange={(e) => setDepositBank(e.target.value)}
+              className={`${inputCls} font-bold`}
+            >
+              <option value="">-- اختر البنك --</option>
+              <option value="بنك مصر">بنك مصر</option>
+              <option value="بنك التنمية الصناعية">بنك التنمية الصناعية</option>
+            </select>
+          </div>
+          <div>
+            <label className={labelCls}>رقم الشيك (الرقم التالي تلقائياً)</label>
+            <input
+              value={checkNo}
+              onChange={(e) => setCheckNo(e.target.value)}
+              placeholder="رقم الشيك التلقائي..."
+              className={`${inputCls} font-mono font-bold text-sky-700`}
             />
           </div>
         </div>
