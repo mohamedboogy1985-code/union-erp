@@ -31,7 +31,9 @@ The default text search configuration will be set to "english".
 
 Data page checksums are enabled.
 
-creating directory /app/pgdata ... ok
+creating directory /app/pgdata ...
+ok
+
 creating subdirectories ...
 ok
 
@@ -58,17 +60,17 @@ Success. You can now start the database server using:
 
 
 🆕 تم تهيئة مجلد بيانات PostgreSQL المضمّن لأول مرة...
-2026-09-08 09:50:04.378 UTC [29367] LOG:  starting PostgreSQL 18.4 on x86_64-pc-linux-gnu, compiled by gcc (Ubuntu 7.5.0-3ubuntu1~18.04) 7.5.0, 64-bit
+2026-09-06 09:56:46.766 UTC [423723] LOG:  starting PostgreSQL 18.4 on x86_64-pc-linux-gnu, compiled by gcc (Ubuntu 7.5.0-3ubuntu1~18.04) 7.5.0, 64-bit
 
-2026-09-08 09:50:04.380 UTC [29367] LOG:  listening on IPv6 address "::1", port 5432
+2026-09-06 09:56:46.767 UTC [423723] LOG:  listening on IPv6 address "::1", port 5432
 
-2026-09-08 09:50:04.381 UTC [29367] LOG:  listening on IPv4 address "127.0.0.1", port 5432
+2026-09-06 09:56:46.767 UTC [423723] LOG:  listening on IPv4 address "127.0.0.1", port 5432
 
-2026-09-08 09:50:04.385 UTC [29367] LOG:  listening on Unix socket "/tmp/.s.PGSQL.5432"
+2026-09-06 09:56:46.771 UTC [423723] LOG:  listening on Unix socket "/tmp/.s.PGSQL.5432"
 
-2026-09-08 09:50:04.391 UTC [29408] LOG:  database system was shut down at 2026-09-08 09:50:03 UTC
+2026-09-06 09:56:46.776 UTC [423729] LOG:  database system was shut down at 2026-09-06 09:56:45 UTC
 
-2026-09-08 09:50:04.394 UTC [29367] LOG:  database system is ready to accept connections
+2026-09-06 09:56:46.780 UTC [423723] LOG:  database system is ready to accept connections
 
 🐘 PostgreSQL المضمّن يعمل الآن على المنفذ 5432 (البيانات: /app/pgdata)
 🆕 تم إنشاء قاعدة البيانات [union_app]
@@ -76,8 +78,11 @@ Success. You can now start the database server using:
 🌱 Cloud SQL PostgreSQL is empty. Seeding initial syndicate data...
 ✅ Initial syndicate data successfully seeded to Cloud SQL PostgreSQL.
 🎙️ [live-agent] خادم WebSocket الحي جاهز على المسار /api/live-agent
-🕐 تم بذر 422 سجل حضور تجريبي (بصمة) للشهر الحالي.
+🕐 تم بذر 282 سجل حضور تجريبي (بصمة) للشهر الحالي.
 =======================================================
 🏛️ Union Financial ERP Server running on http://0.0.0.0:3000
 📌 General Syndicate Chart of Accounts & 1301 Subledger Ready
 =======================================================
+2026-09-06 10:01:46.837 UTC [423727] LOG:  checkpoint starting: time
+
+2026-09-06 10:48:34.616 UTC [423727] LOG:  checkpoint complete: wrote 1030 buffers (6.3%), wrote 3 SLRU buffers; 1 WAL file(s) added, 0 removed, 0 recycled; write=2807.209 s, sync=0.184 s, total=2807.779 s; sync files=384, longest=0.011 s, average=0.001 s; distance=5150 kB, estimate=5150 kB; lsn=0/1C53458, redo lsn=0/1C533C8
