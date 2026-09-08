@@ -284,7 +284,7 @@ export const SubledgerParties: React.FC<SubledgerPartiesProps> = ({
         subtitle="حساب 1301 مدينون متنوعون أو موردين"
         maxWidth="md"
       >
-        <form onSubmit={handleCreateSubmit} className="space-y-4">
+        <form data-assistant-draft onSubmit={handleCreateSubmit} className="space-y-4">
           <div>
             <label className="block text-xs font-bold text-slate-300 mb-1">اسم الشخص أو الشركة / الجهة بالكامل:</label>
             <input

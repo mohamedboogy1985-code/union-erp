@@ -316,7 +316,7 @@ export const EmployeeAdvances: React.FC<EmployeeAdvancesProps> = ({
         subtitle="تُجدول تلقائياً بأقساط شهرية حتى السداد الكامل"
         maxWidth="md"
       >
-        <form onSubmit={handleAddAdvance} className="space-y-4">
+        <form data-assistant-draft onSubmit={handleAddAdvance} className="space-y-4">
           <div>
             <label className="block text-xs font-bold text-slate-300 mb-1">العامل (من استمارة 2 تأمينات):</label>
             <select
@@ -410,7 +410,7 @@ export const EmployeeAdvances: React.FC<EmployeeAdvancesProps> = ({
         subtitle={payTarget ? `${payTarget.employeeName} — المتبقي ${fmt(payTarget.amount - payTarget.paidAmount)} ج.م` : ''}
         maxWidth="sm"
       >
-        <form onSubmit={handlePay} className="space-y-4">
+        <form data-assistant-draft onSubmit={handlePay} className="space-y-4">
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="block text-xs font-bold text-slate-300 mb-1">قيمة القسط (ج.م):</label>

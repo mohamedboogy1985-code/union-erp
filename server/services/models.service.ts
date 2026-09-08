@@ -13,7 +13,7 @@ import { createRequire } from 'module';
 import { moduleDir, resolveFirst } from '../utils/runtime-paths.js';
 import * as modelsCrypto from './models-crypto.service.js';
 
-const _require = createRequire(import.meta.url);
+const _require = createRequire(typeof __filename !== 'undefined' ? __filename : import.meta.url);
 
 const MODULE_DIR = moduleDir(typeof import.meta !== 'undefined' ? import.meta.url : undefined) || process.cwd();
 

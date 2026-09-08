@@ -13,7 +13,10 @@ import { AiHub, AiTabId } from './pages/AiHub.js';
 import { Gateways } from './pages/Gateways.js';
 import { ErrorBoundary } from './components/ErrorBoundary.js';
 import { Settings } from './pages/Settings.js';
-import { getGatewayMeta, PortalId } from './config/portals.js';
+import { OPERATOR_NAVIGATION } from './config/operator-assistant-navigation.js';
+import type { AssistantScreen } from './types/operator-assistant.js';
+import { hasPerm } from './utils/permissions.js';
+import { GATEWAYS, getGatewayMeta, PortalId } from './config/portals.js';
 
 // الصفحات المعزولة الأقل استخداماً — تُحمَّل كسولاً (lazy) لتقسيم الحزمة الرئيسية
 // وتقليل الإقلاع. تُقسّم كل صفحة إلى حزمتها الخاصة عبر Vite/Rollup.
@@ -127,6 +130,19 @@ export function App() {
     setCurrentTab('receipts');
   };
 
+  const handleAssistantNavigate = (target: AssistantScreen) => {
+    const portal = GATEWAYS.find(item => item.id === target.portalId);
+    const screen = OPERATOR_NAVIGATION.find(item => item.id === target.id);
+    const allowed = currentUser?.isActive && !currentUser.isDemo &&
+      (hasPerm(currentUser, 'system:admin') || currentUser.organizationId === target.organizationId || currentUser.allowedOrgIds.includes(target.organizationId));
+    if (!allowed || !portal || !screen || !screen.portals.includes(portal.id) || (portal.organizationId !== target.organizationId && target.organizationId !== selectedOrgId) ||
+      (['settings', 'jules'].includes(target.id) && !hasPerm(currentUser, 'system:admin'))) {
+      showToast('error', 'هذه الشاشة أو الجهة ليست ضمن الصلاحيات المتاحة.'); return;
+    }
+    setSelectedGateway(portal.id); setSelectedOrgId(target.organizationId); setCurrentTab(screen.id);
+    localStorage.setItem('union_active_portal', portal.id);
+  };
+
   // fallback أثناء تحميل الصفحة الكسولة (lazy)
   const lazyFallback = (label: string) => (
     <div className="flex items-center justify-center p-12 text-neutral-500">
@@ -144,6 +160,7 @@ export function App() {
         onOrgChange={setSelectedOrgId}
         currentUser={currentUser}
         onUserChange={setCurrentUser}
+        onAssistantNavigate={handleAssistantNavigate}
       >
         {currentTab === 'portals' && (
           <ErrorBoundary label="بوابات النظام" onNavigate={setCurrentTab}>

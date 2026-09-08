@@ -483,7 +483,7 @@ export const EmployeeAffairs: React.FC<EmployeeAffairsProps> = ({
         subtitle="إجازة سنوية / مرضية / إذن / إنذار / خصم / مكافأة — يخضع لاعتماد الإدارة"
         maxWidth="md"
       >
-        <form onSubmit={handleAddAffair} className="space-y-4">
+        <form data-assistant-draft onSubmit={handleAddAffair} className="space-y-4">
           <div>
             <label className="block text-xs font-bold text-slate-300 mb-1">العامل (من استمارة 2 تأمينات):</label>
             <select

@@ -32,7 +32,7 @@ export const MembershipHub: React.FC<MembershipHubProps> = ({
   const [activeTab, setActiveTab] = useState<MembershipTabId>(initialTab);
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4" data-assistant-screen={activeTab}>
       <ModuleTabs
         title="العضوية والتحصيل — وحدة موحدة"
         tabs={SUB_TABS}
