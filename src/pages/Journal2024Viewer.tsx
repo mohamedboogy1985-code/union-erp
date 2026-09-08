@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { BookOpen, Search, FileSpreadsheet, Plus, Edit2, Trash2, PlusCircle, Mic, MicOff, Video, VideoOff, Volume2, Sparkles } from 'lucide-react';
+import { BookOpen, Search, FileSpreadsheet, Plus, Edit2, Trash2, PlusCircle, Mic, MicOff, Video, VideoOff, Volume2, Sparkles, Building2 } from 'lucide-react';
 import { api } from '../services/api.js';
 import { JournalRow, User } from '../types/erp.js';
 import { Modal } from '../components/Modal.js';
@@ -25,6 +25,10 @@ export const Journal2024Viewer: React.FC<Journal2024ViewerProps> = ({
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [editingRow, setEditingRow] = useState<(JournalRow & { id?: string }) | null>(null);
   const [deletingRow, setDeletingRow] = useState<(JournalRow & { id?: string }) | null>(null);
+
+  // Bank Selection State
+  const [disbursementBank, setDisbursementBank] = useState('');
+  const [depositBank, setDepositBank] = useState('');
 
   // AI Voice & Video State
   const [isCameraActive, setIsCameraActive] = useState(false);
@@ -67,11 +71,25 @@ export const Journal2024Viewer: React.FC<Journal2024ViewerProps> = ({
     }
   };
 
+  const calculateNextPermitNo = () => {
+    let maxPermit = 0;
+    for (const r of rows) {
+      const num = parseInt(r.permitNo, 10);
+      if (!isNaN(num) && num > maxPermit) {
+        maxPermit = num;
+      }
+    }
+    return maxPermit > 0 ? String(maxPermit + 1) : '35256';
+  };
+
   const resetForm = () => {
+    const nextPermit = calculateNextPermitNo();
+    setDisbursementBank('');
+    setDepositBank('');
     setFormData({
       date: new Date().toISOString().split('T')[0],
-      serial: '',
-      permitNo: '',
+      serial: String(rows.length + 1),
+      permitNo: nextPermit,
       checkNo: '',
       description: '',
       debitAccount: '',
@@ -79,6 +97,66 @@ export const Journal2024Viewer: React.FC<Journal2024ViewerProps> = ({
       amount: '',
       carried: 'نعم',
     });
+  };
+
+  const handleDisbursementBankChange = (bankName: string) => {
+    setDisbursementBank(bankName);
+    if (!bankName) return;
+
+    let maxCheck = 0;
+    for (const r of rows) {
+      const matchesBank =
+        r.creditAccount?.includes(bankName) ||
+        r.debitAccount?.includes(bankName) ||
+        r.description?.includes(bankName);
+
+      if (matchesBank && r.checkNo) {
+        const num = parseInt(r.checkNo.trim(), 10);
+        if (!isNaN(num) && num > maxCheck) {
+          maxCheck = num;
+        }
+      }
+    }
+
+    if (maxCheck === 0) {
+      for (const r of rows) {
+        if (r.checkNo) {
+          const num = parseInt(r.checkNo.trim(), 10);
+          if (!isNaN(num) && num > maxCheck) {
+            maxCheck = num;
+          }
+        }
+      }
+    }
+
+    const nextCheck =
+      maxCheck > 0
+        ? String(maxCheck + 1)
+        : bankName === 'بنك مصر'
+        ? '76297065'
+        : bankName === 'بنك التنمية الصناعية'
+        ? '69979336'
+        : '100001';
+
+    setFormData((prev) => ({
+      ...prev,
+      creditAccount: bankName,
+      checkNo: nextCheck,
+    }));
+
+    onShowToast('info', `تم اكتشاف آخر رقم شيك لـ (${bankName}) وكتابة الرقم التالي (${nextCheck}) تلقائياً.`);
+  };
+
+  const handleDepositBankChange = (bankName: string) => {
+    setDepositBank(bankName);
+    if (!bankName) return;
+
+    setFormData((prev) => ({
+      ...prev,
+      debitAccount: bankName,
+    }));
+
+    onShowToast('info', `تم اختيار (${bankName}) كحساب إيداع نقدية.`);
   };
 
   // Text-To-Speech (قراءة القيد بصوت واضح بالعربية)
@@ -163,7 +241,7 @@ export const Journal2024Viewer: React.FC<Journal2024ViewerProps> = ({
     let debit = '';
     let credit = '';
 
-    if (text.includes('بنك') || text.includes('البنك')) debit = 'البنك الأهلي المصري';
+    if (text.includes('بنك مصر') || text.includes('التنمية')) debit = 'بنك مصر';
     if (text.includes('صندوق') || text.includes('نقدية')) credit = 'الصندوق الرئيسي';
     if (text.includes('مصروف') || text.includes('صيانة')) debit = 'مصروفات صيانة وتدريب';
 
@@ -227,6 +305,8 @@ export const Journal2024Viewer: React.FC<Journal2024ViewerProps> = ({
 
   const startEdit = (r: JournalRow & { id?: string }) => {
     setEditingRow(r);
+    setDisbursementBank(r.creditAccount?.includes('بنك') ? r.creditAccount : '');
+    setDepositBank(r.debitAccount?.includes('بنك') ? r.debitAccount : '');
     setFormData({
       date: r.date,
       serial: r.serial,
@@ -248,7 +328,9 @@ export const Journal2024Viewer: React.FC<Journal2024ViewerProps> = ({
       r.date.includes(q) ||
       r.debitAccount.includes(q) ||
       r.creditAccount.includes(q) ||
-      r.amount.includes(q)
+      r.amount.includes(q) ||
+      r.permitNo.includes(q) ||
+      r.checkNo.includes(q)
     );
   });
 
@@ -295,7 +377,7 @@ export const Journal2024Viewer: React.FC<Journal2024ViewerProps> = ({
         <input
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
-          placeholder="ابحث في البيان أو الحساب أو التاريخ..."
+          placeholder="ابحث في البيان أو الحساب أو رقم الإذن أو رقم الشيك..."
           className="w-full pr-10 pl-4 py-2.5 rounded-xl bg-slate-900 border border-slate-700 text-slate-200 text-sm focus:outline-none focus:border-emerald-500 placeholder:text-slate-500"
         />
       </div>
@@ -340,8 +422,8 @@ export const Journal2024Viewer: React.FC<Journal2024ViewerProps> = ({
                   <tr key={r.id || i} className="hover:bg-slate-800/40 transition-colors">
                     <td className="py-2.5 px-4 font-mono text-slate-400">{r.date}</td>
                     <td className="py-2.5 px-4 font-mono text-slate-400">{r.serial}</td>
-                    <td className="py-2.5 px-4 font-mono text-slate-400">{r.permitNo}</td>
-                    <td className="py-2.5 px-4 font-mono text-slate-400">{r.checkNo}</td>
+                    <td className="py-2.5 px-4 font-mono text-slate-400 font-bold">{r.permitNo}</td>
+                    <td className="py-2.5 px-4 font-mono text-slate-400 font-bold">{r.checkNo}</td>
                     <td className="py-2.5 px-4 text-slate-200 font-medium max-w-sm">
                       <div className="truncate">{r.description}</div>
                     </td>
@@ -447,6 +529,34 @@ export const Journal2024Viewer: React.FC<Journal2024ViewerProps> = ({
               )}
             </div>
 
+            {/* حقول البنك المضافة: صرف من البنك / إيداع البنك */}
+            <div className="grid grid-cols-2 gap-3 bg-slate-900/80 p-3 rounded-xl border border-slate-800">
+              <div>
+                <label className="block text-slate-300 font-bold mb-1">صرف من البنك</label>
+                <select
+                  value={disbursementBank}
+                  onChange={(e) => handleDisbursementBankChange(e.target.value)}
+                  className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-700 text-emerald-300 font-bold"
+                >
+                  <option value="">-- اختر البنك --</option>
+                  <option value="بنك مصر">بنك مصر</option>
+                  <option value="بنك التنمية الصناعية">بنك التنمية الصناعية</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-slate-300 font-bold mb-1">إيداع البنك</label>
+                <select
+                  value={depositBank}
+                  onChange={(e) => handleDepositBankChange(e.target.value)}
+                  className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-700 text-teal-300 font-bold"
+                >
+                  <option value="">-- اختر البنك --</option>
+                  <option value="بنك مصر">بنك مصر</option>
+                  <option value="بنك التنمية الصناعية">بنك التنمية الصناعية</option>
+                </select>
+              </div>
+            </div>
+
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <label className="block text-slate-300 font-bold mb-1">التاريخ</label>
@@ -464,28 +574,36 @@ export const Journal2024Viewer: React.FC<Journal2024ViewerProps> = ({
                   value={formData.serial || ''}
                   onChange={(e) => setFormData({ ...formData, serial: e.target.value })}
                   placeholder="تلقائي إن تُرك فارغاً"
-                  className="w-full px-3 py-2 rounded-xl bg-slate-900 border border-slate-700 text-slate-200"
+                  className="w-full px-3 py-2 rounded-xl bg-slate-900 border border-slate-700 text-slate-200 font-mono"
                 />
               </div>
             </div>
 
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="block text-slate-300 font-bold mb-1">رقم الإذن</label>
+                <label className="block text-slate-300 font-bold mb-1">
+                  رقم الإذن
+                  <span className="text-[10px] text-emerald-400 font-normal mr-1">(تلقائي بناءً على آخر رقم إذن مسجل)</span>
+                </label>
                 <input
                   type="text"
                   value={formData.permitNo || ''}
                   onChange={(e) => setFormData({ ...formData, permitNo: e.target.value })}
-                  className="w-full px-3 py-2 rounded-xl bg-slate-900 border border-slate-700 text-slate-200"
+                  placeholder="رقم الإذن التلقائي..."
+                  className="w-full px-3 py-2 rounded-xl bg-slate-900 border border-slate-700 text-emerald-300 font-mono font-bold"
                 />
               </div>
               <div>
-                <label className="block text-slate-300 font-bold mb-1">رقم الشيك</label>
+                <label className="block text-slate-300 font-bold mb-1">
+                  رقم الشيك
+                  <span className="text-[10px] text-sky-400 font-normal mr-1">(الرقم التالي تلقائياً عند اختيار البنك)</span>
+                </label>
                 <input
                   type="text"
                   value={formData.checkNo || ''}
                   onChange={(e) => setFormData({ ...formData, checkNo: e.target.value })}
-                  className="w-full px-3 py-2 rounded-xl bg-slate-900 border border-slate-700 text-slate-200"
+                  placeholder="رقم الشيك..."
+                  className="w-full px-3 py-2 rounded-xl bg-slate-900 border border-slate-700 text-sky-300 font-mono font-bold"
                 />
               </div>
             </div>
