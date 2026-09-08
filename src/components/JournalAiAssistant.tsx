@@ -18,6 +18,7 @@ import {
 import { Account } from '../types/erp.js';
 import { getCurrentUserId } from '../services/api.js';
 import { streamGlobalAiChat } from '../services/ai-stream.js';
+import { createVoiceCapture } from '../utils/voiceCapture.js';
 
 interface JournalAiAssistantProps {
   organizationId: string;
@@ -71,8 +72,7 @@ export const JournalAiAssistant: React.FC<JournalAiAssistantProps> = ({
   const [isListening, setIsListening] = useState(false);
   const [voiceError, setVoiceError] = useState<string | null>(null);
   const [speakOn, setSpeakOn] = useState(true);
-  const recognitionRef = useRef<any>(null);
-  const spokenTextRef = useRef('');
+  const voiceCapture = useRef<any>(null);
   const bodyRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -81,9 +81,9 @@ export const JournalAiAssistant: React.FC<JournalAiAssistantProps> = ({
 
   useEffect(() => {
     return () => {
-      if (recognitionRef.current) {
-        recognitionRef.current.abort();
-        recognitionRef.current = null;
+      if (voiceCapture.current) {
+        voiceCapture.current.cleanup();
+        voiceCapture.current = null;
       }
     };
   }, []);
@@ -277,62 +277,25 @@ export const JournalAiAssistant: React.FC<JournalAiAssistantProps> = ({
   // ==== الاستماع الصوتي (same pattern as global widget) ====
   const handleVoiceToggle = () => {
     setVoiceError(null);
-    if (recognitionRef.current) {
-      recognitionRef.current.stop();
-      return;
-    }
-    recognitionRef.current?.abort();
-    recognitionRef.current = null;
-
-    if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
-      const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-      const recognition = new SpeechRecognition();
-      recognition.lang = 'ar-EG';
-      recognition.continuous = true;
-      recognition.interimResults = false;
-      recognitionRef.current = recognition;
-      spokenTextRef.current = '';
-      setIsListening(true);
-
-      recognition.onresult = (event: any) => {
-        let text = '';
-        for (let i = event.resultIndex; i < event.results.length; i++) {
-          if (event.results[i].isFinal || event.results[i].length) text += event.results[i][0].transcript + ' ';
-        }
-        text = text.trim();
-        if (text) spokenTextRef.current = (spokenTextRef.current + ' ' + text).trim();
-      };
-
-      recognition.onend = () => {
-        recognitionRef.current = null;
-        setIsListening(false);
-        const collected = spokenTextRef.current.trim();
-        if (collected) {
-          setInput(collected);
-          send(collected);
-        }
-      };
-
-      recognition.onerror = (event: any) => {
-        recognitionRef.current = null;
-        setIsListening(false);
-        if (event.error === 'no-speech') setVoiceError('لم يُلتقط أي كلام، حاول مجدداً.');
-        else if (event.error === 'not-allowed' || event.error === 'service-not-allowed')
-          setVoiceError('تم رفض إذن الميكروفون — اسمح بالوصول من إعدادات المتصفح.');
-        else if (event.error === 'audio-capture') setVoiceError('لا يوجد ميكروفون متاح على جهازك.');
-        else if (event.error !== 'aborted') setVoiceError(`فشل التقاط الصوت: ${event.error}`);
-      };
-
-      try {
-        recognition.start();
-      } catch (err: any) {
-        recognitionRef.current = null;
-        setIsListening(false);
-        setVoiceError(err?.message || 'تعذر بدء التعرف الصوتي.');
+    if (voiceCapture.current) {
+      if (voiceCapture.current.isActive()) {
+        voiceCapture.current.toggle();
+        return;
       }
-    } else {
-      setVoiceError('التعرف الصوتي غير مدعوم في هذا المتصفح.');
+      voiceCapture.current.cleanup();
+      voiceCapture.current = null;
     }
+    voiceCapture.current = createVoiceCapture({
+      onListeningChange: (listening) => setIsListening(listening),
+      onError: (message) => setVoiceError(message),
+      onText: (text) => {
+        if (text.trim()) {
+          setInput(text.trim());
+          send(text.trim());
+        }
+      },
+    });
+    voiceCapture.current.toggle();
   };
 
   const totalDebit =

@@ -14,19 +14,26 @@ import { Gateways } from './pages/Gateways.js';
 import { ErrorBoundary } from './components/ErrorBoundary.js';
 import { Settings } from './pages/Settings.js';
 import { getGatewayMeta, PortalId } from './config/portals.js';
+import type { RegulationBudgetsTabId } from './pages/RegulationBudgetsHub.js';
+import type { AuditSettingsTabId } from './pages/AuditSettingsHub.js';
+import type { InsuredActuarialTabId } from './pages/InsuredActuarialHub.js';
+
+const RegulationBudgetsHub = lazy(() => import('./pages/RegulationBudgetsHub.js').then((m) => ({ default: m.RegulationBudgetsHub })));
+const AuditSettingsHub = lazy(() => import('./pages/AuditSettingsHub.js').then((m) => ({ default: m.AuditSettingsHub })));
+const InsuredActuarialHub = lazy(() => import('./pages/InsuredActuarialHub.js').then((m) => ({ default: m.InsuredActuarialHub })));
 
 // الصفحات المعزولة الأقل استخداماً — تُحمَّل كسولاً (lazy) لتقسيم الحزمة الرئيسية
 // وتقليل الإقلاع. تُقسّم كل صفحة إلى حزمتها الخاصة عبر Vite/Rollup.
+// ملاحظة: Budgets/AuditLog/FinancialRegulation/InsuredListViewer/Journal2024Viewer
+// باتت تُستورَد داخل المحاور الموحّدة (ModuleTabs) فلم تعد هنا.
 const PromoShowcase = lazy(() => import('./pages/PromoShowcase.js').then((m) => ({ default: m.PromoShowcase })));
-const Budgets = lazy(() => import('./pages/Budgets.js').then((m) => ({ default: m.Budgets })));
 const FixedAssets = lazy(() => import('./pages/FixedAssets.js').then((m) => ({ default: m.FixedAssets })));
 const EInvoicing = lazy(() => import('./pages/EInvoicing.js').then((m) => ({ default: m.EInvoicing })));
 const AuditLog = lazy(() => import('./pages/AuditLog.js').then((m) => ({ default: m.AuditLog })));
+const JulesDashboard = lazy(() => import('./pages/JulesDashboard.js').then((m) => ({ default: m.JulesDashboard })));
 const FinancialRegulation = lazy(() => import('./pages/FinancialRegulation.js').then((m) => ({ default: m.FinancialRegulation })));
 const UnionCommittees = lazy(() => import('./pages/UnionCommittees.js').then((m) => ({ default: m.UnionCommittees })));
 const CommitteeDataViewer = lazy(() => import('./pages/CommitteeDataViewer.js').then((m) => ({ default: m.CommitteeDataViewer })));
-const InsuredListViewer = lazy(() => import('./pages/InsuredListViewer.js').then((m) => ({ default: m.InsuredListViewer })));
-const Journal2024Viewer = lazy(() => import('./pages/Journal2024Viewer.js').then((m) => ({ default: m.Journal2024Viewer })));
 const ModelsViewer = lazy(() => import('./pages/ModelsViewer.js').then((m) => ({ default: m.ModelsViewer })));
 const TrainingAccounting2024 = lazy(() => import('./pages/TrainingAccounting2024.js').then((m) => ({ default: m.TrainingAccounting2024 })));
 const FinalAccounts2024 = lazy(() => import('./pages/FinalAccounts2024.js').then((m) => ({ default: m.FinalAccounts2024 })));
@@ -42,6 +49,7 @@ const ACCOUNTING_HUB_ALIASES: Record<string, AccountingTabId> = {
   accounts: 'accounts',
   banking: 'banking',
   procurement: 'procurement',
+  'journal-2024': 'journal2024',
 };
 
 const HRS_HUB_ALIASES: Record<string, HrsTabId> = {
@@ -50,13 +58,31 @@ const HRS_HUB_ALIASES: Record<string, HrsTabId> = {
   payroll: 'payroll',
   attendance: 'attendance',
   advances: 'advances',
-  actuarial: 'actuarial',
 };
 
 const MEMBERSHIP_HUB_ALIASES: Record<string, MembershipTabId> = {
   membership: 'members',
   members: 'members',
   receipts: 'receipts',
+  committees: 'committees',
+};
+
+const REGULATION_BUDGETS_HUB_ALIASES: Record<string, RegulationBudgetsTabId> = {
+  'regulation-budgets': 'regulation',
+  regulation: 'regulation',
+  budgets: 'budgets',
+};
+
+const AUDIT_SETTINGS_HUB_ALIASES: Record<string, AuditSettingsTabId> = {
+  'audit-settings': 'audit',
+  audit: 'audit',
+  settings: 'settings',
+};
+
+const INSURED_ACTUARIAL_HUB_ALIASES: Record<string, InsuredActuarialTabId> = {
+  'insured-actuarial': 'insured',
+  'insured-list': 'insured',
+  actuarial: 'actuarial',
 };
 
 const AI_HUB_ALIASES: Record<string, AiTabId> = {
@@ -167,6 +193,7 @@ export function App() {
         currentTab === 'accounts' ||
         currentTab === 'banking' ||
         currentTab === 'procurement' ||
+        currentTab === 'journal-2024' ||
         currentTab === 'accounting' ? (
           <ErrorBoundary label="المحاسبة والمالية" onNavigate={setCurrentTab}>
             <AccountingHub
@@ -181,21 +208,23 @@ export function App() {
 
         {currentTab === 'receipts' ||
         currentTab === 'members' ||
-        currentTab === 'membership' ? (
-          <ErrorBoundary label="العضوية والتحصيل" onNavigate={setCurrentTab}>
-            <MembershipHub
-              key={currentTab}
-              organizationId={selectedOrgId}
-              currentUser={currentUser}
-              onShowToast={showToast}
-              voiceDraft={voiceReceiptDraft}
-              initialTab={MEMBERSHIP_HUB_ALIASES[currentTab]}
-            />
+currentTab === 'membership' ||
+        (currentTab === 'committees' && selectedGateway === 'syndicate') ? (
+          <ErrorBoundary label="العضوية والتحصيل واللجان" onNavigate={setCurrentTab}>
+            <Suspense fallback={lazyFallback('العضوية والتحصيل')}>
+              <MembershipHub
+                key={currentTab}
+                organizationId={selectedOrgId}
+                currentUser={currentUser}
+                onShowToast={showToast}
+                voiceDraft={voiceReceiptDraft}
+                initialTab={MEMBERSHIP_HUB_ALIASES[currentTab]}
+              />
+            </Suspense>
           </ErrorBoundary>
         ) : null}
 
-        {currentTab === 'actuarial' ||
-        currentTab === 'employees' ||
+        {currentTab === 'employees' ||
         currentTab === 'advances' ||
         currentTab === 'payroll' ||
         currentTab === 'attendance' ||
@@ -236,17 +265,21 @@ export function App() {
           </ErrorBoundary>
         )}
 
-        {currentTab === 'budgets' && (
-          <ErrorBoundary label="الموازنة التقديرية" onNavigate={setCurrentTab}>
-            <Suspense fallback={lazyFallback('الموازنة التقديرية')}>
-            <Budgets
-              organizationId={selectedOrgId}
-              currentUser={currentUser}
-              onShowToast={showToast}
-            />
+        {currentTab === 'budgets' ||
+        currentTab === 'regulation' ||
+        currentTab === 'regulation-budgets' ? (
+          <ErrorBoundary label="الرقابة المالية والموازنات" onNavigate={setCurrentTab}>
+            <Suspense fallback={lazyFallback('الرقابة المالية والموازنات')}>
+              <RegulationBudgetsHub
+                key={currentTab}
+                organizationId={selectedOrgId}
+                currentUser={currentUser}
+                onShowToast={showToast}
+                initialTab={REGULATION_BUDGETS_HUB_ALIASES[currentTab]}
+              />
             </Suspense>
           </ErrorBoundary>
-        )}
+        ) : null}
 
         {currentTab === 'assets' && (
           <ErrorBoundary label="الأصول الثابتة والإهلاك" onNavigate={setCurrentTab}>
@@ -272,29 +305,21 @@ export function App() {
           </ErrorBoundary>
         )}
 
-        {currentTab === 'audit' && (
-          <ErrorBoundary label="سجل التدقيق والرقابة" onNavigate={setCurrentTab}>
-            <Suspense fallback={lazyFallback('سجل التدقيق')}>
-            <AuditLog
-              organizationId={selectedOrgId}
-              currentUser={currentUser}
-              onShowToast={showToast}
-            />
+        {currentTab === 'audit' ||
+        currentTab === 'audit-settings' ||
+        (currentTab === 'settings' && selectedGateway === 'syndicate') ? (
+          <ErrorBoundary label="الرقابة والإعدادات" onNavigate={setCurrentTab}>
+            <Suspense fallback={lazyFallback('الرقابة والإعدادات')}>
+              <AuditSettingsHub
+                key={currentTab}
+                organizationId={selectedOrgId}
+                currentUser={currentUser}
+                onShowToast={showToast}
+                initialTab={AUDIT_SETTINGS_HUB_ALIASES[currentTab]}
+              />
             </Suspense>
           </ErrorBoundary>
-        )}
-
-        {currentTab === 'regulation' && (
-          <ErrorBoundary label="اللائحة المالية والرقابة" onNavigate={setCurrentTab}>
-            <Suspense fallback={lazyFallback('اللائحة المالية')}>
-            <FinancialRegulation
-              organizationId={selectedOrgId}
-              currentUser={currentUser}
-              onShowToast={showToast}
-            />
-            </Suspense>
-          </ErrorBoundary>
-        )}
+        ) : null}
 
         {currentTab === 'balance-sheet' && (
           <ErrorBoundary label="الميزانية العمومية والحسابات الختامية" onNavigate={setCurrentTab}>
@@ -308,14 +333,14 @@ export function App() {
           </ErrorBoundary>
         )}
 
-        {currentTab === 'committees' && (
+        {currentTab === 'committees' && selectedGateway !== 'syndicate' && (
           <ErrorBoundary label="اللجان النقابية" onNavigate={setCurrentTab}>
             <Suspense fallback={lazyFallback('اللجان النقابية')}>
-            <UnionCommittees
-              organizationId={selectedOrgId}
-              currentUser={currentUser}
-              onShowToast={showToast}
-            />
+              <UnionCommittees
+                organizationId={selectedOrgId}
+                currentUser={currentUser}
+                onShowToast={showToast}
+              />
             </Suspense>
           </ErrorBoundary>
         )}
@@ -332,29 +357,21 @@ export function App() {
           </ErrorBoundary>
         )}
 
-        {currentTab === 'insured-list' && (
-          <ErrorBoundary label="المؤمَّن عليهم (صندوق اكتواري)" onNavigate={setCurrentTab}>
-            <Suspense fallback={lazyFallback('المؤمَّن عليهم')}>
-            <InsuredListViewer
-              organizationId={selectedOrgId}
-              currentUser={currentUser}
-              onShowToast={showToast}
-            />
+        {currentTab === 'insured-list' ||
+        currentTab === 'actuarial' ||
+        currentTab === 'insured-actuarial' ? (
+          <ErrorBoundary label="الصندوق الإكتواري" onNavigate={setCurrentTab}>
+            <Suspense fallback={lazyFallback('الصندوق الإكتواري')}>
+              <InsuredActuarialHub
+                key={currentTab}
+                organizationId={selectedOrgId}
+                currentUser={currentUser}
+                onShowToast={showToast}
+                initialTab={INSURED_ACTUARIAL_HUB_ALIASES[currentTab]}
+              />
             </Suspense>
           </ErrorBoundary>
-        )}
-
-        {currentTab === 'journal-2024' && (
-          <ErrorBoundary label="قيود يومية 2024 (بوابات)" onNavigate={setCurrentTab}>
-            <Suspense fallback={lazyFallback('قيود يومية 2024')}>
-            <Journal2024Viewer
-              organizationId={selectedOrgId}
-              currentUser={currentUser}
-              onShowToast={showToast}
-            />
-            </Suspense>
-          </ErrorBoundary>
-        )}
+        ) : null}
 
         {currentTab === 'models' && (
           <ErrorBoundary label="مكتبة النماذج والمستندات" onNavigate={setCurrentTab}>
@@ -392,7 +409,20 @@ export function App() {
           </ErrorBoundary>
         )}
 
-        {currentTab === 'settings' && (
+        {currentTab === 'jules' && (
+          <ErrorBoundary label="وكيل البرمجة Jules" onNavigate={setCurrentTab}>
+            <Suspense fallback={lazyFallback('لوحة Jules')}>
+              <JulesDashboard
+                key={currentUser?.id || 'signed-out'}
+                currentUser={currentUser}
+                onUserChange={setCurrentUser}
+                onShowToast={showToast}
+              />
+            </Suspense>
+          </ErrorBoundary>
+        )}
+
+        {currentTab === 'settings' && selectedGateway !== 'syndicate' && (
           <ErrorBoundary label="الإعدادات والصلاحيات" onNavigate={setCurrentTab}>
             <Settings
               organizationId={selectedOrgId}

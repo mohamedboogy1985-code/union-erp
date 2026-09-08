@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { ExternalLink, Film, LoaderCircle, RefreshCw, Terminal } from 'lucide-react';
 
 const VIDEO_URL = '/assets/promo/video/union-promo-wide.mp4';
@@ -9,6 +9,23 @@ type VideoStatus = 'checking' | 'available' | 'missing';
 export const PromoShowcase: React.FC = () => {
   const [videoStatus, setVideoStatus] = useState<VideoStatus>('checking');
   const [checkNumber, setCheckNumber] = useState(0);
+  // autoplay عبر معامل URL (?autoplay=1) — يفعّل التشغيل التلقائي للمولفات
+  const autoPlay = new URLSearchParams(typeof window !== 'undefined' ? window.location.search : '').get('autoplay') === '1';
+  const videoRef = useRef<HTMLVideoElement>(null);
+
+  // عند توفر الفيديو ويعمل autoplay — شغّله وأعد أداءه بدورة
+  useEffect(() => {
+    if (videoStatus === 'available' && autoPlay && videoRef.current) {
+      videoRef.current.play().catch(() => {
+        /* المتصفح قد يرفض التشغيل التلقائي — يظل مضغوطاً يدوياً */
+      });
+      const loop = setInterval(() => {
+        const v = videoRef.current;
+        if (v && v.ended) v.play().catch(() => {});
+      }, 1000);
+      return () => clearInterval(loop);
+    }
+  }, [videoStatus, autoPlay]);
 
   const checkVideo = useCallback(() => {
     setVideoStatus('checking');
@@ -75,9 +92,13 @@ export const PromoShowcase: React.FC = () => {
         {videoStatus === 'available' && (
           <div className="overflow-hidden rounded border border-[#334155] bg-black shadow-lg">
             <video
+              ref={videoRef}
               className="aspect-video w-full"
               controls
               playsInline
+              autoPlay={autoPlay}
+              muted={autoPlay}
+              loop={autoPlay}
               preload="metadata"
               onError={() => setVideoStatus('missing')}
             >
@@ -127,7 +148,7 @@ export const PromoShowcase: React.FC = () => {
 
         <div className="overflow-hidden rounded border border-[#334155] bg-black shadow-lg">
           <iframe
-            src={ANIMATED_PROMO_URL}
+            src={autoPlay ? `${ANIMATED_PROMO_URL}?autoplay=1` : ANIMATED_PROMO_URL}
             title="العرض الترويجي المتحرك لنظام Union Financial ERP"
             className="aspect-video w-full"
             allow="autoplay"

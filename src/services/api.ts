@@ -52,7 +52,13 @@ let currentUserId =
   (typeof localStorage !== 'undefined' && localStorage.getItem('union_current_user')) ||
   DEFAULT_USER_ID;
 
+// Signed ERP sessions stay in memory only (never localStorage, URLs or offline queues).
+let sessionToken: string | null = null;
+export function getSessionToken(): string | null { return sessionToken; }
+export function setSessionToken(token: string | null): void { sessionToken = token; }
+
 export function setCurrentUserId(id: string) {
+  if (id !== currentUserId) sessionToken = null;
   currentUserId = id;
   try {
     localStorage.setItem('union_current_user', id);
@@ -65,21 +71,53 @@ export function getCurrentUserId(): string {
   return currentUserId;
 }
 
-async function request<T>(url: string, options: RequestInit = {}): Promise<T> {
-  const headers = {
-    'Content-Type': 'application/json',
-    'x-user-id': currentUserId,
-    ...(options.headers || {}),
-  };
+export class ApiError extends Error {
+  constructor(
+    message: string,
+    public status: number,
+    public code?: string,
+    public retryAfterSeconds?: number,
+    public outcomeUnknown = false,
+  ) { super(message); this.name = 'ApiError'; }
+}
+
+export async function request<T>(url: string, options: RequestInit = {}): Promise<T> {
+  const headers = new Headers(options.headers);
+  if (!headers.has('Content-Type')) headers.set('Content-Type', 'application/json');
+  headers.set('x-user-id', currentUserId);
+  if (sessionToken) headers.set('Authorization', `Bearer ${sessionToken}`);
 
   const response = await fetch(url, { ...options, headers });
-  const data = await response.json();
-
+  const data = await response.json().catch(() => {
+    throw new ApiError('تعذّر قراءة استجابة الخادم. حدّث الحالة قبل تكرار العملية.', response.ok ? 502 : response.status);
+  });
   if (!response.ok) {
-    throw new Error(data.error || data.message || 'حدث خطأ في معالجة الطلب');
+    throw new ApiError(data.error || data.message || 'حدث خطأ في معالجة الطلب', response.status,
+      data.code, data.retryAfterSeconds, data.outcomeUnknown === true);
   }
-
   return data as T;
+}
+
+export interface AuthLoginResult {
+  success: boolean;
+  user?: User;
+  token?: string;
+  requiresTwoFactor?: boolean;
+  message: string;
+}
+
+export async function loginWithPassword(username: string, password: string, code?: string, signal?: AbortSignal): Promise<AuthLoginResult> {
+  const response = await fetch(code ? '/api/auth/login/2fa' : '/api/auth/login', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' }, signal,
+    body: JSON.stringify({ username, password, ...(code ? { code } : {}) }),
+  });
+  const data = await response.json().catch(() => ({})) as AuthLoginResult;
+  if (data.requiresTwoFactor) return data;
+  if (!response.ok || !data.success || !data.token || !data.user) {
+    throw new ApiError(data.message || 'تعذّر تسجيل الدخول.', response.status);
+  }
+  // Callers set the session only after checking which account was authenticated.
+  return data;
 }
 
 export const api = {
@@ -284,6 +322,9 @@ export const api = {
   getAnomaliesAI: () => request<any[]>('/api/ai/anomalies'),
   parseVoiceDictationAI: (spokenText: string) =>
     request<any>('/api/ai/voice-dictation', { method: 'POST', body: JSON.stringify({ spokenText }) }),
+  // تحويل صوت مسجل (dataUrl) إلى نص عبر Gemini — بديل موثوق لـ Web Speech API
+  transcribeVoiceAI: (dataUrl: string) =>
+    request<{ text: string }>('/api/ai/stt', { method: 'POST', body: JSON.stringify({ dataUrl }) }),
   getFinancialForecastAI: (horizon: number = 12) =>
     request<any>(`/api/ai/financial-forecast?horizon=${horizon}`),
 

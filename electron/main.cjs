@@ -6,7 +6,7 @@
  * - الإنتاج (الحزمة): يحمّل الخادم المجمّع dist-server/index.cjs داخل العملية
  *   الرئيسية (NODE_ENV=production) ويخدم الواجهة من dist/ ثم يفتح النافذة.
  */
-const { app, BrowserWindow, Menu, dialog, shell, ipcMain } = require('electron');
+const { app, BrowserWindow, Menu, dialog, shell, ipcMain, session } = require('electron');
 const path = require('path');
 const http = require('http');
 const { spawn } = require('child_process');
@@ -87,6 +87,13 @@ async function startServer() {
 }
 
 function createMainWindow() {
+  // منح إذن الميكروفون دائمًا (التسجيل الصوتي المحلي للتعرف عبر الخادم)
+  // دون هذا، يرفض Electron طلبات getUserMedia بصمت ضمن الوضع المعبأ.
+  session.defaultSession.setPermissionRequestHandler((_wc, permission, callback) => {
+    callback(permission === 'media' || permission === 'microphone' || permission === 'notifications');
+  });
+  session.defaultSession.setPermissionCheckHandler(() => true);
+
   mainWindow = new BrowserWindow({
     width: 1366,
     height: 868,

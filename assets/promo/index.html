@@ -986,6 +986,12 @@ window.speechSynthesis.onvoiceschanged = () => window.speechSynthesis.getVoices(
 
 showScene(0);
 $narration.classList.add('show');
+
+// تشغيل تلقائي عند التحميل (للمولفات الداخلية) — يلتزم بقواعد autoplay للمتصفح
+// ويبدأ اللعب فور السماح بالمهلة الأولية.
+window.setTimeout(() => {
+  play();
+}, 400);
 </script>
 </body>
 </html>

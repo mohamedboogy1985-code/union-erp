@@ -1,11 +1,12 @@
 import React, { useState } from 'react';
-import { UserCheck, ReceiptText, IdCard } from 'lucide-react';
+import { UserCheck, ReceiptText, IdCard, Network } from 'lucide-react';
 import { Members } from './Members.js';
 import { Receipts } from './Receipts.js';
+import { UnionCommittees } from './UnionCommittees.js';
 import { ModuleTabs, ModuleTabDef } from '../components/ModuleTabs.js';
 import { User } from '../types/erp.js';
 
-export type MembershipTabId = 'members' | 'receipts';
+export type MembershipTabId = 'members' | 'receipts' | 'committees';
 
 interface MembershipHubProps {
   organizationId: string;
@@ -20,6 +21,7 @@ interface MembershipHubProps {
 const SUB_TABS: ModuleTabDef<MembershipTabId>[] = [
   { id: 'members', label: 'الأعضاء والشهادات', icon: UserCheck },
   { id: 'receipts', label: 'التحصيل وتوزيع الإيرادات', icon: ReceiptText },
+  { id: 'committees', label: 'بيان اللجان النقابية', icon: Network },
 ];
 
 export const MembershipHub: React.FC<MembershipHubProps> = ({
@@ -34,7 +36,7 @@ export const MembershipHub: React.FC<MembershipHubProps> = ({
   return (
     <div className="space-y-4">
       <ModuleTabs
-        title="العضوية والتحصيل — وحدة موحدة"
+        title="العضوية والتحصيل واللجان — وحدة موحدة"
         tabs={SUB_TABS}
         activeId={activeTab}
         onChange={setActiveTab}
@@ -52,6 +54,9 @@ export const MembershipHub: React.FC<MembershipHubProps> = ({
             voiceDraft={voiceDraft}
             onShowToast={onShowToast}
           />
+        )}
+        {activeTab === 'committees' && (
+          <UnionCommittees organizationId={organizationId} currentUser={currentUser} onShowToast={onShowToast} />
         )}
       </div>
     </div>

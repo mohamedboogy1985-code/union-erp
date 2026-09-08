@@ -28,6 +28,7 @@ import {
   Award,
 } from 'lucide-react';
 import { api } from '../services/api.js';
+import { createVoiceCapture } from '../utils/voiceCapture.js';
 import { User, AnomalyDetectionItem, PredictiveAnalyticsResult, VoiceParsedTransaction } from '../types/erp.js';
 
 const MAX_OCR_IMAGE_MB = 8;
@@ -120,16 +121,17 @@ export const AIAssistant: React.FC<AIAssistantProps> = ({
   const [voiceParsed, setVoiceParsed] = useState<VoiceParsedTransaction | null>(null);
   const [voiceLoading, setVoiceLoading] = useState(false);
 
-  // إشارات لالتقاط الصوت المستمر — تُستخدم لإيقاف التعرف وإدارة جلسة الاستماع
-  const recognitionRef = useRef<any>(null);
-  const spokenTextRef = useRef('');
+  // إشارات لإدارة جلسة الاستماع (تبديل يدوي)
   const handleToggleRef = useRef(false);
+  const voiceCapture = useRef<any>(null);
 
   // إيقاف الميكروفون تلقائياً عند مغادرة الوحدة لتجنب بقاء التعرف نشطاً
   useEffect(() => {
     return () => {
-      recognitionRef.current?.abort();
-      recognitionRef.current = null;
+      if (voiceCapture.current) {
+        voiceCapture.current.cleanup();
+        voiceCapture.current = null;
+      }
     };
   }, []);
 
@@ -305,86 +307,35 @@ export const AIAssistant: React.FC<AIAssistantProps> = ({
 
   const handleStartVoice = () => {
     // إذا كان التعرف نشطاً وكانت هذه ضغطة ثانية — فهي إيقاف (تبديل)
-    if (recognitionRef.current) {
-      handleToggleRef.current = true;
-      recognitionRef.current.stop();
-      return;
+    if (voiceCapture.current) {
+      if (voiceCapture.current.isActive()) {
+        handleToggleRef.current = true;
+        voiceCapture.current.toggle();
+        return;
+      }
+      voiceCapture.current.cleanup();
+      voiceCapture.current = null;
     }
-
-    // إلغاء أي جلسة قديمة متبقية قبل بدء الاستماع الجديد
-    recognitionRef.current?.abort();
-    recognitionRef.current = null;
-
     setIsListening(true);
-    // Use Web Speech API if available, else simulate interactive mic dictation
-    if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
-      const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-      const recognition = new SpeechRecognition();
-      // الاستماع المستمر لزيادة مدة الالتقاط (ينتهي عند التوقف عن الكلام أو ضغطة الإيقاف)
-      recognition.lang = 'ar-EG';
-      recognition.continuous = true;
-      recognition.interimResults = false;
-      recognitionRef.current = recognition;
-      spokenTextRef.current = '';
-
-      recognition.onresult = (event: any) => {
-        // جمع نص كل الأجزاء المسجلة طوال الجلسة (وليست الجزء الأخير فقط)
-        let text = '';
-        for (let i = event.resultIndex; i < event.results.length; i++) {
-          if (event.results[i].isFinal || event.results[i].length) text += event.results[i][0].transcript + ' ';
-        }
-        text = text.trim();
-        if (text) spokenTextRef.current = (spokenTextRef.current + ' ' + text).trim();
-        setSpokenText(spokenTextRef.current);
-      };
-
-      recognition.onend = () => {
-        recognitionRef.current = null;
-        if (handleToggleRef.current) {
-          // أنهى المستخدم الجلسة يدوياً — نعرض النص دون معالجة تلقائية
-          handleToggleRef.current = false;
-          setIsListening(false);
-          setSpokenText(spokenTextRef.current);
+    voiceCapture.current = createVoiceCapture({
+      onListeningChange: (listening) => {
+        setIsListening(listening);
+        if (!listening && !handleToggleRef.current) {
+          // انتهى التسجيل تلقائياً — النص أُرسل عبر onText
           return;
         }
-        // انتهى التعرف (توقف تلقائي عن الكلام) — نعالج النص المجمع
-        setIsListening(false);
-        recognitionRef.current = null;
-        const collected = spokenTextRef.current.trim();
-        setSpokenText(collected);
-        if (collected) handleParseVoice(collected);
-      };
-
-      recognition.onerror = (event: any) => {
-        recognitionRef.current = null;
+      },
+      onError: (message) => {
         handleToggleRef.current = false;
-        setIsListening(false);
-        if (event.error === 'no-speech') {
-          onShowToast('warning', 'لم يُلتقط أي كلام، حاول التحدث مرة أخرى.');
-        } else if (event.error === 'not-allowed' || event.error === 'service-not-allowed') {
-          onShowToast('error', 'تم رفض إذن الميكروفون — يرجى السماح بالوصول للمايك من إعدادات المتصفح.');
-        } else if (event.error === 'audio-capture') {
-          onShowToast('error', 'لا يوجد ميكروفون متاح على جهازك.');
-        } else if (event.error !== 'aborted') {
-          onShowToast('error', `فشل التقاط الصوت: ${event.error}`);
-        }
-      };
-
-      try {
-        recognition.start();
-      } catch (err: any) {
-        recognitionRef.current = null;
-        handleToggleRef.current = false;
-        setIsListening(false);
-        onShowToast('error', err?.message || 'تعذر بدء التعرف الصوتي.');
-      }
-    } else {
-      // Prompt fallback simulation
-      setTimeout(() => {
-        setIsListening(false);
-      }, 1500);
-      onShowToast('info', 'خاصية الإملاء الصوتي غير مدعومة بمتصفحك — اكتب العبارة يدوياً في المربع النصي.');
-    }
+        onShowToast('error', message);
+      },
+      onText: (text) => {
+        const t = text.trim();
+        setSpokenText(t);
+        if (t) handleParseVoice(t);
+      },
+    });
+    voiceCapture.current.toggle();
   };
 
   const handleParseVoice = async (textToParse?: string) => {

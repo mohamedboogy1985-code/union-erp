@@ -30,7 +30,10 @@ export default defineConfig(() => {
       // Do not modifyâfile watching is disabled to prevent flickering during agent edits.
       hmr: process.env.DISABLE_HMR !== 'true',
       // Disable file watching when DISABLE_HMR is true to save CPU during agent edits.
-      watch: process.env.DISABLE_HMR === 'true' ? null : {},
+      watch: process.env.DISABLE_HMR === 'true' ? null : {
+        // لا تراقب مجلدات الإخراج/البيانات — تمنع EBUSY مع الملفات المقفلة عندما تعمل نسخة معبأة
+        ignored: ['**/release/**', '**/dist/**', '**/dist-server/**', '**/pgdata/**', '**/node_modules/**'],
+      },
       // السماح بمضيفات المعاينة السحابية (مثل e2b.app) مع localhost
       allowedHosts: ['localhost', '.e2b.app'],
     },

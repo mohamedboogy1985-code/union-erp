@@ -8,7 +8,7 @@
     "dev": "tsx watch --ignore pgdata --clear-screen=false server.ts",
     "build": "vite build",
     "start": "NODE_ENV=production tsx server.ts",
-    "test": "tsx test/accounting.test.ts && tsx test/improvements.test.ts && tsx test/employee-affairs.test.ts && tsx test/regulation.test.ts && tsx test/attendance.test.ts && tsx test/journal-delete.test.ts",
+    "test": "tsx test/accounting.test.ts && tsx test/improvements.test.ts && tsx test/employee-affairs.test.ts && tsx test/regulation.test.ts && tsx test/attendance.test.ts && tsx test/journal-delete.test.ts && npm run test:jules",
     "test:watch": "jest --watch",
     "lint": "eslint src --ext .ts,.tsx",
     "lint:fix": "eslint src --ext .ts,.tsx --fix",
@@ -23,7 +23,10 @@
     "electron:dev": "electron .",
     "electron:dir": "npm run build:frontend && npm run build:server && electron-builder --win --dir",
     "electron:build": "npm run build:frontend && npm run build:server && electron-builder --win nsis portable",
-    "contract:emit": "prisma contract emit"
+    "contract:emit": "prisma contract emit",
+    "test:jules": "tsx --test test/jules.test.ts test/jules-ui.test.tsx",
+    "auth:hash-password": "node scripts/hash-password.mjs",
+    "typecheck:jules": "tsc --noEmit -p tsconfig.jules.json"
   },
   "keywords": [
     "accounting",
@@ -51,6 +54,7 @@
     "drizzle-orm": "^0.45.2",
     "exceljs": "^4.4.0",
     "express": "^5.2.1",
+    "express-rate-limit": "8.7.0",
     "express-validator": "^7.0.0",
     "firebase": "^12.18.0",
     "firebase-admin": "^14.3.0",

@@ -12,7 +12,10 @@ import { erpStore } from '../db/store.js';
 /** 1) رؤوس الأمان (طبقة مكافئة لـ helmet دون كسر عرض Vite التطويري) */
 export function securityHeadersMiddleware(req: Request, res: Response, next: NextFunction) {
   res.setHeader('X-Content-Type-Options', 'nosniff');
-  res.setHeader('X-Frame-Options', 'SAMEORIGIN');
+  // Explicit opt-in for a cloud IDE's embedded dev preview; production stays protected.
+  if (process.env.NODE_ENV === 'production' || process.env.ALLOW_PREVIEW_EMBED !== 'true') {
+    res.setHeader('X-Frame-Options', 'SAMEORIGIN');
+  }
   res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
   res.setHeader('X-XSS-Protection', '1; mode=block');
   res.setHeader('Permissions-Policy', 'camera=(self), microphone=(self), geolocation=()');
@@ -106,8 +109,10 @@ export function comprehensiveAuditMiddleware(req: Request, res: Response, next: 
 
     // العمليات المغيّرة للحالة تُدرج في سلسلة التدقيق الرسمية
     if (['POST', 'PUT', 'PATCH', 'DELETE'].includes(req.method) && res.statusCode < 500) {
-      const activeUserId = (req.headers['x-user-id'] as string) || 'usr-cfo';
-      const user = erpStore.users.find((u) => u.id === activeUserId);
+      const activeUserId = req.path.startsWith('/api/jules')
+        ? res.locals.authenticatedUser?.id || 'anonymous'
+        : (req.headers['x-user-id'] as string) || 'usr-cfo';
+      const user = res.locals.authenticatedUser || erpStore.users.find((u) => u.id === activeUserId);
       const action =
         req.method === 'POST' ? 'API_CREATE' :
         req.method === 'PUT' || req.method === 'PATCH' ? 'API_UPDATE' :
