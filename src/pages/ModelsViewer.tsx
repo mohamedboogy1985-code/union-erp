@@ -27,8 +27,9 @@ import {
   LockOpenIcon,
 } from 'lucide-react';
 import { api } from '../services/api.js';
-import type { User } from '../types/erp.js';
 import { streamGlobalAiChat } from '../services/ai-stream.js';
+import { createVoiceCapture } from '../utils/voiceCapture.js';
+import type { User } from '../types/erp.js';
 
 interface ModelsViewerProps {
   organizationId: string;
@@ -99,7 +100,7 @@ export const ModelsViewer: React.FC<ModelsViewerProps> = ({ organizationId, curr
   const [aiLoading, setAiLoading] = useState(false);
   const [isListening, setIsListening] = useState(false);
   const [voiceError, setVoiceError] = useState<string | null>(null);
-  const recognitionRef = useRef<any>(null);
+  const voiceCapture = useRef<any>(null);
   const aiBodyRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const contentInputRef = useRef<HTMLInputElement>(null);
@@ -177,9 +178,9 @@ export const ModelsViewer: React.FC<ModelsViewerProps> = ({ organizationId, curr
   // إيقاف الاستماع عند الإغلاق
   useEffect(() => {
     return () => {
-      if (recognitionRef.current) {
-        recognitionRef.current.abort();
-        recognitionRef.current = null;
+      if (voiceCapture.current) {
+        voiceCapture.current.cleanup();
+        voiceCapture.current = null;
       }
     };
   }, []);
@@ -371,50 +372,23 @@ export const ModelsViewer: React.FC<ModelsViewerProps> = ({ organizationId, curr
 
   const handleVoiceToggle = () => {
     setVoiceError(null);
-    if (recognitionRef.current) {
-      recognitionRef.current.stop();
-      return;
-    }
-    recognitionRef.current?.abort();
-    recognitionRef.current = null;
-    if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
-      const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-      const recognition = new SpeechRecognition();
-      recognition.lang = 'ar-EG';
-      recognition.continuous = true;
-      recognition.interimResults = false;
-      let spoken = '';
-      recognitionRef.current = recognition;
-      setIsListening(true);
-      recognition.onresult = (event: any) => {
-        let t = '';
-        for (let i = event.resultIndex; i < event.results.length; i++) {
-          if (event.results[i].isFinal || event.results[i].length) t += event.results[i][0].transcript + ' ';
-        }
-        if (t.trim()) spoken = (spoken + ' ' + t).trim();
-      };
-      recognition.onend = () => {
-        recognitionRef.current = null;
-        setIsListening(false);
-        if (spoken.trim()) sendAi(spoken.trim());
-      };
-      recognition.onerror = (event: any) => {
-        recognitionRef.current = null;
-        setIsListening(false);
-        if (event.error === 'not-allowed' || event.error === 'service-not-allowed')
-          setVoiceError('تم رفض إذن الميكروفون');
-        else if (event.error !== 'aborted') setVoiceError(`فشل التقاط الصوت: ${event.error}`);
-      };
-      try {
-        recognition.start();
-      } catch (err: any) {
-        recognitionRef.current = null;
-        setIsListening(false);
-        setVoiceError(err?.message || 'تعذر بدء التعرف الصوتي.');
+    // ضغطة ثانية أثناء التسجيل = إيقاف (يبدأ التحويل تلقائياً)
+    if (voiceCapture.current) {
+      if (voiceCapture.current.isActive()) {
+        voiceCapture.current.toggle();
+        return;
       }
-    } else {
-      setVoiceError('التعرف الصوتي غير مدعوم في هذا المتصفح.');
+      voiceCapture.current.cleanup();
+      voiceCapture.current = null;
     }
+    voiceCapture.current = createVoiceCapture({
+      onListeningChange: (listening) => setIsListening(listening),
+      onError: (message) => setVoiceError(message),
+      onText: (text) => {
+        if (text.trim()) sendAi(text.trim());
+      },
+    });
+    voiceCapture.current.toggle();
   };
 
   const totalSize = files.reduce((s, f) => s + f.size, 0);

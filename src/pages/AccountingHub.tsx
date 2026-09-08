@@ -1,11 +1,12 @@
 import React, { useState } from 'react';
-import { BookOpen, FileText, Users, Building, Building2, ShoppingCart } from 'lucide-react';
+import { BookOpen, FileText, Users, Building, Building2, ShoppingCart, CalendarClock } from 'lucide-react';
 import { JournalEntries } from './JournalEntries.js';
 import { AccountingReports } from './AccountingReports.js';
 import { SubledgerParties } from './SubledgerParties.js';
 import { ChartOfAccounts } from './ChartOfAccounts.js';
 import { Banking } from './Banking.js';
 import { Procurement } from './Procurement.js';
+import { Journal2024Viewer } from './Journal2024Viewer.js';
 import { ModuleTabs, ModuleTabDef } from '../components/ModuleTabs.js';
 import { User } from '../types/erp.js';
 
@@ -15,7 +16,8 @@ export type AccountingTabId =
   | 'subledgers'
   | 'accounts'
   | 'banking'
-  | 'procurement';
+  | 'procurement'
+  | 'journal2024';
 
 interface AccountingHubProps {
   organizationId: string;
@@ -32,6 +34,7 @@ const SUB_TABS: ModuleTabDef<AccountingTabId>[] = [
   { id: 'accounts', label: 'دليل الحسابات', icon: Building },
   { id: 'banking', label: 'البنوك والتسويات', icon: Building2 },
   { id: 'procurement', label: 'المشتريات والموردين', icon: ShoppingCart },
+  { id: 'journal2024', label: 'قيود يومية 2024', icon: CalendarClock },
 ];
 
 export const AccountingHub: React.FC<AccountingHubProps> = ({
@@ -43,7 +46,7 @@ export const AccountingHub: React.FC<AccountingHubProps> = ({
   const [activeTab, setActiveTab] = useState<AccountingTabId>(initialTab);
 
   return (
-    <div className="space-y-4" data-assistant-screen={activeTab}>
+    <div className="space-y-4" data-assistant-screen={activeTab === 'journal2024' ? 'journal-2024' : activeTab}>
       <ModuleTabs
         title="المحاسبة والمالية — وحدة موحدة"
         tabs={SUB_TABS}
@@ -74,6 +77,9 @@ export const AccountingHub: React.FC<AccountingHubProps> = ({
         )}
         {activeTab === 'procurement' && (
           <Procurement organizationId={organizationId} currentUser={currentUser} onShowToast={onShowToast} />
+        )}
+        {activeTab === 'journal2024' && (
+          <Journal2024Viewer organizationId={organizationId} currentUser={currentUser} onShowToast={onShowToast} />
         )}
       </div>
     </div>

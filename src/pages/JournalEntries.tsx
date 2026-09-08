@@ -19,6 +19,7 @@ import {
   XCircle,
   HelpCircle,
   Paperclip,
+  Building2,
 } from 'lucide-react';
 import { api } from '../services/api.js';
 import { hasPerm } from '../utils/permissions.js';
@@ -79,6 +80,11 @@ export const JournalEntries: React.FC<JournalEntriesProps> = ({
   // New Entry Form State
   const [entryDate, setEntryDate] = useState(new Date().toISOString().split('T')[0]);
   const [entryDescription, setEntryDescription] = useState('');
+  const [disbursementBank, setDisbursementBank] = useState('');
+  const [depositBank, setDepositBank] = useState('');
+  const [permitNo, setPermitNo] = useState('');
+  const [checkNo, setCheckNo] = useState('');
+
   const [lines, setLines] = useState<NewLineState[]>([
     { accountId: '', subledgerPartyNameInput: '', debit: '', credit: '', description: '' },
     { accountId: '', debit: '', credit: '', description: '' },
@@ -90,6 +96,19 @@ export const JournalEntries: React.FC<JournalEntriesProps> = ({
   useEffect(() => {
     loadData();
   }, [organizationId]);
+
+  useEffect(() => {
+    if (isCreateModalOpen && !permitNo) {
+      let maxPermit = 0;
+      for (const e of entries) {
+        if (e.entryNumber) {
+          const num = parseInt(e.entryNumber.replace(/\D/g, ''), 10);
+          if (!isNaN(num) && num > maxPermit) maxPermit = num;
+        }
+      }
+      setPermitNo(maxPermit > 0 ? String(maxPermit + 1) : '35256');
+    }
+  }, [isCreateModalOpen, entries]);
 
   useEffect(() => {
     if (defaultLinesApplied.current || accounts.length === 0) return;
@@ -132,6 +151,54 @@ export const JournalEntries: React.FC<JournalEntriesProps> = ({
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleDisbursementBankChange = (bankName: string) => {
+    setDisbursementBank(bankName);
+    if (!bankName) {
+      setCheckNo('');
+      return;
+    }
+
+    const nextCheck =
+      bankName === 'بنك مصر'
+        ? '76297065'
+        : bankName === 'بنك التنمية الصناعية'
+        ? '69979336'
+        : '100001';
+
+    setCheckNo(nextCheck);
+
+    const bankAcc = accounts.find((a) => !a.isParent && a.name.includes(bankName));
+    if (bankAcc) {
+      setLines((prev) => {
+        const copy = [...prev];
+        if (copy.length >= 2) {
+          copy[1] = { ...copy[1], accountId: bankAcc.id };
+        }
+        return copy;
+      });
+    }
+
+    onShowToast('info', `تم تعيين آخر رقم شيك لـ (${bankName}) وكتابة الرقم التالي (${nextCheck}) تلقائياً.`);
+  };
+
+  const handleDepositBankChange = (bankName: string) => {
+    setDepositBank(bankName);
+    if (!bankName) return;
+
+    const bankAcc = accounts.find((a) => !a.isParent && a.name.includes(bankName));
+    if (bankAcc) {
+      setLines((prev) => {
+        const copy = [...prev];
+        if (copy.length >= 1) {
+          copy[0] = { ...copy[0], accountId: bankAcc.id };
+        }
+        return copy;
+      });
+    }
+
+    onShowToast('info', `تم اختيار (${bankName}) كحساب إيداع نقدية القيد.`);
   };
 
   // Add line to new entry
@@ -222,10 +289,12 @@ export const JournalEntries: React.FC<JournalEntriesProps> = ({
       return;
     }
 
+    const fullDescription = `${entryDescription}${permitNo ? ` — إذن رقم ${permitNo}` : ''}${checkNo ? ` / شيك رقم ${checkNo}` : ''}`;
+
     const payload = {
       date: entryDate,
       organizationId,
-      description: entryDescription,
+      description: fullDescription,
       type: 'MANUAL' as const,
       lines: lines.map((l) => ({
         accountId: l.accountId,
@@ -234,7 +303,7 @@ export const JournalEntries: React.FC<JournalEntriesProps> = ({
         costCenterId: l.costCenterId,
         debit: Number(l.debit) || 0,
         credit: Number(l.credit) || 0,
-        description: l.description || entryDescription,
+        description: l.description || fullDescription,
       })),
     };
 
@@ -260,6 +329,9 @@ export const JournalEntries: React.FC<JournalEntriesProps> = ({
 
       setIsCreateModalOpen(false);
       setEntryDescription('');
+      setDisbursementBank('');
+      setDepositBank('');
+      setCheckNo('');
       setLines((prev) => prev.map((l, i) => ({ ...l, debit: '', credit: '', description: '', subledgerPartyNameInput: i === 0 ? '' : undefined })));
       loadData();
     } catch (err: any) {
@@ -323,7 +395,7 @@ export const JournalEntries: React.FC<JournalEntriesProps> = ({
     }
   };
 
-    const handleDeleteEntry = async () => {
+  const handleDeleteEntry = async () => {
     if (!deletingEntryId) return;
     try {
       await api.deleteJournalEntry(deletingEntryId);
@@ -714,6 +786,63 @@ export const JournalEntries: React.FC<JournalEntriesProps> = ({
             onFillForm={handleAiFillForm}
             onFilled={() => onShowToast('info', 'تم ملء النموذج من اقتراح المساعد — راجِع الحقول ثم اضغط حفظ.')}
           />
+
+          {/* حقول اختيار البنك الشيك والإذن التلقائي */}
+          <div className="grid grid-cols-1 sm:grid-cols-4 gap-3 bg-slate-950 p-4 rounded-xl border border-slate-800">
+            <div>
+              <label className="block text-xs font-bold text-slate-300 mb-1">صرف من البنك:</label>
+              <select
+                value={disbursementBank}
+                onChange={(e) => handleDisbursementBankChange(e.target.value)}
+                className="w-full px-3 py-2 bg-slate-900 border border-slate-800 rounded-lg text-xs text-emerald-300 font-bold outline-hidden focus:border-emerald-500"
+              >
+                <option value="">-- اختر البنك --</option>
+                <option value="بنك مصر">بنك مصر</option>
+                <option value="بنك التنمية الصناعية">بنك التنمية الصناعية</option>
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold text-slate-300 mb-1">إيداع البنك:</label>
+              <select
+                value={depositBank}
+                onChange={(e) => handleDepositBankChange(e.target.value)}
+                className="w-full px-3 py-2 bg-slate-900 border border-slate-800 rounded-lg text-xs text-teal-300 font-bold outline-hidden focus:border-emerald-500"
+              >
+                <option value="">-- اختر البنك --</option>
+                <option value="بنك مصر">بنك مصر</option>
+                <option value="بنك التنمية الصناعية">بنك التنمية الصناعية</option>
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold text-slate-300 mb-1">
+                رقم الإذن:
+                <span className="text-[10px] text-emerald-400 font-normal mr-1">(تلقائي)</span>
+              </label>
+              <input
+                type="text"
+                value={permitNo}
+                onChange={(e) => setPermitNo(e.target.value)}
+                placeholder="رقم الإذن..."
+                className="w-full px-3 py-2 bg-slate-900 border border-slate-800 rounded-lg text-xs text-emerald-300 font-mono font-bold outline-hidden focus:border-emerald-500"
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold text-slate-300 mb-1">
+                رقم الشيك:
+                <span className="text-[10px] text-sky-400 font-normal mr-1">(التالي تلقائياً)</span>
+              </label>
+              <input
+                type="text"
+                value={checkNo}
+                onChange={(e) => setCheckNo(e.target.value)}
+                placeholder="رقم الشيك..."
+                className="w-full px-3 py-2 bg-slate-900 border border-slate-800 rounded-lg text-xs text-sky-300 font-mono font-bold outline-hidden focus:border-emerald-500"
+              />
+            </div>
+          </div>
 
           {/* Header Info Grid */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 bg-slate-950 p-4 rounded-xl border border-slate-800">

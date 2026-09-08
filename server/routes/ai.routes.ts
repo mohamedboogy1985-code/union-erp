@@ -65,6 +65,24 @@ export function registerAIRoutes(app: any): void {
     }
   });
 
+  // الحالة: استقبال صوت مسجل وتحويله نصاً عبر Gemini (بديل موثوق لخدمة Web Speech
+  // التي تفشل بـ network عند انقطاع/حجب الوصول لخوادم Google من متصفح Electron)
+  app.post('/api/ai/stt', async (req: Request, res: Response) => {
+    const { dataUrl } = req.body;
+    if (!dataUrl || typeof dataUrl !== 'string' || !dataUrl.includes(';base64,')) {
+      return res.status(400).json({ error: 'لم يُستلم تسجيل صوتي صالح (dataUrl).' });
+    }
+    try {
+      const text = await aiService.transcribeAudio(dataUrl);
+      if (!text || !text.trim()) {
+        return res.status(422).json({ error: 'لم يتمكن النموذج من سماع كلام واضح — حاول مجدداً بوضوح أكبر.' });
+      }
+      res.json({ text });
+    } catch (err: any) {
+      res.status(500).json({ error: err?.message || 'تعذر تحويل الصوت إلى نص.' });
+    }
+  });
+
   // حالة اتصال محرك Gemini (يُظهره المساعد العائم في ترويسة النافذة)
   app.get('/api/ai/global-chat/health', (_req: Request, res: Response) => {
     res.json({

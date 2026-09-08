@@ -824,11 +824,35 @@ test('the actual journal form retains debit/credit edits and excludes its embedd
       container.querySelector<HTMLInputElement>('input[aria-label="دائن السطر 2"]')!.value,
       '500'
     );
+    // Main's new banking/auto-number fields must survive alongside reviewed dictation.
+    const banking = captureAssistantForm(workspace, 'journals');
+    const disbursement = banking.fields.find(field => field.label.startsWith('صرف من البنك'));
+    const deposit = banking.fields.find(field => field.label.startsWith('إيداع البنك'));
+    const cheque = banking.fields.find(field => field.label.startsWith('رقم الشيك'));
+    const permit = banking.fields.find(field => field.label.startsWith('رقم الإذن'));
+    assert.ok(disbursement && deposit && cheque && permit);
+    await act(async () => applyAssistantFields(workspace, banking, [{ id: disbursement.id, value: 'بنك مصر' }]));
+    assert.equal(banking.entries.get(cheque.id)!.element.value, '76297065');
+    assert.ok(banking.entries.get(permit.id)!.element.value);
     assert.equal(calls.filter((call) => call.method === 'POST').length, 0);
   } finally {
     await act(async () => root.unmount());
     container.remove();
   }
+});
+
+test('grouped audit/settings navigation does not expose the settings tab to a read-only account', async () => {
+  const { AuditSettingsHub } = await import('../src/pages/AuditSettingsHub.js');
+  mock(call => !call.path.startsWith('/api/operator-assistant') ? json([]) : undefined);
+  const container = document.createElement('div'); document.body.append(container);
+  const root = createRoot(container);
+  const readOnly = { ...user, id: 'reader', role: 'HEAD_OF_ACCOUNTS' as const, permissions: ['view:all', 'search:all', 'print:all'] };
+  try {
+    await act(async () => root.render(<AuditSettingsHub organizationId="org-general" currentUser={readOnly} onShowToast={() => undefined} initialTab="settings" />));
+    await settle();
+    assert.ok(container.querySelector('[data-assistant-screen="audit"]'));
+    assert.equal([...container.querySelectorAll('button')].some(item => item.textContent?.includes('الإعدادات والصلاحيات')), false);
+  } finally { await act(async () => root.unmount()); container.remove(); }
 });
 
 after(() => {

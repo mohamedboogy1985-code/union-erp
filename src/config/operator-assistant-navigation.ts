@@ -10,4 +10,7 @@ export const OPERATOR_NAVIGATION: { id: string; label: string; portals: PortalId
   { id: 'accounting', label: 'المحاسبة والمالية', portals: ['syndicate'] },
   { id: 'membership', label: 'العضوية والتحصيل', portals: ['syndicate'] },
   { id: 'hrs', label: 'الموارد البشرية والعاملين', portals: ['training'] },
+  { id: 'regulation-budgets', label: 'الرقابة المالية والموازنات', portals: ['syndicate'] },
+  { id: 'audit-settings', label: 'الرقابة والإعدادات', portals: ['syndicate'] },
+  { id: 'insured-actuarial', label: 'الصندوق الإكتواري والمؤمّن عليهم', portals: ['syndicate'] },
 ];

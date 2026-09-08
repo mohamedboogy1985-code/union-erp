@@ -1,14 +1,13 @@
 import React, { useState } from 'react';
-import { UsersRound, Banknote, Fingerprint, Wallet, Calculator, Users } from 'lucide-react';
+import { UsersRound, Banknote, Fingerprint, Wallet, Users } from 'lucide-react';
 import { EmployeeAffairs } from './EmployeeAffairs.js';
 import { Payroll } from './Payroll.js';
 import { Attendance } from './Attendance.js';
 import { EmployeeAdvances } from './EmployeeAdvances.js';
-import { ActuarialStudio } from './ActuarialStudio.js';
 import { ModuleTabs, ModuleTabDef } from '../components/ModuleTabs.js';
 import { User } from '../types/erp.js';
 
-export type HrsTabId = 'employees' | 'payroll' | 'attendance' | 'advances' | 'actuarial';
+export type HrsTabId = 'employees' | 'payroll' | 'attendance' | 'advances';
 
 interface HrsHubProps {
   organizationId: string;
@@ -23,7 +22,6 @@ const SUB_TABS: ModuleTabDef<HrsTabId>[] = [
   { id: 'payroll', label: 'المرتبات (مسير الرواتب)', icon: Banknote, badge: 'شهري' },
   { id: 'attendance', label: 'الحضور والانصراف (البصمة)', icon: Fingerprint, badge: 'وجه/إصبع' },
   { id: 'advances', label: 'سلف العاملين', icon: Wallet },
-  { id: 'actuarial', label: 'الدراسات الإكتوارية والصناديق', icon: Calculator, badge: 'معاشات/تكافل' },
 ];
 
 export const HrsHub: React.FC<HrsHubProps> = ({
@@ -56,9 +54,6 @@ export const HrsHub: React.FC<HrsHubProps> = ({
         )}
         {activeTab === 'advances' && (
           <EmployeeAdvances organizationId={organizationId} currentUser={currentUser} onShowToast={onShowToast} />
-        )}
-        {activeTab === 'actuarial' && (
-          <ActuarialStudio organizationId={organizationId} currentUser={currentUser} onShowToast={onShowToast} />
         )}
       </div>
     </div>
