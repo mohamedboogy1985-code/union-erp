@@ -78,6 +78,8 @@ dist/
 
 # Runtime log files
 union-server.log
+dev-server.log
+dev_server.log
 
 # Scripts with sensitive information
 fix-prisma.ps1
