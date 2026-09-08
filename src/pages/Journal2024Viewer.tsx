@@ -1,8 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { BookOpen, Search, FileSpreadsheet, Plus, Edit2, Trash2, PlusCircle, Mic, MicOff, Video, VideoOff, Volume2, Sparkles, Building2 } from 'lucide-react';
+import { BookOpen, Search, FileSpreadsheet, Plus, Edit2, Trash2, PlusCircle, Mic, MicOff, Video, VideoOff, Volume2, Sparkles, Building2, Printer } from 'lucide-react';
 import { api } from '../services/api.js';
 import { JournalRow, User } from '../types/erp.js';
 import { Modal } from '../components/Modal.js';
+import { PrintHeader } from '../components/PrintHeader.js';
 import { hasPerm } from '../utils/permissions.js';
 import { createVoiceCapture } from '../utils/voiceCapture.js';
 
@@ -290,6 +291,10 @@ export const Journal2024Viewer: React.FC<Journal2024ViewerProps> = ({
     }
   };
 
+  const handlePrint = () => {
+    window.print();
+  };
+
   const handleDelete = async () => {
     if (!deletingRow) return;
     const targetId = deletingRow.id || deletingRow.serial;
@@ -338,6 +343,7 @@ export const Journal2024Viewer: React.FC<Journal2024ViewerProps> = ({
 
   return (
     <div className="p-6 max-w-7xl mx-auto space-y-6">
+      <PrintHeader reportTitle="قيود يومية 2024 — دفتر اليومية المرحّلة" currentUser={currentUser} />
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div className="flex items-center gap-3">
           <div className="h-12 w-12 rounded-2xl bg-emerald-500/15 flex items-center justify-center">
@@ -355,6 +361,14 @@ export const Journal2024Viewer: React.FC<Journal2024ViewerProps> = ({
             <FileSpreadsheet className="w-4 h-4" />
             {rows.length} قيد
           </span>
+
+          <button
+            onClick={handlePrint}
+            className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-600 text-slate-200 text-xs font-bold transition-all"
+          >
+            <Printer className="w-4 h-4" />
+            طباعة الشاشة
+          </button>
 
           {hasPerm(currentUser, 'journal:edit') && (
             <button
