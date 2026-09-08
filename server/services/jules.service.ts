@@ -16,7 +16,7 @@ import type {
 
 // Not configurable from requests or environment: prevents SSRF and credential redirects.
 const API_URL = 'https://jules.googleapis.com/v1alpha';
-const MAX_RESPONSE_BYTES = 4 * 1024 * 1024;
+const MAX_RESPONSE_BYTES = 16 * 1024 * 1024;
 const MAX_PAGES = 20;
 const SOURCE_NAME = /^sources\/[A-Za-z0-9_-]+(?:\/[A-Za-z0-9_.-]+)*$/;
 const SESSION_ID = /^[A-Za-z0-9_-]{1,200}$/;
