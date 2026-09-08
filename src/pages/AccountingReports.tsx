@@ -159,7 +159,70 @@ export const AccountingReports: React.FC<AccountingReportsProps> = ({
   };
 
   const handleExportCSV = () => {
-    onShowToast('success', 'تم تصدير كشف الحساب والبيانات إلى ملف Excel/CSV بنجاح.');
+    const fNum = (n: number | undefined | null): string => (n ?? 0).toLocaleString('en-US', { maximumFractionDigits: 2 });
+    const fCell = (n: number | undefined | null): string => (n ?? 0) > 0 ? fNum(n) : '-';
+
+    const lines: string[] = [];
+    lines.push(REPORT_TITLES[activeReportTab] || 'تقرير محاسبي');
+    lines.push(`الفترة: ${startDate} إلى ${endDate}`);
+    lines.push('');
+
+    if (activeReportTab === 'SUBLEDGER' && statement) {
+      lines.push('التاريخ\tرقم القيد\tالبيان والشرح\tمدين (ج.م)\tدائن (ج.م)\tالرصيد المتراكم (ج.م)');
+      statement.items.forEach((item) =>
+        lines.push(`${item.date}\t${item.entryNumber}\t${item.description}\t${fCell(item.debit)}\t${fCell(item.credit)}\t${fNum(item.runningBalance)}`)
+      );
+      lines.push(`المجاميع والرصيد الختامي\t\t\t${fNum(statement.totalDebit)}\t${fNum(statement.totalCredit)}\t${fNum(statement.closingBalance)}`);
+    } else if (activeReportTab === 'GL') {
+      lines.push('كود الحساب\tاسم الحساب\tرصيد افتتاحي\tإجمالي مدين\tإجمالي دائن\tالرصيد الختامي\tعدد القيود');
+      glItems.forEach((item) =>
+        lines.push(`${item.accountCode}\t${item.accountName}\t${fNum(item.openingBalance)}\t${fNum(item.totalDebit)}\t${fNum(item.totalCredit)}\t${fNum(item.closingBalance)}\t${item.entriesCount}`)
+      );
+    } else if (activeReportTab === 'RECEIPTS_PAYMENTS' && receiptsPayments) {
+      lines.push('التاريخ\tرقم القيد/المستند\tالبيان\tالحساب المقابل\tمقبوضات (ج.م)\tمدفوعات (ج.م)');
+      receiptsPayments.items.forEach((item) =>
+        lines.push(`${item.date}\t${item.documentNumber}\t${item.description}\t${item.accountName}\t${fCell(item.receiptAmount)}\t${fCell(item.paymentAmount)}`)
+      );
+      lines.push(`الإجمالي\t\t\t\t${fNum(receiptsPayments.totalReceipts)}\t${fNum(receiptsPayments.totalPayments)}`);
+      lines.push(`صافي التدفق النقدي\t\t\t\t\t${fNum(receiptsPayments.netCashFlow)}`);
+    } else if (activeReportTab === 'INCOME_EXPENSE' && incomeExpense) {
+      lines.push('نوع البند\tكود الحساب\tاسم الحساب\tالمبلغ (ج.م)');
+      incomeExpense.revenues.forEach((item) => lines.push(`إيراد\t${item.accountCode}\t${item.accountName}\t${fNum(item.amount)}`));
+      incomeExpense.expenses.forEach((item) => lines.push(`مصروف\t${item.accountCode}\t${item.accountName}\t${fNum(item.amount)}`));
+      lines.push(`إجمالي الإيرادات\t\t\t${fNum(incomeExpense.totalRevenues)}`);
+      lines.push(`إجمالي المصروفات\t\t\t${fNum(incomeExpense.totalExpenses)}`);
+      lines.push(`الفائض/العجز\t\t\t${fNum(incomeExpense.netSurplusOrDeficit)}`);
+    } else if (activeReportTab === 'TRIAL_BALANCE' && trialBalance) {
+      lines.push('كود الحساب\tاسم الحساب\tحركات الفترة مدين\tحركات الفترة دائن\tالرصيد الختامي مدين\tالرصيد الختامي دائن');
+      trialBalance.items.forEach((item) =>
+        lines.push(`${item.accountCode}\t${item.accountName}\t${fCell(item.periodDebit)}\t${fCell(item.periodCredit)}\t${fCell(item.closingDebit)}\t${fCell(item.closingCredit)}`)
+      );
+      const totals = trialBalance.items.reduce(
+        (acc, item) => {
+          acc.periodDebit += item.periodDebit || 0;
+          acc.periodCredit += item.periodCredit || 0;
+          acc.closingDebit += item.closingDebit || 0;
+          acc.closingCredit += item.closingCredit || 0;
+          return acc;
+        },
+        { periodDebit: 0, periodCredit: 0, closingDebit: 0, closingCredit: 0 }
+      );
+      lines.push(`الإجمالي\t\t${fNum(totals.periodDebit)}\t${fNum(totals.periodCredit)}\t${fNum(totals.closingDebit)}\t${fNum(totals.closingCredit)}`);
+    } else {
+      onShowToast('info', 'لا توجد بيانات بعد للتصدير في هذا التبويب.');
+      return;
+    }
+
+    const blob = new Blob(['\ufeff' + lines.join('\n')], { type: 'text/csv;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${(REPORT_TITLES[activeReportTab] || 'تقرير_محاسبي').replace(/\s+/g, '_')}_${startDate}_${endDate}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    onShowToast('success', 'تم تصدير التقرير إلى ملف CSV/Excel بنجاح.');
   };
 
   const REPORT_TITLES: Record<string, string> = {
