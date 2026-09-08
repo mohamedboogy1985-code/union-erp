@@ -583,7 +583,7 @@ export const Attendance: React.FC<AttendanceProps> = ({ currentUser, onShowToast
 
       {/* ======== MODAL: PUNCH ======== */}
       <Modal isOpen={isPunchOpen} onClose={() => setIsPunchOpen(false)} title="تسجيل بصمة (حضور/انصراف)" subtitle="الاتجاه يتحدد تلقائياً: أول بصمة في اليوم = حضور، والثانية = انصراف" maxWidth="md">
-        <form onSubmit={handlePunch} className="space-y-4">
+        <form data-assistant-draft onSubmit={handlePunch} className="space-y-4">
           <div>
             <label className="block text-xs font-bold text-slate-300 mb-1">العامل:</label>
             <select required value={punchForm.employeeId} onChange={(e) => setPunchForm({ ...punchForm, employeeId: e.target.value })} className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-xs text-slate-200 outline-hidden focus:border-emerald-500">
@@ -652,7 +652,7 @@ export const Attendance: React.FC<AttendanceProps> = ({ currentUser, onShowToast
 
       {/* ======== MODAL: EDIT ======== */}
       <Modal isOpen={!!editRec} onClose={() => setEditRec(null)} title={editRec ? `تعديل سجل ${editRec.employeeName} — ${editRec.date}` : ''} subtitle="التعديل اليدوي موثق بالقيم قبل وبعد في سجل التدقيق" maxWidth="md">
-        <form onSubmit={handleEdit} className="space-y-4">
+        <form data-assistant-draft onSubmit={handleEdit} className="space-y-4">
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="block text-xs font-bold text-slate-300 mb-1">وقت الحضور:</label>
@@ -690,7 +690,7 @@ export const Attendance: React.FC<AttendanceProps> = ({ currentUser, onShowToast
 
       {/* ======== MODAL: ABSENT/LEAVE ======== */}
       <Modal isOpen={isAbsentOpen} onClose={() => setIsAbsentOpen(false)} title="إثبات حالة يوم بلا بصمة" subtitle="غياب مؤكد / إجازة رسمية / مهمة — يدخل في ملخص الشهر وخصومات المرتب" maxWidth="md">
-        <form onSubmit={handleAbsent} className="space-y-4">
+        <form data-assistant-draft onSubmit={handleAbsent} className="space-y-4">
           <div>
             <label className="block text-xs font-bold text-slate-300 mb-1">العامل:</label>
             <select required value={absentForm.employeeId} onChange={(e) => setAbsentForm({ ...absentForm, employeeId: e.target.value })} className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-xs text-slate-200 outline-hidden focus:border-red-500">

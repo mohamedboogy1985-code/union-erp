@@ -29,7 +29,7 @@ export const InsuredActuarialHub: React.FC<InsuredActuarialHubProps> = ({
   const [activeTab, setActiveTab] = useState<InsuredActuarialTabId>(initialTab);
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4" data-assistant-screen={activeTab === 'insured' ? 'insured-list' : activeTab}>
       <ModuleTabs
         title="الصندوق الإكتواري — وحدة موحدة"
         tabs={SUB_TABS}

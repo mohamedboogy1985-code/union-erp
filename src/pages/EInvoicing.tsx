@@ -301,7 +301,7 @@ export const EInvoicing: React.FC<EInvoicingProps> = ({
 
         <div className="p-5">
           {tab === 'manual' ? (
-            <form onSubmit={handleSubmitManual} className="space-y-5">
+            <form data-assistant-draft onSubmit={handleSubmitManual} className="space-y-5">
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 <div>
                   <label className="block text-xs font-bold text-slate-300 mb-1">نوع المستند</label>
@@ -409,12 +409,14 @@ export const EInvoicing: React.FC<EInvoicingProps> = ({
                 {lines.map((l, i) => (
                   <div key={i} className="grid grid-cols-[1fr_90px_120px_40px] gap-2 items-center mb-2">
                     <input
+                      aria-label={`وصف البند ${i + 1}`}
                       value={l.description}
                       onChange={(e) => setLines((ls) => ls.map((x, idx) => (idx === i ? { ...x, description: e.target.value } : x)))}
                       placeholder="وصف البند (مثال: اشتراك عضوية، إيجار، توريد)"
                       className="w-full px-2.5 py-2 bg-slate-950 border border-slate-800 rounded-lg text-xs text-slate-200 placeholder:text-slate-600"
                     />
                     <input
+                      aria-label={`كمية البند ${i + 1}`}
                       value={l.quantity}
                       onChange={(e) => setLines((ls) => ls.map((x, idx) => (idx === i ? { ...x, quantity: e.target.value } : x)))}
                       type="number"
@@ -423,6 +425,7 @@ export const EInvoicing: React.FC<EInvoicingProps> = ({
                       className="w-full px-2.5 py-2 bg-slate-950 border border-slate-800 rounded-lg text-xs text-slate-200"
                     />
                     <input
+                      aria-label={`سعر الوحدة للبند ${i + 1}`}
                       value={l.unitPrice}
                       onChange={(e) => setLines((ls) => ls.map((x, idx) => (idx === i ? { ...x, unitPrice: e.target.value } : x)))}
                       type="number"

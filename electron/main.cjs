@@ -6,13 +6,16 @@
  * - الإنتاج (الحزمة): يحمّل الخادم المجمّع dist-server/index.cjs داخل العملية
  *   الرئيسية (NODE_ENV=production) ويخدم الواجهة من dist/ ثم يفتح النافذة.
  */
-const { app, BrowserWindow, Menu, dialog, shell, ipcMain, session } = require('electron');
+const { app, BrowserWindow, Menu, dialog, shell, ipcMain } = require('electron');
 const path = require('path');
 const http = require('http');
+const https = require('https');
 const { spawn } = require('child_process');
+const { isAppOrigin, allowedMediaRequest, safeExternalUrl, configuredAppUrl } = require('./assistant-media-policy.cjs');
 
 const PORT = Number(process.env.PORT || 3000);
-const APP_URL = `http://127.0.0.1:${PORT}`;
+const REMOTE_SERVER = process.env.ERP_SERVER_URL?.trim();
+const APP_URL = configuredAppUrl(REMOTE_SERVER, PORT);
 const HEALTH_URL = `${APP_URL}/api/health`;
 
 let mainWindow = null;
@@ -21,7 +24,7 @@ let serverStarted = false;
 /** فحص جاهزية الخادم (محاولة واحدة) */
 function checkHealth() {
   return new Promise((resolve) => {
-    const req = http.get(HEALTH_URL, { timeout: 2000 }, (res) => {
+    const req = (APP_URL.startsWith('https:') ? https : http).get(HEALTH_URL, { timeout: 2000 }, (res) => {
       res.resume();
       resolve(res.statusCode === 200);
     });
@@ -49,6 +52,11 @@ async function startServer() {
     // خادم يعمل مسبقاً (npm run dev مثلاً) — نستخدمه مباشرة
     serverStarted = true;
     return;
+  }
+
+  if (REMOTE_SERVER) {
+    dialog.showErrorBox('تعذّر الاتصال بخادم ERP', 'راجع ERP_SERVER_URL واتصال الشبكة وشهادة HTTPS. لم يُشغّل خادم بديل ببيانات مختلفة.');
+    app.quit(); return;
   }
 
   if (app.isPackaged) {
@@ -87,13 +95,6 @@ async function startServer() {
 }
 
 function createMainWindow() {
-  // منح إذن الميكروفون دائمًا (التسجيل الصوتي المحلي للتعرف عبر الخادم)
-  // دون هذا، يرفض Electron طلبات getUserMedia بصمت ضمن الوضع المعبأ.
-  session.defaultSession.setPermissionRequestHandler((_wc, permission, callback) => {
-    callback(permission === 'media' || permission === 'microphone' || permission === 'notifications');
-  });
-  session.defaultSession.setPermissionCheckHandler(() => true);
-
   mainWindow = new BrowserWindow({
     width: 1366,
     height: 868,
@@ -111,9 +112,28 @@ function createMainWindow() {
     },
   });
 
+  // Grant microphone/camera access only to the actual app origin and only after a visible user decision.
+  mainWindow.webContents.session.setPermissionCheckHandler((contents, permission, origin) =>
+    allowedMediaRequest(contents, origin, permission, APP_URL));
+  mainWindow.webContents.session.setPermissionRequestHandler(async (contents, permission, callback, details) => {
+    if (!allowedMediaRequest(contents, details.requestingUrl || contents?.getURL() || '', permission, APP_URL)) {
+      callback(false); return;
+    }
+    try {
+      const camera = details.mediaTypes?.includes('video');
+      const result = await dialog.showMessageBox(mainWindow, {
+        type: 'question', title: 'إذن الوسائط — Union ERP',
+        message: camera ? 'هل تسمح لهذه الجلسة باستخدام الكاميرا والميكروفون؟' : 'هل تسمح لهذه الجلسة باستخدام الميكروفون؟',
+        detail: 'ابدأ التسجيل من الزر الظاهر في البرنامج. يمكنك إيقافه في أي وقت؛ المساعد المرئي لا يحتاج الكاميرا.',
+        buttons: ['رفض', 'سماح'], defaultId: 0, cancelId: 0,
+      });
+      callback(result.response === 1);
+    } catch { callback(false); }
+  });
+
   // الروابط الخارجية تفتح في المتصفح الافتراضي (وليس داخل التطبيق)
   mainWindow.webContents.setWindowOpenHandler(({ url }) => {
-    if (!url.startsWith(APP_URL)) {
+    if (!isAppOrigin(url, APP_URL) && safeExternalUrl(url)) {
       shell.openExternal(url);
     }
     return { action: 'deny' };
@@ -121,9 +141,9 @@ function createMainWindow() {
 
   // منع التنقل خارج أصل التطبيق
   mainWindow.webContents.on('will-navigate', (event, url) => {
-    if (!url.startsWith(APP_URL)) {
+    if (!isAppOrigin(url, APP_URL)) {
       event.preventDefault();
-      shell.openExternal(url);
+      if (safeExternalUrl(url)) shell.openExternal(url);
     }
   });
 

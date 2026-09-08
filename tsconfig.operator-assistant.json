@@ -1,0 +1,13 @@
+{
+  "extends": "./tsconfig.json",
+  "include": [
+    "server/routes/operator-assistant.routes.ts",
+    "server/services/operator-assistant.service.ts",
+    "server/services/assistant-*.ts",
+    "server/security/assistant-auth.ts",
+    "src/components/OperatorAssistant.tsx",
+    "src/services/operator-assistant-api.ts",
+    "src/services/assistant-*.ts",
+    "src/types/operator-assistant.ts"
+  ]
+}

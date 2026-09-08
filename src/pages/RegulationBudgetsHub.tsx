@@ -29,7 +29,7 @@ export const RegulationBudgetsHub: React.FC<RegulationBudgetsHubProps> = ({
   const [activeTab, setActiveTab] = useState<RegulationBudgetsTabId>(initialTab);
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4" data-assistant-screen={activeTab}>
       <ModuleTabs
         title="الرقابة المالية والموازنات — وحدة موحدة"
         tabs={SUB_TABS}

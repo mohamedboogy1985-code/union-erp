@@ -305,7 +305,7 @@ export const JournalAiAssistant: React.FC<JournalAiAssistantProps> = ({
   const balanced = proposedEntry?.balanced ?? Math.abs(totalDebit - totalCredit) <= 0.001;
 
   return (
-    <>
+    <div data-assistant-ignore>
       <div className="border border-purple-800/40 bg-purple-950/20 rounded-xl overflow-hidden">
       {/* Header */}
         <div className="px-3 py-2 bg-[#1e1b2e] border-b border-purple-800/40 flex items-center justify-between">
@@ -550,6 +550,6 @@ export const JournalAiAssistant: React.FC<JournalAiAssistantProps> = ({
           </div>
         </div>
       )}
-    </>
+    </div>
   );
 };

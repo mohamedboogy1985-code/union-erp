@@ -13,7 +13,10 @@ import { AiHub, AiTabId } from './pages/AiHub.js';
 import { Gateways } from './pages/Gateways.js';
 import { ErrorBoundary } from './components/ErrorBoundary.js';
 import { Settings } from './pages/Settings.js';
-import { getGatewayMeta, PortalId } from './config/portals.js';
+import { OPERATOR_NAVIGATION } from './config/operator-assistant-navigation.js';
+import type { AssistantScreen } from './types/operator-assistant.js';
+import { hasPerm } from './utils/permissions.js';
+import { GATEWAYS, getGatewayMeta, PortalId } from './config/portals.js';
 import type { RegulationBudgetsTabId } from './pages/RegulationBudgetsHub.js';
 import type { AuditSettingsTabId } from './pages/AuditSettingsHub.js';
 import type { InsuredActuarialTabId } from './pages/InsuredActuarialHub.js';
@@ -29,9 +32,7 @@ const InsuredActuarialHub = lazy(() => import('./pages/InsuredActuarialHub.js').
 const PromoShowcase = lazy(() => import('./pages/PromoShowcase.js').then((m) => ({ default: m.PromoShowcase })));
 const FixedAssets = lazy(() => import('./pages/FixedAssets.js').then((m) => ({ default: m.FixedAssets })));
 const EInvoicing = lazy(() => import('./pages/EInvoicing.js').then((m) => ({ default: m.EInvoicing })));
-const AuditLog = lazy(() => import('./pages/AuditLog.js').then((m) => ({ default: m.AuditLog })));
 const JulesDashboard = lazy(() => import('./pages/JulesDashboard.js').then((m) => ({ default: m.JulesDashboard })));
-const FinancialRegulation = lazy(() => import('./pages/FinancialRegulation.js').then((m) => ({ default: m.FinancialRegulation })));
 const UnionCommittees = lazy(() => import('./pages/UnionCommittees.js').then((m) => ({ default: m.UnionCommittees })));
 const CommitteeDataViewer = lazy(() => import('./pages/CommitteeDataViewer.js').then((m) => ({ default: m.CommitteeDataViewer })));
 const ModelsViewer = lazy(() => import('./pages/ModelsViewer.js').then((m) => ({ default: m.ModelsViewer })));
@@ -152,6 +153,19 @@ export function App() {
     setCurrentTab('receipts');
   };
 
+  const handleAssistantNavigate = (target: AssistantScreen) => {
+    const portal = GATEWAYS.find(item => item.id === target.portalId);
+    const screen = OPERATOR_NAVIGATION.find(item => item.id === target.id);
+    const allowed = currentUser?.isActive && !currentUser.isDemo &&
+      (hasPerm(currentUser, 'system:admin') || currentUser.organizationId === target.organizationId || currentUser.allowedOrgIds.includes(target.organizationId));
+    if (!allowed || !portal || !screen || !screen.portals.includes(portal.id) || (portal.organizationId !== target.organizationId && target.organizationId !== selectedOrgId) ||
+      (['settings', 'jules'].includes(target.id) && !hasPerm(currentUser, 'system:admin'))) {
+      showToast('error', 'هذه الشاشة أو الجهة ليست ضمن الصلاحيات المتاحة.'); return;
+    }
+    setSelectedGateway(portal.id); setSelectedOrgId(target.organizationId); setCurrentTab(screen.id);
+    localStorage.setItem('union_active_portal', portal.id);
+  };
+
   // fallback أثناء تحميل الصفحة الكسولة (lazy)
   const lazyFallback = (label: string) => (
     <div className="flex items-center justify-center p-12 text-neutral-500">
@@ -169,6 +183,7 @@ export function App() {
         onOrgChange={setSelectedOrgId}
         currentUser={currentUser}
         onUserChange={setCurrentUser}
+        onAssistantNavigate={handleAssistantNavigate}
       >
         {currentTab === 'portals' && (
           <ErrorBoundary label="بوابات النظام" onNavigate={setCurrentTab}>

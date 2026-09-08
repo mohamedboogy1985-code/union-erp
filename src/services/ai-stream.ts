@@ -1,4 +1,4 @@
-import { getCurrentUserId } from './api.js';
+import { getCurrentUserId, getSessionToken } from './api.js';
 
 /**
  * ===== مساعد محادثة الذكاء الاصطناعي — عميل SSE موحّد =====
@@ -22,11 +22,13 @@ export async function streamGlobalAiChat(
   body: { message: string; organizationId?: string; history?: { role: string; text: string }[] },
   handlers: AiStreamHandlers = {}
 ): Promise<string> {
+  const token = getSessionToken();
   const res = await fetch('/api/ai/global-chat/stream', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
       'x-user-id': getCurrentUserId(),
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
     },
     body: JSON.stringify(body),
   });

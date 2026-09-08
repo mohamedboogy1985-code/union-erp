@@ -4,6 +4,7 @@ import { AuditLog } from './AuditLog.js';
 import { Settings } from './Settings.js';
 import { ModuleTabs, ModuleTabDef } from '../components/ModuleTabs.js';
 import { User } from '../types/erp.js';
+import { hasPerm } from '../utils/permissions.js';
 
 export type AuditSettingsTabId = 'audit' | 'settings';
 
@@ -27,22 +28,24 @@ export const AuditSettingsHub: React.FC<AuditSettingsHubProps> = ({
   initialTab = 'audit',
 }) => {
   const [activeTab, setActiveTab] = useState<AuditSettingsTabId>(initialTab);
+  const canConfigure = Boolean(currentUser?.isActive && hasPerm(currentUser, 'system:admin'));
+  const visibleTab = canConfigure ? activeTab : 'audit';
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4" data-assistant-screen={visibleTab}>
       <ModuleTabs
         title="الرقابة والإعدادات — وحدة موحدة"
-        tabs={SUB_TABS}
-        activeId={activeTab}
+        tabs={SUB_TABS.filter(tab => tab.id !== 'settings' || canConfigure)}
+        activeId={visibleTab}
         onChange={setActiveTab}
         icon={Lock}
       />
 
       <div>
-        {activeTab === 'audit' && (
+        {visibleTab === 'audit' && (
           <AuditLog organizationId={organizationId} currentUser={currentUser} onShowToast={onShowToast} />
         )}
-        {activeTab === 'settings' && (
+        {visibleTab === 'settings' && (
           <Settings organizationId={organizationId} currentUser={currentUser} onShowToast={onShowToast} />
         )}
       </div>
