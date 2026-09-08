@@ -28,6 +28,7 @@ import {
   FileSpreadsheet,
   Scale,
   FolderOpen,
+  Award,
 } from 'lucide-react';
 
 /**
@@ -101,6 +102,8 @@ export const SCREENS: ScreenDef[] = [
   { id: 'models', label: 'النماذج والمستندات', icon: FolderOpen, group: 'مكتبة النماذج', portals: ['syndicate'] },
   { id: 'training-accounting-2024', label: 'برنامج المحاسبة 2024 (مركز التدريب)', icon: Calculator, group: 'بيانات البوابات والملفات المستوردة', portals: ['training'] },
   { id: 'final-accounts-2024', label: 'الميزانية العمومية والحسابات الختامية 2024 (مركز التدريب)', icon: Scale, group: 'بيانات البوابات والملفات المستوردة', portals: ['training'] },
+  // نظام المهارات الموحد — متاح في كل البوابات
+  { id: 'skills', label: 'نظام المهارات الموحد', icon: Award, group: 'الذكاء الاصطناعي والإعدادات', portals: ALL },
   // الذكاء الاصطناعي والإعدادات (مشتركة)
   { id: 'aihub', label: 'الذكاء الاصطناعي والمساعد الحي', icon: Bot, group: 'الذكاء الاصطناعي والإعدادات', portals: ALL },
   { id: 'jules', label: 'Jules — وكيل البرمجة', icon: FileCode2, group: 'الذكاء الاصطناعي والإعدادات', portals: ALL },

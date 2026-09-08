@@ -536,6 +536,45 @@ export const api = {
     request<any>(`/api/eta/documents/${uuid}/cancel`, { method: 'POST', body: JSON.stringify({ reason }) }),
   etaDownloadUrl: (uuid: string) => `/api/eta/documents/${uuid}/download`,
 
+  // ─── نظام المهارات الموحد — Skills Unified System ───
+  getSkills: (params: { category?: string; search?: string } = {}) => {
+    const qs = new URLSearchParams();
+    if (params.category) qs.set('category', params.category);
+    if (params.search) qs.set('search', params.search);
+    const q = qs.toString();
+    return request<any[]>(`/api/skills${q ? `?${q}` : ''}`);
+  },
+  getSkillsSummary: () => request<any>('/api/skills/summary'),
+  createSkill: (data: any) => request<any>('/api/skills', { method: 'POST', body: JSON.stringify(data) }),
+  updateSkill: (id: string, data: any) => request<any>(`/api/skills/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
+  deleteSkill: (id: string) => request<any>(`/api/skills/${id}`, { method: 'DELETE' }),
+  getEmployeeSkills: (params: { employeeId?: string; skillId?: string; category?: string } = {}) => {
+    const qs = new URLSearchParams();
+    if (params.employeeId) qs.set('employeeId', params.employeeId);
+    if (params.skillId) qs.set('skillId', params.skillId);
+    if (params.category) qs.set('category', params.category);
+    const q = qs.toString();
+    return request<any[]>(`/api/employee-skills${q ? `?${q}` : ''}`);
+  },
+  addEmployeeSkill: (data: any) => request<any>('/api/employee-skills', { method: 'POST', body: JSON.stringify(data) }),
+  deleteEmployeeSkill: (id: string) => request<any>(`/api/employee-skills/${id}`, { method: 'DELETE' }),
+  getTrainingPrograms: () => request<any[]>('/api/training-programs'),
+  createTrainingProgram: (data: any) => request<any>('/api/training-programs', { method: 'POST', body: JSON.stringify(data) }),
+  getTrainingEnrollments: (params: { programId?: string; employeeId?: string } = {}) => {
+    const qs = new URLSearchParams();
+    if (params.programId) qs.set('programId', params.programId);
+    if (params.employeeId) qs.set('employeeId', params.employeeId);
+    const q = qs.toString();
+    return request<any[]>(`/api/training-enrollments${q ? `?${q}` : ''}`);
+  },
+  enrollTraining: (data: any) => request<any>('/api/training-enrollments', { method: 'POST', body: JSON.stringify(data) }),
+  updateEnrollmentProgress: (id: string, data: { progress?: number; status?: string; score?: number }) =>
+    request<any>(`/api/training-enrollments/${id}/progress`, { method: 'PUT', body: JSON.stringify(data) }),
+  getAiAgentSkills: () => request<any[]>('/api/ai-agent-skills'),
+  toggleAiAgentSkill: (id: string) => request<any>(`/api/ai-agent-skills/${id}/toggle`, { method: 'PUT' }),
+  getAccountingProcedures: (category?: string) => request<any[]>(category ? `/api/accounting-procedures?category=${category}` : '/api/accounting-procedures'),
+  executeAccountingProcedure: (id: string) => request<any>(`/api/accounting-procedures/${id}/execute`, { method: 'POST' }),
+
   // ─── مكتبة النماذج والمستندات (مجلد «نماذج») ───
   getModels: () => request<{ directory: string; files: any[]; locked: boolean }>('/api/models'),
   unlockModels: (password: string) =>

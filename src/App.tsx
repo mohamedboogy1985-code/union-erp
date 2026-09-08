@@ -38,6 +38,7 @@ const ModelsViewer = lazy(() => import('./pages/ModelsViewer.js').then((m) => ({
 const TrainingAccounting2024 = lazy(() => import('./pages/TrainingAccounting2024.js').then((m) => ({ default: m.TrainingAccounting2024 })));
 const FinalAccounts2024 = lazy(() => import('./pages/FinalAccounts2024.js').then((m) => ({ default: m.FinalAccounts2024 })));
 const BalanceSheet = lazy(() => import('./pages/BalanceSheet.js').then((m) => ({ default: m.BalanceSheet })));
+const SkillsHub = lazy(() => import('./pages/SkillsHub.js').then((m) => ({ default: m.SkillsHub })));
 
 // الوحدات القديمة المُدمجة في الوحدات الموحدة — تبقى معرفاتها شغّالة كتحويلات
 // داخلية ليتواصل كل تنقل قديم (لوحة التحكم/المساعد الذكي) مع الوحدة الصحيحة.
@@ -409,13 +410,25 @@ currentTab === 'membership' ||
           </ErrorBoundary>
         )}
 
-        {currentTab === 'jules' && (
+{currentTab === 'jules' && (
           <ErrorBoundary label="وكيل البرمجة Jules" onNavigate={setCurrentTab}>
             <Suspense fallback={lazyFallback('لوحة Jules')}>
               <JulesDashboard
                 key={currentUser?.id || 'signed-out'}
                 currentUser={currentUser}
                 onUserChange={setCurrentUser}
+                onShowToast={showToast}
+              />
+            </Suspense>
+          </ErrorBoundary>
+        )}
+
+        {currentTab === 'skills' && (
+          <ErrorBoundary label="نظام المهارات الموحد" onNavigate={setCurrentTab}>
+            <Suspense fallback={lazyFallback('نظام المهارات الموحد')}>
+              <SkillsHub
+                organizationId={selectedOrgId}
+                currentUser={currentUser}
                 onShowToast={showToast}
               />
             </Suspense>
