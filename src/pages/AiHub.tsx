@@ -4,10 +4,11 @@ import { AIAssistant } from './AIAssistant.js';
 import { LiveAgent } from './LiveAgent.js';
 import { AccountingChat } from './AccountingChat.js';
 import { AiAgentOverview } from './AiAgentOverview.js';
+import { CustomAgentStudio } from '../components/CustomAgentStudio.js';
 import { ModuleTabs, ModuleTabDef } from '../components/ModuleTabs.js';
 import { User } from '../types/erp.js';
 
-export type AiTabId = 'overview' | 'ai' | 'accountant' | 'liveagent';
+export type AiTabId = 'overview' | 'ai' | 'accountant' | 'liveagent' | 'customagent';
 
 interface AiHubProps {
   organizationId: string;
@@ -25,6 +26,7 @@ interface AiHubProps {
 
 const SUB_TABS: ModuleTabDef<AiTabId>[] = [
   { id: 'overview', label: 'نظرة عامة — AI Agent المتكامل', icon: Brain, badge: '4 قدرات ✅' },
+  { id: 'customagent', label: 'الوكيل الذكي المخصص (Custom Agent)', icon: Sparkles, badge: 'Studio' },
   { id: 'ai', label: 'استوديو الذكاء الاصطناعي (Gemini)', icon: Bot, badge: 'OCR/Forensics' },
   { id: 'accountant', label: 'الخبير المحاسبي', icon: Calculator, badge: 'Expert' },
   { id: 'liveagent', label: 'المساعد الحي صوت وصورة', icon: Radio, badge: 'Live/Gemini' },
@@ -37,7 +39,7 @@ export const AiHub: React.FC<AiHubProps> = ({
   onNavigate,
   onVoiceReceiptDraft,
   onNavigateToJournals,
-  initialTab = 'ai',
+  initialTab = 'customagent',
 }) => {
   const [activeTab, setActiveTab] = useState<AiTabId>(initialTab || 'overview');
 
@@ -59,6 +61,13 @@ export const AiHub: React.FC<AiHubProps> = ({
               if (['ai','accountant','liveagent'].includes(tab)) setActiveTab(tab as AiTabId);
               else onNavigate(tab);
             }}
+            onShowToast={onShowToast}
+          />
+        )}
+        {activeTab === 'customagent' && (
+          <CustomAgentStudio
+            organizationId={organizationId}
+            currentUser={currentUser}
             onShowToast={onShowToast}
           />
         )}
