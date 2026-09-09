@@ -43,6 +43,31 @@ export const Gateways: React.FC<GatewayProps> = ({ onSelectGateway, onShowToast 
         </div>
       </div>
 
+      <div className="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden shadow-lg">
+        <video
+          className="w-full max-h-72 object-cover bg-black"
+          src="/assets/promo/video/union-promo-wide.mp4"
+          controls
+          preload="metadata"
+          playsInline
+        >
+          المتصفح لا يدعم تشغيل الفيديو.
+        </video>
+        <div className="px-4 py-3 border-t border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+          <div>
+            <p className="text-sm font-bold text-white">الفيديو التعريفي — Union Financial ERP</p>
+            <p className="text-xs text-slate-400">النقابة الذكية للتمويل وأتمتة الحسابات مع محاسبك الذكي بالصوت والفيديو.</p>
+          </div>
+          <a
+            href="/assets/promo/video/union-promo-wide.mp4"
+            download="union-promo-wide.mp4"
+            className="text-xs font-bold text-sky-300 hover:text-sky-200 underline underline-offset-2 shrink-0"
+          >
+            تحميل الفيديو
+          </a>
+        </div>
+      </div>
+
       <div className="grid grid-cols-1 md:grid-cols-3 gap-5 mt-4">
         {GATEWAYS.map((g) => {
           const screenCount = screensForPortal(g.id).length;
