@@ -1,12 +1,13 @@
 import React, { useState } from 'react';
-import { Bot, Radio, Headset, Calculator } from 'lucide-react';
+import { Bot, Radio, Headset, Calculator, Sparkles } from 'lucide-react';
 import { AIAssistant } from './AIAssistant.js';
 import { LiveAgent } from './LiveAgent.js';
 import { AccountingChat } from './AccountingChat.js';
+import { CustomAgentStudio } from '../components/CustomAgentStudio.js';
 import { ModuleTabs, ModuleTabDef } from '../components/ModuleTabs.js';
 import { User } from '../types/erp.js';
 
-export type AiTabId = 'ai' | 'accountant' | 'liveagent';
+export type AiTabId = 'ai' | 'accountant' | 'liveagent' | 'customagent';
 
 interface AiHubProps {
   organizationId: string;
@@ -23,6 +24,7 @@ interface AiHubProps {
 }
 
 const SUB_TABS: ModuleTabDef<AiTabId>[] = [
+  { id: 'customagent', label: 'الوكيل الذكي المخصص (Custom Agent)', icon: Sparkles, badge: 'Studio' },
   { id: 'ai', label: 'استوديو الذكاء الاصطناعي (Gemini)', icon: Bot, badge: 'OCR/Forensics' },
   { id: 'accountant', label: 'الخبير المحاسبي', icon: Calculator, badge: 'Expert' },
   { id: 'liveagent', label: 'المساعد الحي صوت وصورة', icon: Radio, badge: 'Live/Gemini' },
@@ -35,7 +37,7 @@ export const AiHub: React.FC<AiHubProps> = ({
   onNavigate,
   onVoiceReceiptDraft,
   onNavigateToJournals,
-  initialTab = 'ai',
+  initialTab = 'customagent',
 }) => {
   const [activeTab, setActiveTab] = useState<AiTabId>(initialTab);
 
@@ -50,6 +52,13 @@ export const AiHub: React.FC<AiHubProps> = ({
       />
 
       <div>
+        {activeTab === 'customagent' && (
+          <CustomAgentStudio
+            organizationId={organizationId}
+            currentUser={currentUser}
+            onShowToast={onShowToast}
+          />
+        )}
         {activeTab === 'ai' && (
           <AIAssistant
             organizationId={organizationId}
