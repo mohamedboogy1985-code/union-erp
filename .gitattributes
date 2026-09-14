@@ -49,3 +49,4 @@ Makefile text eol=lf
 *.so binary
 *.dylib binary
 *.pdf binary
+docs/laiha/Laiha-Regulation.docx filter=lfs diff=lfs merge=lfs -text
