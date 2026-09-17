@@ -29,6 +29,8 @@ import {
 import { api } from '../services/api.js';
 import { streamGlobalAiChat } from '../services/ai-stream.js';
 import { createVoiceCapture } from '../utils/voiceCapture.js';
+import { CommitteeDataViewer } from './CommitteeDataViewer.js';
+import { ModuleTabs, ModuleTabDef } from '../components/ModuleTabs.js';
 import type { User } from '../types/erp.js';
 
 interface ModelsViewerProps {
@@ -68,7 +70,7 @@ function formatSize(bytes: number): string {
 
 const isPreviewable = (kind: string) => kind === 'image' || kind === 'pdf' || kind === 'office' || kind === 'text';
 
-export const ModelsViewer: React.FC<ModelsViewerProps> = ({ organizationId, currentUser, onShowToast }) => {
+const ModelsLibraryView: React.FC<ModelsViewerProps> = ({ organizationId, currentUser, onShowToast }) => {
   const [files, setFiles] = useState<ModelFile[]>([]);
   const [directory, setDirectory] = useState('');
   const [loading, setLoading] = useState(true);
@@ -1078,5 +1080,41 @@ async function fileToBase64(file: File): Promise<string> {
     reader.readAsDataURL(file);
   });
 }
+
+export type ModelsTabId = 'library' | 'committees';
+
+/** تبويبات الوحدة الموحدة: مكتبة النماذج + بيان اللجان والمكاتب (دمج شاشة بيان اللجان داخل شاشة النماذج) */
+const MODELS_TABS: ModuleTabDef<ModelsTabId>[] = [
+  { id: 'library', label: 'مكتبة النماذج والمستندات', icon: FolderOpen, badge: 'نماذج' },
+  { id: 'committees', label: 'بيان اللجان والمكاتب', icon: FileSpreadsheet, badge: 'بيانات.xlsx' },
+];
+
+export const ModelsViewer: React.FC<ModelsViewerProps> = (props) => {
+  const [activeTab, setActiveTab] = useState<ModelsTabId>('library');
+
+  return (
+    <div className="space-y-4">
+      <ModuleTabs
+        title="النماذج وبيان اللجان — وحدة موحدة"
+        tabs={MODELS_TABS}
+        activeId={activeTab}
+        onChange={setActiveTab}
+        icon={FolderOpen}
+      />
+
+      <div>
+        {activeTab === 'library' ? (
+          <ModelsLibraryView {...props} />
+        ) : (
+          <CommitteeDataViewer
+            organizationId={props.organizationId}
+            currentUser={props.currentUser}
+            onShowToast={props.onShowToast}
+          />
+        )}
+      </div>
+    </div>
+  );
+};
 
 export default ModelsViewer;
