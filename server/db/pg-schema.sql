@@ -39,6 +39,16 @@ CREATE TABLE "actuarial_funds" (
 	CONSTRAINT "actuarial_funds_code_unique" UNIQUE("code")
 );
 --> statement-breakpoint
+CREATE TABLE "regulation_rules" (
+	"rule_id" text PRIMARY KEY NOT NULL,
+	"value" text NOT NULL,
+	"value_type" text DEFAULT 'string' NOT NULL,
+	"article_no" text NOT NULL,
+	"enabled" boolean DEFAULT true NOT NULL,
+	"severity" text DEFAULT 'WARN' NOT NULL,
+	"updated_at" timestamp DEFAULT now() NOT NULL
+);
+--> statement-breakpoint
 CREATE TABLE "audit_logs" (
 	"id" text PRIMARY KEY NOT NULL,
 	"timestamp" text NOT NULL,

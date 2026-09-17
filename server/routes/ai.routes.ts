@@ -1,9 +1,13 @@
-import { Request, Response } from 'express';
+import { NextFunction, Request, Response } from 'express';
 import { aiService, AI_PRIMARY_MODEL } from '../services/ai.service.js';
 import { accountQueryService } from '../services/account-query.service.js';
 import { smartAgentEnhancer } from '../services/smart-agent.service.js';
 import { advancedVoiceProcessor } from '../services/voice.processor.js';
 import { KNOWLEDGE_BASE } from '../data/knowledge-base.js';
+import { erpStore } from '../db/store.js';
+import { can } from '../security/permissions.js';
+import { AssistantError, requireAssistantUser } from '../security/assistant-auth.js';
+import { isDemoMode } from '../security/runtime-config.js';
 
 /**
  * ===== مسارات الذكاء الاصطناعي (Phase 2: فصل server.ts إلى routes) =====
@@ -11,7 +15,38 @@ import { KNOWLEDGE_BASE } from '../data/knowledge-base.js';
  * - Smart Agent Data Linking + Knowledge Base
  * - Advanced Voice Processor
  */
+function aiAuthenticationGuard(req: Request, res: Response, next: NextFunction): void {
+  try {
+    // Keep the same strict, password-backed guard used by operator-assistant.
+    const user = requireAssistantUser(req);
+    res.locals.authenticatedUser = user;
+    next();
+    return;
+  } catch (error) {
+    // Existing Electron/demo screens historically authenticate with x-user-id.
+    // Preserve that local-only compatibility path; DEMO_MODE=false never reaches it.
+    if (isDemoMode() && !req.headers.authorization) {
+      const requestedId = String(req.headers['x-user-id'] || 'usr-mohamed-abdallah');
+      const user = erpStore.users.find((candidate) => candidate.id === requestedId) || erpStore.users[0];
+      if (user?.isActive && can(user, 'view:all')) {
+        res.locals.authenticatedUser = user;
+        next();
+        return;
+      }
+    }
+
+    const safe =
+      error instanceof AssistantError
+        ? error
+        : new AssistantError(401, 'AI_AUTH_REQUIRED', 'سجّل الدخول بحساب ERP للوصول إلى مساعد الذكاء الاصطناعي.');
+    res.status(safe.status).json({ error: safe.message, code: safe.code });
+  }
+}
+
 export function registerAIRoutes(app: any): void {
+  // Registered before the other AI route modules, so /api/ai/* is protected as one surface.
+  app.use('/api/ai', aiAuthenticationGuard);
+
   app.post('/api/ai/query', async (req: Request, res: Response) => {
     const { prompt, organizationId } = req.body;
     try {

@@ -16,7 +16,7 @@ import {
   Zap,
 } from 'lucide-react';
 import { Account } from '../types/erp.js';
-import { getCurrentUserId } from '../services/api.js';
+import { getCurrentUserId, getSessionToken } from '../services/api.js';
 import { streamGlobalAiChat } from '../services/ai-stream.js';
 import { createVoiceCapture } from '../utils/voiceCapture.js';
 
@@ -258,7 +258,11 @@ export const JournalAiAssistant: React.FC<JournalAiAssistantProps> = ({
     try {
       const res = await fetch('/api/ai/execute-entry', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'x-user-id': getCurrentUserId() },
+        headers: {
+          'Content-Type': 'application/json',
+          'x-user-id': getCurrentUserId(),
+          ...(getSessionToken() ? { Authorization: `Bearer ${getSessionToken()}` } : {}),
+        },
         body: JSON.stringify({ proposedEntry, organizationId: organizationId || undefined }),
       });
       const data = await res.json();

@@ -223,7 +223,19 @@ export const documents = pgTable('documents', {
   createdAt: timestamp('created_at').defaultNow(),
 });
 
-// 14. Immutable Audit Logs & Anti-Fraud Trace
+// 14. Persisted financial-regulation rule configuration
+// Values are stored as text because a rule can be numeric or structured text (for example JSON).
+export const regulationRules = pgTable('regulation_rules', {
+  ruleId: text('rule_id').primaryKey(),
+  value: text('value').notNull(),
+  valueType: text('value_type').notNull().default('string'),
+  articleNo: text('article_no').notNull(),
+  enabled: boolean('enabled').notNull().default(true),
+  severity: text('severity').notNull().default('WARN'),
+  updatedAt: timestamp('updated_at').notNull().defaultNow(),
+});
+
+// 15. Immutable Audit Logs & Anti-Fraud Trace
 export const auditLogs = pgTable('audit_logs', {
   id: text('id').primaryKey(),
   timestamp: text('timestamp').notNull(),

@@ -1,3 +1,5 @@
+import { db, getPool } from '../../src/db/index.js';
+import * as dbSchema from '../../src/db/schema.js';
 import {
   FINANCIAL_REGULATION_ARTICLES,
   REGULATION_THRESHOLDS_SEED,
@@ -77,6 +79,120 @@ function keywordHit(description: string | undefined, keywords: string[]): boolea
 export class RegulationService {
   // ------------------------- إدارة القواعد -------------------------
 
+  /**
+   * إعدادات القواعد تُحفظ في PostgreSQL، لا في الذاكرة فقط.  يحتفظ هذا الطابور
+   * بالكتابة الأخيرة لكل قاعدة حتى لا يعود طلبان متزامنان إلى قيمة قديمة.
+   */
+  private readonly pendingWrites = new Map<string, Promise<void>>();
+  private storageInitialized = false;
+
+  /**
+   * إنشاء جدول القواعد عند الحاجة.  ملف pg-schema.sql يغطي قواعد البيانات
+   * الجديدة، أما قواعد البيانات الموجودة قبل هذه الميزة فتُرقّى هنا دون إسقاط
+   * أي جدول أو إنشاء منظومة لوائح جديدة.
+   */
+  private async ensureStorageTable(): Promise<void> {
+    await getPool().query(`
+      CREATE TABLE IF NOT EXISTS "regulation_rules" (
+        "rule_id" text PRIMARY KEY NOT NULL,
+        "value" text NOT NULL,
+        "value_type" text DEFAULT 'string' NOT NULL,
+        "article_no" text NOT NULL,
+        "enabled" boolean DEFAULT true NOT NULL,
+        "severity" text DEFAULT 'WARN' NOT NULL,
+        "updated_at" timestamp DEFAULT now() NOT NULL
+      )
+    `);
+  }
+
+  private hasDatabaseConfiguration(): boolean {
+    return Boolean(
+      process.env.SQL_HOST ||
+      process.env.PGHOST ||
+      process.env.SQL_DB_NAME ||
+      process.env.PGDATABASE
+    );
+  }
+
+  private decodeStoredValue(value: string, valueType: string): number | string {
+    if (valueType === 'number') {
+      const numberValue = Number(value);
+      return Number.isFinite(numberValue) ? numberValue : value;
+    }
+    return value;
+  }
+
+  private snapshot(rule: LiveRegulationRule): LiveRegulationRule {
+    return { ...rule };
+  }
+
+  private persistRule(rule: LiveRegulationRule): Promise<void> {
+    if (!this.hasDatabaseConfiguration()) return Promise.resolve();
+
+    const snapshot = this.snapshot(rule);
+    const previous = this.pendingWrites.get(snapshot.ruleId) || Promise.resolve();
+    const write = previous.catch(() => undefined).then(async () => {
+      await db
+        .insert(dbSchema.regulationRules)
+        .values({
+          ruleId: snapshot.ruleId,
+          value: String(snapshot.value),
+          valueType: typeof snapshot.value === 'number' ? 'number' : 'string',
+          articleNo: snapshot.articleNo || '',
+          enabled: snapshot.enabled,
+          severity: snapshot.severity,
+          updatedAt: new Date(),
+        })
+        .onConflictDoUpdate({
+          target: dbSchema.regulationRules.ruleId,
+          set: {
+            value: String(snapshot.value),
+            valueType: typeof snapshot.value === 'number' ? 'number' : 'string',
+            articleNo: snapshot.articleNo || '',
+            enabled: snapshot.enabled,
+            severity: snapshot.severity,
+            updatedAt: new Date(),
+          },
+        });
+    });
+
+    this.pendingWrites.set(snapshot.ruleId, write);
+    void write.finally(() => {
+      if (this.pendingWrites.get(snapshot.ruleId) === write) this.pendingWrites.delete(snapshot.ruleId);
+    }).catch(() => undefined);
+    return write;
+  }
+
+  /**
+   * تحميل التعديلات المحفوظة بعد اتصال PostgreSQL وقبل تسجيل المسارات.
+   * القيم الافتراضية من financial-regulation.ts تبقى fallback عند عدم وجود
+   * تخزين أو عند تعذر الاتصال.
+   */
+  public async initialize(): Promise<void> {
+    if (this.storageInitialized || !this.hasDatabaseConfiguration()) return;
+    try {
+      await this.ensureStorageTable();
+      const storedRules = await db.select().from(dbSchema.regulationRules);
+      for (const stored of storedRules) {
+        const rule = liveRules.find((candidate) => candidate.ruleId === stored.ruleId);
+        if (!rule) continue;
+        rule.value = this.decodeStoredValue(stored.value, stored.valueType);
+        rule.articleNo = stored.articleNo;
+        rule.enabled = stored.enabled;
+        rule.severity = stored.severity === 'BLOCK' ? 'BLOCK' : 'WARN';
+      }
+      this.storageInitialized = true;
+    } catch (error) {
+      // PostgreSQL is optional in local/demo mode; the in-memory defaults remain usable.
+      console.warn(`⚠️ تعذر تحميل إعدادات اللائحة المحفوظة: ${(error as Error)?.message || 'خطأ غير معروف'}`);
+    }
+  }
+
+  /** انتظار الكتابات المطلوبة قبل إرسال استجابة configureRule */
+  public async flushPersistence(): Promise<void> {
+    await Promise.all([...this.pendingWrites.values()]);
+  }
+
   /** ترقيم قاعدة من نص المادة: القيمة + رقم المادة + التفعيل + الصرامة (يُستدعى عند تعبئة اللائحة) */
   public configureRule(
     ruleId: string,
@@ -90,6 +206,9 @@ export class RegulationService {
     rule.articleNo = articleNo;
     rule.enabled = opts.enabled ?? true;
     rule.severity = opts.severity ?? rule.severity;
+    void this.persistRule(rule).catch((error) => {
+      console.warn(`⚠️ تعذر حفظ إعداد قاعدة اللائحة ${ruleId}: ${(error as Error)?.message || 'خطأ غير معروف'}`);
+    });
     return rule;
   }
 
