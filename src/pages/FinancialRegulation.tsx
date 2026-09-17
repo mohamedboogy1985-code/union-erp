@@ -32,6 +32,7 @@ interface RegulationArticle {
   text: string;
   category: string;
   keywords: string[];
+  enforcementRuleIds?: string[];
 }
 
 interface RegulationData {
@@ -57,7 +58,9 @@ export const FinancialRegulation: React.FC<FinancialRegulationProps> = ({
 }) => {
   const [data, setData] = useState<RegulationData | null>(null);
   const [loading, setLoading] = useState(true);
+  const [regulationError, setRegulationError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
+  const [categoryFilter, setCategoryFilter] = useState('');
   const [regulationDoc, setRegulationDoc] = useState<any | null>(null);
   const [docLoading, setDocLoading] = useState(false);
   const [docState, setDocState] = useState<'missing' | 'error' | null>(null);
@@ -71,11 +74,14 @@ export const FinancialRegulation: React.FC<FinancialRegulationProps> = ({
 
   const loadRegulation = async () => {
     setLoading(true);
+    setRegulationError(null);
     try {
       const reg = await api.getRegulation();
       setData(reg);
     } catch (err: any) {
-      onShowToast('error', err.message);
+      const reason = err?.message || 'تعذر تحميل بيانات اللائحة من الخادم.';
+      setRegulationError(reason);
+      onShowToast('error', `تعذر تحميل بيانات اللائحة: ${reason}`);
     } finally {
       setLoading(false);
     }
@@ -104,6 +110,11 @@ export const FinancialRegulation: React.FC<FinancialRegulationProps> = ({
     }
   };
 
+  const refreshRegulation = () => {
+    void loadRegulation();
+    void loadRegulationFile();
+  };
+
   const downloadRegulation = () => {
     if (!regulationDoc) return;
     const dataUrl = regulationDoc.fileData?.startsWith('data:')
@@ -117,15 +128,18 @@ export const FinancialRegulation: React.FC<FinancialRegulationProps> = ({
     document.body.removeChild(a);
   };
 
+  const categories = Array.from(new Set((data?.articles ?? []).map((article) => article.category))).sort();
   const filteredArticles = (data?.articles ?? []).filter((a) => {
-    if (!searchQuery.trim()) return true;
-    const q = searchQuery.toLowerCase();
+    const q = searchQuery.trim().toLowerCase();
+    const matchesCategory = !categoryFilter || a.category === categoryFilter;
+    if (!q) return matchesCategory;
     return (
-      a.title.toLowerCase().includes(q) ||
-      a.text.toLowerCase().includes(q) ||
-      a.category.toLowerCase().includes(q) ||
-      a.keywords.some((k) => k.toLowerCase().includes(q)) ||
-      a.articleNo.includes(q)
+      matchesCategory &&
+      (a.title.toLowerCase().includes(q) ||
+        a.text.toLowerCase().includes(q) ||
+        a.category.toLowerCase().includes(q) ||
+        a.keywords.some((k) => k.toLowerCase().includes(q)) ||
+        a.articleNo.includes(q))
     );
   });
 
@@ -186,7 +200,31 @@ export const FinancialRegulation: React.FC<FinancialRegulationProps> = ({
               : 'بانتظار تفعيل القواعد'}
           </span>
         </div>
+        <button
+          type="button"
+          onClick={refreshRegulation}
+          disabled={loading || docLoading}
+          className="inline-flex items-center justify-center gap-2 px-3.5 py-2 rounded-xl border border-slate-700 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          <RefreshCw className={`w-4 h-4 ${loading || docLoading ? 'animate-spin' : ''}`} />
+          تحديث البيانات
+        </button>
       </div>
+
+      {regulationError && (
+        <div className="bg-rose-950/30 border border-rose-800/60 rounded-2xl p-4 flex items-start justify-between gap-4" role="alert">
+          <div className="flex items-start gap-3">
+            <AlertTriangle className="w-5 h-5 text-rose-400 mt-0.5 shrink-0" />
+            <div>
+              <p className="text-xs font-semibold text-rose-200">تعذر تحميل بيانات محرك اللائحة.</p>
+              <p className="text-xs text-rose-300/90 mt-1">السبب: {regulationError}</p>
+            </div>
+          </div>
+          <button type="button" onClick={() => void loadRegulation()} className="text-xs text-rose-200 hover:text-white underline shrink-0">
+            إعادة المحاولة
+          </button>
+        </div>
+      )}
 
       {/* لائحة النظام الأساسي المؤرشفة */}
       {regulationDoc && (
@@ -358,20 +396,57 @@ export const FinancialRegulation: React.FC<FinancialRegulationProps> = ({
         </div>
       </div>
 
-      {/* Search + Articles */}
-      <Combobox
-        value={searchQuery}
-        onChange={setSearchQuery}
-        onSelect={(o) => setSearchQuery(o.id)}
-        placeholder="بحث في مواد اللائحة بالكلمة المفتاحية أو رقم المادة..."
-        options={(data?.articles ?? []).map((a) => ({
-          id: String(a.articleNo),
-          label: `المادة ${a.articleNo}`,
-          sub: a.title,
-        }))}
-        className="relative max-w-md"
-        inputClassName="w-full pl-4 pr-10 py-2 bg-slate-900 border border-slate-800 focus:border-amber-500 rounded-xl text-xs text-slate-200 placeholder:text-slate-500 outline-hidden"
-      />
+      {pending.length > 0 && (
+        <div className="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden">
+          <div className="px-5 py-3.5 border-b border-slate-800 flex items-center gap-2">
+            <Clock className="w-4 h-4 text-amber-400" />
+            <h3 className="font-bold text-sm text-slate-100">قواعد بانتظار الترقيم أو الاعتماد</h3>
+            <span className="text-[10px] text-slate-500">لا تؤثر على القيود حتى تُفعّل بقيمة معتمدة</span>
+          </div>
+          <div className="divide-y divide-slate-800/70">
+            {pending.map((rule) => (
+              <div key={rule.ruleId} className="px-5 py-3 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                <div>
+                  <div className="font-mono text-[10px] text-slate-500">{rule.ruleId}</div>
+                  <div className="text-xs text-slate-300">{rule.descriptionAr}</div>
+                </div>
+                <span className="text-[10px] text-amber-300 bg-amber-950/50 border border-amber-800/40 px-2 py-1 rounded-lg whitespace-nowrap">
+                  بانتظار القيمة والمادة
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Search + category filter + Articles */}
+      <div className="flex flex-col sm:flex-row gap-3 sm:items-end">
+        <Combobox
+          value={searchQuery}
+          onChange={setSearchQuery}
+          onSelect={(o) => setSearchQuery(o.id)}
+          placeholder="بحث في مواد اللائحة بالكلمة المفتاحية أو رقم المادة..."
+          options={(data?.articles ?? []).map((a) => ({
+            id: String(a.articleNo),
+            label: `المادة ${a.articleNo}`,
+            sub: a.title,
+          }))}
+          className="relative flex-1"
+          inputClassName="w-full pl-4 pr-10 py-2 bg-slate-900 border border-slate-800 focus:border-amber-500 rounded-xl text-xs text-slate-200 placeholder:text-slate-500 outline-hidden"
+        />
+        <label className="flex flex-col gap-1 text-[10px] text-slate-500 min-w-[220px]">
+          تصفية حسب الباب
+          <select
+            value={categoryFilter}
+            onChange={(event) => setCategoryFilter(event.target.value)}
+            className="w-full px-3 py-2 bg-slate-900 border border-slate-800 focus:border-amber-500 rounded-xl text-xs text-slate-200 outline-hidden"
+          >
+            <option value="">كل أبواب اللائحة</option>
+            {categories.map((category) => <option key={category} value={category}>{category}</option>)}
+          </select>
+        </label>
+        <span className="text-[11px] text-slate-500 pb-2 whitespace-nowrap">{filteredArticles.length} مادة</span>
+      </div>
 
       <div className="space-y-3">
         {filteredArticles.map((article) => (
@@ -383,7 +458,14 @@ export const FinancialRegulation: React.FC<FinancialRegulationProps> = ({
                 </span>
                 <h4 className="font-bold text-xs text-slate-100">{article.title}</h4>
               </div>
-              <span className="text-[10px] text-slate-500 bg-slate-800 px-2 py-0.5 rounded">{article.category}</span>
+              <div className="flex items-center gap-1.5">
+                <span className="text-[10px] text-slate-500 bg-slate-800 px-2 py-0.5 rounded">{article.category}</span>
+                {article.enforcementRuleIds?.length ? (
+                  <span className="text-[10px] text-emerald-300 bg-emerald-950/50 border border-emerald-800/40 px-2 py-0.5 rounded">
+                    {article.enforcementRuleIds.length} قاعدة مرتبطة
+                  </span>
+                ) : null}
+              </div>
             </div>
             <p className="text-xs text-slate-300 leading-relaxed">{article.text}</p>
             {article.keywords.length > 0 && (
