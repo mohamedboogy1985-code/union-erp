@@ -13,7 +13,7 @@ import {
   Award,
   RefreshCw,
 } from 'lucide-react';
-import { api } from '../services/api.js';
+import { api, ApiError } from '../services/api.js';
 import { User } from '../types/erp.js';
 import { Combobox } from '../components/Combobox.js';
 
@@ -60,6 +60,8 @@ export const FinancialRegulation: React.FC<FinancialRegulationProps> = ({
   const [searchQuery, setSearchQuery] = useState('');
   const [regulationDoc, setRegulationDoc] = useState<any | null>(null);
   const [docLoading, setDocLoading] = useState(false);
+  const [docState, setDocState] = useState<'missing' | 'error' | null>(null);
+  const [docError, setDocError] = useState<string | null>(null);
   const [showDoc, setShowDoc] = useState(false);
 
   useEffect(() => {
@@ -81,12 +83,22 @@ export const FinancialRegulation: React.FC<FinancialRegulationProps> = ({
 
   const loadRegulationFile = async () => {
     setDocLoading(true);
+    setDocState(null);
+    setDocError(null);
     try {
       const doc = await api.getRegulationDocument();
       setRegulationDoc(doc);
     } catch (err: any) {
-      // اللائحة غير مؤرشفة بعد — لا تُظهر خطأ للمستخدم
       setRegulationDoc(null);
+      if (err instanceof ApiError && err.status === 404) {
+        // 404 means the document is genuinely not uploaded yet, not that the server failed.
+        setDocState('missing');
+      } else {
+        const reason = err?.message || 'تعذر تحميل الملف من الخادم.';
+        setDocState('error');
+        setDocError(reason);
+        onShowToast('error', `تعذر تحميل لائحة النظام الأساسي: ${reason}`);
+      }
     } finally {
       setDocLoading(false);
     }
@@ -244,12 +256,22 @@ export const FinancialRegulation: React.FC<FinancialRegulationProps> = ({
         </div>
       )}
 
-      {!regulationDoc && !docLoading && (
+      {!regulationDoc && !docLoading && docState === 'missing' && (
         <div className="bg-slate-900/70 border border-dashed border-slate-700 rounded-2xl p-4 flex items-center justify-between">
           <p className="text-xs text-slate-400 flex items-center gap-2">
             <Clock className="w-4 h-4 text-slate-500" />
             لم يُرفع ملف لائحة النظام الأساسي بعد. يمكن رفعه من إدارة المستندات.
           </p>
+        </div>
+      )}
+
+      {!regulationDoc && !docLoading && docState === 'error' && (
+        <div className="bg-rose-950/30 border border-rose-800/60 rounded-2xl p-4 flex items-start gap-3" role="alert">
+          <AlertTriangle className="w-5 h-5 text-rose-400 mt-0.5 shrink-0" />
+          <div>
+            <p className="text-xs font-semibold text-rose-200">تعذر تحميل لائحة النظام الأساسي من الخادم.</p>
+            <p className="text-xs text-rose-300/90 mt-1">السبب: {docError || 'خطأ غير معروف'}</p>
+          </div>
         </div>
       )}
 

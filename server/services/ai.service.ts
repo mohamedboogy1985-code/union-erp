@@ -918,6 +918,13 @@ ${accountsListStr}
     const pendingEntries = ctx.pendingEntries;
     const availableAccounts = ctx.availableAccounts;
     const regStatus = ctx.regulationSummary;
+    const giftsCeiling = regulationService.getRule('GIFTS_CEILING_REGULAR')?.value;
+    const giftsCeilingText =
+      giftsCeiling === null || giftsCeiling === undefined || giftsCeiling === ''
+        ? 'غير محدد'
+        : typeof giftsCeiling === 'number'
+          ? giftsCeiling.toLocaleString()
+          : String(giftsCeiling);
 
     const regRulesStr = regStatus.activeRules.length
       ? regStatus.activeRules
@@ -941,7 +948,7 @@ ${accountsListStr}
 
 اللائحة المالية النافذة (${regStatus.articlesCount} مادة، ${regStatus.activeRules.length} قاعدة مسجلة في دفتر اللائحة):
 ${regRulesStr}
-تذكّر دائماً الحدود المعمول بها: الصرف النقدي فوق 20,000 ج.م محظور نقداً (م9)، الهدايا حتى 200 ج.م للهدية (م50/51)، المشتريات بدون مستند تُرفض فوق 20,000 ج.م (م61)، وتحديد بدلات الانتقال/السفر/الأعباء بالمواد 37 و39 و40.
+تذكّر دائماً الحدود المعمول بها: الصرف النقدي فوق 20,000 ج.م محظور نقداً (م9)، الهدايا حتى ${giftsCeilingText} ج.م للهدية (م50/51)، المشتريات بدون مستند تُرفض فوق 20,000 ج.م (م61)، وتحديد بدلات الانتقال/السفر/الأعباء بالمواد 37 و39 و40.
 
 دليل الحسابات النشط (المتاح للقيود):
 ${accountsListStr}
@@ -967,7 +974,7 @@ ${accountsListStr}
           answer: `أهلاً بك، أنا الخبير المحاسبي في نظام Union Financial ERP. أستطيع مساعدتك في:
 - تلخيص الموقف المالي والإيرادات والمصروفات وصافي الفائض الآن.
 - شرح ومراجعة القيود المحاسبية وضمان توازنها (المدين = الدائن).
-- حدود اللائحة المالية النافذة (${regStatus.articlesCount} مادة) مثل سقف الصرف النقدي 20,000 ج.م (م9) والهدايا 200 ج.م (م50/51) والمشتريات 20,000 ج.م (م61).
+- حدود اللائحة المالية النافذة (${regStatus.articlesCount} مادة) مثل سقف الصرف النقدي 20,000 ج.م (م9) والهدايا ${giftsCeilingText} ج.م (م50/51) والمشتريات 20,000 ج.م (م61).
 - مديونيات حساب 1301 وأكبر المدينين.
 جرّب أحد الأسئلة المقترحة أدناه.`,
         };

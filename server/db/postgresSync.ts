@@ -36,7 +36,7 @@ export class PostgresStorageManager {
     }
     const ddl = fs.readFileSync(ddlPath, 'utf-8');
     await getPool().query(ddl);
-    console.log('🗃️ تم إنشاء جداول قاعدة البيانات (15 جدولاً) من المخطط المرجعي.');
+    console.log('🗃️ تم إنشاء جداول قاعدة البيانات (16 جدولاً) من المخطط المرجعي.');
   }
 
   /**
