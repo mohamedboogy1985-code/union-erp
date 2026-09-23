@@ -134,7 +134,10 @@ export const api = {
     request<CommitteeSummary[]>(category ? `/api/committees?category=${category}` : '/api/committees'),
   getCommitteesData: () => request<CommitteesData>('/api/committees-data'),
   getInsuredList: (q?: string) =>
-    request<InsuredMember[]>(q ? `/api/insured-list?q=${encodeURIComponent(q)}` : '/api/insured-list'),
+    q
+      // fix(security): البحث بمعايير حساسة يمر عبر POST بدل query string حتى لا تُسجَّل في الروابط وسجلات البروكسي
+      ? request<InsuredMember[]>('/api/insured-list/search', { method: 'POST', body: JSON.stringify({ q }) })
+      : request<InsuredMember[]>('/api/insured-list'),
     getJournal2024: () => request<JournalRow[]>(`/api/journal-2024`),
   createJournal2024: (data: Partial<JournalRow>) =>
     request<JournalRow>(`/api/journal-2024`, { method: "POST", body: JSON.stringify(data) }),

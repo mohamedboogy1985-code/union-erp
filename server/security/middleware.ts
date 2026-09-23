@@ -28,6 +28,9 @@ export function securityHeadersMiddleware(req: Request, res: Response, next: Nex
 }
 
 /** 2) حد معدل الطلبات لكل IP: 300 طلب/دقيقة افتراضياً (100 للنقاط الحساسة) */
+export const GENERIC_RATE_LIMIT_MAX = Number(process.env.RATE_LIMIT_MAX || 300);
+/** حد معدل الطلبات الأكثر صرامة لمسارات النظام والحساسية العالية (/api/system و/api/security و/api/auth) */
+export const SENSITIVE_ROUTES_RATE_LIMIT_MAX = Number(process.env.RATE_LIMIT_SENSITIVE_MAX || 100);
 export function createRateLimiter(maxRequests: number = 300, windowMs: number = 60_000) {
   const hits = new Map<string, { count: number; resetAt: number }>();
 

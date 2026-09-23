@@ -26,7 +26,7 @@ import { generateVerificationToken, hashNationalId, maskNationalId, sha256 } fro
 import { verifyLedgerChain, rebuildLedgerChain } from './server/services/ledger-chain.service.js';
 
 // ===== IMPROVEMENTS.md: الخدمات والوسائط الجديدة =====
-import { securityHeadersMiddleware, comprehensiveAuditMiddleware, createRateLimiter, getRecentAccessLogs } from './server/security/middleware.js';
+import { securityHeadersMiddleware, comprehensiveAuditMiddleware, createRateLimiter, getRecentAccessLogs, GENERIC_RATE_LIMIT_MAX, SENSITIVE_ROUTES_RATE_LIMIT_MAX } from './server/security/middleware.js';
 import { advancedAuthService } from './server/services/auth-advanced.service.js';
 import { enhancedOCRService } from './server/services/ocr.service.js';
 import { dashboardService } from './server/services/dashboard.service.js';
@@ -57,6 +57,15 @@ function isModelsLocked(): boolean {
   return modelsCrypto.isLocked();
 }
 
+/**
+ * fix(security): تنقية مدخلات البحث النصية القادمة في الاستعلامات (Sensitive GET hardening)
+ * - إزالة المحارف التحكمية وتقييد الطول لمنع إساءة الاستخدام وتلوث السجلات
+ */
+function sanitizeSearchQuery(value: unknown, maxLength = 100): string {
+  if (typeof value !== 'string') return '';
+  return value.replace(/[\u0000-\u001F\u007F]+/g, ' ').trim().slice(0, maxLength);
+}
+
 async function startServer() {
   // فحص أمني قبل أي شيء: الوضع الصارم يرفض الإقلاع بأسرار ضعيفة (DEMO_MODE=false)
   assertRuntimeSecurity();
@@ -69,6 +78,9 @@ async function startServer() {
   // ===== IMPROVEMENTS 5.1/5.2: طبقة الأمان قبل أي معالجة =====
   app.use(securityHeadersMiddleware);
   app.use(comprehensiveAuditMiddleware); // سجل تدقيق شامل لكل عمليات API
+  // fix(security): حد معدل صريح وأكثر صرامة لمسارات النظام والحساسية العالية (100 طلب/دقيقة افتراضياً)
+  // يُطبَّق قبل الحد العام ليقيّد /api/system و/api/security و/api/auth (تسجيل الدخول و2FA) ضد الإساءة والـ brute-force
+  app.use(['/api/system', '/api/security', '/api/auth'], createRateLimiter(SENSITIVE_ROUTES_RATE_LIMIT_MAX, 60_000));
   app.use(createRateLimiter(Number(process.env.RATE_LIMIT_MAX || 300), 60_000)); // 300 طلب/دقيقة لكل IP
 
   // Coding-agent inputs are text only; do not inherit the document-upload limit.
@@ -267,8 +279,13 @@ async function startServer() {
   });
 
   // سجل الوصول الشامل وحالة الأمان (IMPROVEMENTS 5.2)
+  // fix(security): سجل الوصول يكشف عناوين IP وسلوك المستخدمين — أصبح يتطلب صلاحية system:admin
+  // مع تنقية معامل limit (عدد صحيح ضمن 1..500) بدلاً من تمريره الخام من req.query
   app.get('/api/security/access-log', (req: Request, res: Response) => {
-    const limit = Math.min(500, Number(req.query.limit) || 100);
+    const user = requirePermission(req, res, 'system:admin');
+    if (!user) return;
+    const rawLimit = Number(req.query.limit);
+    const limit = Number.isFinite(rawLimit) ? Math.min(500, Math.max(1, Math.trunc(rawLimit))) : 100;
     res.json(getRecentAccessLogs(limit));
   });
 
@@ -316,9 +333,22 @@ async function startServer() {
     res.json(portalDataService.getCommitteesData());
   });
 
+  // fix(security): Sensitive GET — بيانات المؤمَّن عليهم PII (الاسم/تاريخ الميلاد/الأقساط)
+  // - مصادقة وصلاحية view:all قبل إرجاع أي بيانات
+  // - تنقية معامل البحث q (بلا محارف تحكم وبطول محدود) بدلاً من تمريره خاماً
   app.get('/api/insured-list', (req: Request, res: Response) => {
-    const q = typeof req.query.q === 'string' ? req.query.q : '';
+    const user = requirePermission(req, res, 'view:all');
+    if (!user) return;
+    const q = sanitizeSearchQuery(req.query.q);
     res.json(portalDataService.getInsuredList(q));
+  });
+
+  // fix(security): بديل POST للبحث في بيانات المؤمَّن عليهم — يُبقي معايير البحث الحساسة
+  // خارج عناوين URL وسجلات البروكسي وسجل الوصول (تُرسل في جسم الطلب بدل query string)
+  app.post('/api/insured-list/search', (req: Request, res: Response) => {
+    const user = requirePermission(req, res, 'view:all');
+    if (!user) return;
+    res.json(portalDataService.getInsuredList(sanitizeSearchQuery(req.body?.q)));
   });
 
   app.get('/api/journal-2024', (_req: Request, res: Response) => {
@@ -1870,7 +1900,10 @@ async function startServer() {
   });
 
   // إحصاءات نظام الكاش (IMPROVEMENTS 7.1)
+  // fix(security): كشف داخلي لبنية النظام — يتطلب صلاحية system:admin (Sensitive GET)
   app.get('/api/system/cache-stats', (req: Request, res: Response) => {
+    const user = requirePermission(req, res, 'system:admin');
+    if (!user) return;
     res.json(cacheService.stats());
   });
 
