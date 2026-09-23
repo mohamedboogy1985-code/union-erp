@@ -107,7 +107,8 @@
     "ts-jest": "^29.1.1",
     "tsx": "^4.0.0",
     "typescript": "^5.9.3",
-    "vite": "^6.4.3"
+    "vite": "^6.4.3",
+    "drizzle-kit": "^0.31.11"
   },
   "engines": {
     "node": ">=18.0.0",
@@ -117,5 +118,11 @@
     "@google-cloud/vision": "^4.3.3",
     "sharp": "^0.35.4",
     "tesseract.js": "^4.1.4"
+  },
+  "overrides": {
+    "uuid": "^11.1.1",
+    "@esbuild-kit/core-utils": {
+      "esbuild": "^0.28.2"
+    }
   }
 }
