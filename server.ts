@@ -100,6 +100,8 @@ async function startServer() {
 
   // Initialize and synchronize with Cloud SQL PostgreSQL
   await postgresManager.initialize(erpStore);
+  // Restore configured regulation thresholds before any request can inspect or enforce them.
+  await regulationService.initialize();
 
   // Current session helper: يدعم JWT Bearer (IMPROVEMENTS 5.1) مع توافق وضع العرض x-user-id
   // المستخدم الافتراضي في وضع العرض: مدير البرنامج (محمد عبد الله أحمد) — جميع الصلاحيات
@@ -2026,7 +2028,7 @@ async function startServer() {
   });
 
   // ترقيم قاعدة إنفاذ من نص المادة المطبوعة (قيمة + رقم مادة + صرامة)
-  app.post('/api/regulation/configure', (req: Request, res: Response) => {
+  app.post('/api/regulation/configure', async (req: Request, res: Response) => {
     const user = requirePermission(req, res, 'system:admin');
     if (!user) return;
     const { ruleId, value, articleNo, enabled, severity } = req.body || {};
@@ -2038,6 +2040,7 @@ async function startServer() {
         enabled: enabled !== false,
         severity: severity === 'BLOCK' ? 'BLOCK' : 'WARN',
       });
+      await regulationService.flushPersistence();
       erpStore.recordAudit(
         user.id,
         user.fullName,
