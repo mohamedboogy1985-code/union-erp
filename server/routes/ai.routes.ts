@@ -1,6 +1,7 @@
 import { NextFunction, Request, Response } from 'express';
 import { aiService, AI_PRIMARY_MODEL } from '../services/ai.service.js';
 import { accountQueryService } from '../services/account-query.service.js';
+import { enhancedOCRService } from '../services/ocr.service.js';
 import { smartAgentEnhancer } from '../services/smart-agent.service.js';
 import { advancedVoiceProcessor } from '../services/voice.processor.js';
 import { KNOWLEDGE_BASE } from '../data/knowledge-base.js';
@@ -68,6 +69,24 @@ export function registerAIRoutes(app: any): void {
       res.json(result);
     } catch (err: any) {
       res.status(500).json({ error: err.message });
+    }
+  });
+
+
+  // معالجة مستندات OCR لأوراق إذن الصرف والفواتير والإيصالات المستخرجة
+  app.post('/api/ai/ocr-process', async (req: Request, res: Response) => {
+    const { fileName, rawText, imageBase64 } = req.body || {};
+    const user = res.locals.authenticatedUser;
+    try {
+      const result = await enhancedOCRService.processDocument({
+        fileName: fileName || 'إذن_صرف.png',
+        rawText,
+        imageBase64,
+        userId: user?.id || 'usr-system',
+      });
+      res.json(result);
+    } catch (err: any) {
+      res.status(500).json({ error: err.message || 'فشلت معالجة مستند OCR' });
     }
   });
 
