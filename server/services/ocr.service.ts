@@ -169,10 +169,10 @@ export class EnhancedOCRService {
     const latin = convertArabicDigits(text);
     const result: { invoiceNumber?: string; vendorName?: string; taxNumber?: string; description?: string } = {};
 
-    const invNo = latin.match(/(?:رقم الفاتور[ةه]|فاتور[ةه] رقم(?:\s*\.)?|invoice)[\s:#]*(?:(?:no|number|#)[\s:#]*)?([A-Za-z0-9\-\/]{3,20})/i);
+    const invNo = latin.match(/(?:رقم الفاتور[ةه]|فاتور[ةه] رقم(?:\s*\.)?|invoice(?:\s+(?:no\.?|number))?)[\s:#]+([A-Za-z0-9\-\/]{3,20})/i);
     if (invNo) result.invoiceNumber = invNo[1];
 
-    const taxNo = latin.match(/(?:الرقم الضريب[يى]|الضريب[يى]|tax)[\s:#]*(?:(?:no|id|number)[\s:#]*)?([\d\-]{9,20})/i);
+    const taxNo = latin.match(/(?:الرقم الضريب[يى]|الضريب[يى]|tax(?:\s+(?:no\.?|id|number))?)[\s:#]+([\d\-]{9,20})/i);
     if (taxNo) result.taxNumber = taxNo[1];
 
     const vendor = latin.match(/(?:شركة|شركه|مؤسسة|مؤسسه|مكتب)\s+([\u0600-\u06FF0-9\s]{3,40})/);
