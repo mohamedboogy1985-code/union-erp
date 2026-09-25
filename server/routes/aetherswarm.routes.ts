@@ -6,6 +6,7 @@ import { AssistantError, requireAssistantUser } from '../security/assistant-auth
 import { isDemoMode } from '../security/runtime-config.js';
 import { erpStore } from '../db/store.js';
 import { can } from '../security/permissions.js';
+import { localVoiceReply } from '../services/local-voice-reply.js';
 
 function swarmAuth(req: Request, res: Response): boolean {
   try {
@@ -246,9 +247,7 @@ function generateCognitiveSwarmPlan(prompt: string, autonomyLevel: string) {
     intentEnglish: `Execute user goal "${prompt}" via dynamic swarm with browser extraction, critic verification, and OS control.`,
     riskLevel,
     riskReason,
-    voiceFeedback: isRtxPrompt
-      ? 'تم تفعيل السرب الذكي. سأبحث الآن في المتاجر، وأتحقق من صحة الأسعار، وأنشئ لك ملف مقارنة إكسل متكامل.'
-      : 'علم. يقوم العقل المركزي الآن بتوزيع المهام على سرب الوكلاء للتحقق والتنفيذ بدقة عالية.',
+    voiceFeedback: localVoiceReply(prompt),
     agents,
     taskGraph,
     blackboardSeed: {
@@ -761,33 +760,40 @@ export function registerAetherSwarmRoutes(app: Express): void {
   // 7. REAL-TIME VOICE CONVERSATION API (gemini-3.8-live simulation / fallback)
   app.post('/api/gemini/live-converse', async (req, res) => {
     try {
-      const { prompt, persona = 'Zephyr', language = 'ar-SA' } = req.body;
+      const { prompt, persona = 'Zephyr', language = 'ar-SA' } = req.body || {};
+      const spoken = String(prompt || '').trim();
+      if (!spoken) {
+        return res.status(400).json({ error: 'قل أو اكتب جملة أولاً.', response: localVoiceReply('') });
+      }
       const ai = getGeminiClient();
 
       if (ai) {
-        const response = await ai.models.generateContent({
-          model: 'gemini-3.8-flash',
-          contents: `[Live Voice Assistant Mode - Persona: ${persona}, Model: gemini-3.8-live]
-  User spoke: "${prompt}".
-  Respond concisely and naturally in ${language === 'ar-SA' ? 'Arabic' : 'English'} like a voice assistant would speak in 1-3 short sentences.`,
-        });
-        return res.json({
-          success: true,
-          response: response.text || '',
-          model: 'gemini-3.8-live',
-        });
+        try {
+          const response = await ai.models.generateContent({
+            model: 'gemini-3.8-flash',
+            contents: `[Live Voice Assistant Mode - Persona: ${persona}]
+User spoke: "${spoken}".
+Respond concisely and naturally in ${language === 'ar-SA' ? 'Arabic' : 'English'} like a voice assistant, in 1-3 short sentences. Do not provide operating-system commands.`,
+          });
+          const reply = (response.text || '').trim();
+          if (reply) {
+            return res.json({ success: true, response: reply, model: 'gemini-3.8-flash', provider: 'gemini' });
+          }
+        } catch (err: any) {
+          console.warn('Live converse Gemini fallback:', err?.message);
+        }
       }
 
       return res.json({
         success: true,
-        response: 'أهلاً بك! أنا المساعد الصوتي اللحظي لـ AetherSwarm. كيف يمكنني مساعدة سربك اليوم؟',
-        model: 'gemini-3.8-live',
+        response: localVoiceReply(spoken),
+        model: 'local-voice',
+        provider: 'local',
       });
     } catch (error: any) {
-      return res.status(500).json({ error: error.message });
+      return res.status(500).json({ error: error.message, response: localVoiceReply(String(req.body?.prompt || '')) });
     }
   });
-
 }
 
 function liveGeminiClient() {
@@ -816,11 +822,19 @@ export function attachAetherSwarmLiveSocket(httpServer: Server): void {
   wss.on('connection', async (clientWs: WebSocket) => {
     const ai = liveGeminiClient();
     if (!ai) {
-      clientWs.send(JSON.stringify({ text: 'المحادثة الصوتية في وضع المحاكاة. اضبط GEMINI_API_KEY على الخادم للتفعيل.' }));
-      clientWs.on('message', () => {
-        if (clientWs.readyState === WebSocket.OPEN) {
-          clientWs.send(JSON.stringify({ text: 'تم استلام الصوت. أكمل الطلب نصياً من شريط الأوامر إن لم يكن المفتاح مضبوطاً.' }));
+      clientWs.send(JSON.stringify({ text: localVoiceReply('') }));
+      clientWs.on('message', (data) => {
+        if (clientWs.readyState !== WebSocket.OPEN) return;
+        let spoken = '';
+        try {
+          const parsed = JSON.parse(data.toString());
+          spoken = String(parsed.text || '').trim();
+        } catch {
+          spoken = '';
         }
+        clientWs.send(JSON.stringify({
+          text: spoken ? localVoiceReply(spoken) : 'وصلت الإشارة. اكتب الجملة أو استخدم زر الإرسال لأرد عليك بصوت.',
+        }));
       });
       return;
     }

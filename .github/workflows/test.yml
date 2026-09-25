@@ -13,16 +13,19 @@ jobs:
 
     steps:
       - name: Checkout Repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v5
         with:
           node-version: 22
           cache: 'npm'
 
       - name: Install Dependencies
         run: npm ci
+
+      - name: Voice reply without Gemini key
+        run: npm run test:voice-reply
 
       - name: Run Test Suite
         run: npm test

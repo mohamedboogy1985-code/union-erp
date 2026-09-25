@@ -174,16 +174,18 @@ export const AccountingChat: React.FC<AccountingChatProps> = ({
       ]);
       speakText(botText);
     } catch (err: any) {
+      const apology = 'عذراً، تعذر الوصول لمحرك الخبير المحاسبي. حاول مرة أخرى.';
       onShowToast('error', err.message);
       setMessages((prev) => [
         ...prev,
         {
           id: msgIdRef.current++,
           sender: 'bot',
-          text: 'عذراً، تعذر الوصول لمحرك الخبير المحاسبي. حاول مرة أخرى.',
+          text: apology,
           timestamp: new Date().toLocaleString('ar-EG'),
         },
       ]);
+      speakText(apology);
     } finally {
       setLoading(false);
     }

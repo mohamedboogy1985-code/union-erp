@@ -8,7 +8,7 @@
     "dev": "tsx watch --ignore pgdata --clear-screen=false server.ts",
     "build": "vite build",
     "start": "NODE_ENV=production tsx server.ts",
-    "test": "tsx test/accounting.test.ts && tsx test/improvements.test.ts && tsx test/employee-affairs.test.ts && tsx test/regulation.test.ts && tsx test/attendance.test.ts && tsx test/journal-delete.test.ts && npm run test:jules && npm run test:operator-assistant && npm run test:assistant-setup",
+    "test": "tsx test/accounting.test.ts && tsx test/improvements.test.ts && tsx test/employee-affairs.test.ts && tsx test/regulation.test.ts && tsx test/attendance.test.ts && tsx test/journal-delete.test.ts && npm run test:jules && npm run test:operator-assistant && npm run test:assistant-setup && npm run test:voice-reply",
     "test:watch": "jest --watch",
     "lint": "eslint src --ext .ts,.tsx",
     "lint:fix": "eslint src --ext .ts,.tsx --fix",
@@ -33,7 +33,8 @@
     "typecheck": "tsc --noEmit",
     "assistant:setup": "node scripts/configure-operator-assistant.mjs",
     "assistant:check": "node scripts/configure-operator-assistant.mjs --check",
-    "test:assistant-setup": "tsx --test test/operator-setup.test.ts"
+    "test:assistant-setup": "tsx --test test/operator-setup.test.ts",
+    "test:voice-reply": "tsx --test test/local-voice-reply.test.ts"
   },
   "keywords": [
     "accounting",

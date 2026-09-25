@@ -144,7 +144,7 @@ export const Layout: React.FC<LayoutProps> = ({
       id: s.id,
       label: s.label,
       icon: s.icon,
-      isAi: s.id === 'aihub' || s.id === 'ai' || s.id === 'jules',
+      isAi: s.id === 'aihub' || s.id === 'ai' || s.id === 'jules' || s.id === 'aetherswarm',
     });
   }
 

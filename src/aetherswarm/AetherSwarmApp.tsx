@@ -45,6 +45,7 @@ export function AetherSwarmApp() {
   const [activeTab, setActiveTab] = useState<'desktop' | 'swarm' | 'chat' | 'memory' | 'audit' | 'architecture'>('desktop');
   const [autonomyMode, setAutonomyMode] = useState<AutonomyMode>('ASSISTED');
   const [soundEnabled, setSoundEnabled] = useState(true);
+  const [assistantReply, setAssistantReply] = useState('');
 
   // New Modals State
   const [isTranscribeOpen, setIsTranscribeOpen] = useState(false);
@@ -483,9 +484,27 @@ export function AetherSwarmApp() {
 
   // Auto-speak feedback on speech state
   const speakFeedback = (text: string) => {
-    if (soundEnabled) {
-      speechEngine.speak(text, 'ar-SA');
+    if (soundEnabled && text.trim()) {
+      speechEngine.speak(text, 'ar-EG');
     }
+  };
+
+  const rememberAssistantReply = (text: string) => {
+    const reply = text.trim();
+    if (!reply) return;
+    setAssistantReply(reply);
+    setMemory((prev) => ({
+      ...prev,
+      conversation: [
+        ...prev.conversation,
+        {
+          id: 'reply-' + Date.now(),
+          role: 'orchestrator',
+          text: reply,
+          timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+        },
+      ],
+    }));
   };
 
   // Main Orchestrator Trigger
@@ -553,18 +572,25 @@ export function AetherSwarmApp() {
           setCurrentStepIndex(0);
         }
 
-        if (plan.voiceFeedback) {
-          speakFeedback(plan.voiceFeedback);
-        }
-
-        setActiveStatusMessage('تم تخطيط السرب بنجاح! جاري البدء في تنفيذ المهام...');
+        const reply = plan.voiceFeedback || `سمعت طلبك: ${userPrompt}. المساعد يعمل وأجهّز الخطوات الآن.`;
+        rememberAssistantReply(reply);
+        speakFeedback(reply);
+        setActiveStatusMessage(reply);
 
         // Execute automatically
         await runAllStepsSequentially(plan.taskGraph, plan.agents);
+      } else {
+        const reply = data.response || data.error || `سمعت طلبك: ${userPrompt}. المساعد يعمل، أعد صياغة السؤال إن لم يظهر رد.`;
+        rememberAssistantReply(reply);
+        setActiveStatusMessage(reply);
+        speakFeedback(reply);
       }
     } catch (err: any) {
       console.error('Orchestration error:', err);
-      setActiveStatusMessage('حدث خطأ أثناء الاتصال بالعقل المركزي. تم تشغيل المحاكي المعرفي.');
+      const reply = 'وصلتني رسالتك، لكن الاتصال بالخادم تعثر. أعد المحاولة، وأنا ما زلت أسمعك.';
+      rememberAssistantReply(reply);
+      setActiveStatusMessage(reply);
+      speakFeedback(reply);
     } finally {
       setIsExecuting(false);
     }
@@ -905,6 +931,7 @@ export function AetherSwarmApp() {
         onSendMessage={handleUserMessage}
         isExecuting={isExecuting}
         activeStatusMessage={activeStatusMessage}
+        assistantReply={assistantReply}
         soundEnabled={soundEnabled}
       />
 

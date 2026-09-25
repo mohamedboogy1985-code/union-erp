@@ -87,7 +87,7 @@ const INSURED_ACTUARIAL_HUB_ALIASES: Record<string, InsuredActuarialTabId> = {
 };
 
 const AI_HUB_ALIASES: Record<string, AiTabId> = {
-  aihub: 'ai',
+  aihub: 'swarm',
   ai: 'ai',
   liveagent: 'liveagent',
   aetherswarm: 'swarm',
@@ -188,7 +188,11 @@ export function App() {
       >
         {currentTab === 'portals' && (
           <ErrorBoundary label="بوابات النظام" onNavigate={setCurrentTab}>
-            <Gateways onSelectGateway={handleSelectGateway} onShowToast={showToast} />
+            <Gateways
+              onSelectGateway={handleSelectGateway}
+              onOpenAgent={() => setCurrentTab('aetherswarm')}
+              onShowToast={showToast}
+            />
           </ErrorBoundary>
         )}
 

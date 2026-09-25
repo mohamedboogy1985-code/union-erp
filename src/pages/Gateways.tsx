@@ -7,6 +7,7 @@ import { PORTAL_LOGOS } from '../components/PortalLogo.js';
 
 interface GatewayProps {
   onSelectGateway: (gatewayId: PortalId) => void;
+  onOpenAgent?: () => void;
   onShowToast: (type: 'success' | 'error' | 'warning' | 'info', msg: string) => void;
 }
 
@@ -31,7 +32,7 @@ function speakWelcomeMessage(text: string) {
   }
 }
 
-export const Gateways: React.FC<GatewayProps> = ({ onSelectGateway, onShowToast }) => {
+export const Gateways: React.FC<GatewayProps> = ({ onSelectGateway, onOpenAgent, onShowToast }) => {
   return (
     <div className="p-6 max-w-6xl mx-auto space-y-6">
       <div className="flex items-center gap-3">
@@ -86,6 +87,20 @@ export const Gateways: React.FC<GatewayProps> = ({ onSelectGateway, onShowToast 
           );
         })}
       </div>
+
+      {onOpenAgent && (
+        <button
+          type="button"
+          onClick={onOpenAgent}
+          className="w-full text-right rounded-2xl border border-cyan-500/40 bg-cyan-950/40 hover:bg-cyan-900/40 p-5 flex items-center justify-between gap-4"
+        >
+          <div>
+            <h2 className="text-lg font-bold text-white">سرب الوكيل AetherSwarm</h2>
+            <p className="text-sm text-slate-300 mt-1">الوكيل الجديد المدمج من Google AI Studio. اضغط هنا لفتحه مباشرة.</p>
+          </div>
+          <span className="shrink-0 rounded-full bg-cyan-500 px-4 py-2 text-sm font-bold text-slate-950">فتح الوكيل</span>
+        </button>
+      )}
 
       {/* ===== الفيديو والعرض الترويجي ===== */}
       <section className="mt-10 rounded-2xl bg-slate-900 border border-slate-800 p-6 shadow-lg">

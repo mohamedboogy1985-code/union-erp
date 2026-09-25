@@ -1,4 +1,5 @@
 import { swarmFetch } from '../erpFetch';
+import { speechEngine } from '../utils/speech';
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import {
   Mic,
@@ -30,10 +31,13 @@ export const LiveVoiceModal: React.FC<LiveVoiceModalProps> = ({
   const [isConnected, setIsConnected] = useState(false);
   const [isTalking, setIsTalking] = useState(false);
   const [activeSpeechText, setActiveSpeechText] = useState('');
+  const [draft, setDraft] = useState('');
+  const [statusNote, setStatusNote] = useState('اضغط بدء المحادثة، ثم تحدّث أو اكتب. سيُنطق الرد حتى لو تعذر الميكروفون.');
+  const lastSpoken = useRef('');
   const [transcriptHistory, setTranscriptHistory] = useState<{ role: 'user' | 'model'; text: string }[]>([
     {
       role: 'model',
-      text: 'أهلاً بك! أنا صوت AetherSwarm OS عبر Gemini Live API (gemini-3.8-live). يمكنك التحدث معي بحرية وسأستجيب لحظياً بصوتي.',
+      text: 'أهلاً بك. المحادثة الصوتية جاهزة. قل: هل تسمعني؟ وسأرد عليك بصوت.',
     },
   ]);
 
@@ -63,6 +67,8 @@ export const LiveVoiceModal: React.FC<LiveVoiceModalProps> = ({
       } catch (e) {}
       outputAudioCtxRef.current = null;
     }
+    speechEngine.stopListening();
+    speechEngine.stopSpeaking();
     setIsConnected(false);
     setIsTalking(false);
   }, []);
@@ -79,137 +85,58 @@ export const LiveVoiceModal: React.FC<LiveVoiceModalProps> = ({
     }
   }, [isOpen, disconnectLive]);
 
-  const connectLive = async () => {
-    try {
-      // Connect WebSocket
-      const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-      const wsUrl = `${protocol}//${window.location.host}/aetherswarm-live`;
-      const ws = new WebSocket(wsUrl);
-      wsRef.current = ws;
-
-      ws.onopen = () => {
-        setIsConnected(true);
-        console.log('[Live Voice] Connected to Live API endpoint');
-      };
-
-      ws.onmessage = (event) => {
-        try {
-          const msg = JSON.parse(event.data);
-          if (msg.text) {
-            setActiveSpeechText(msg.text);
-            setTranscriptHistory((prev) => [...prev, { role: 'model', text: msg.text }]);
-          }
-          if (msg.audio && outputAudioCtxRef.current) {
-            // Raw PCM playback or Web Audio
-            playPcmBase64(msg.audio);
-          }
-          if (msg.interrupted) {
-            // handle interrupt
-            setIsTalking(false);
-          }
-        } catch (e) {
-          console.warn('[Live Voice] message parse error:', e);
-        }
-      };
-
-      ws.onclose = () => {
-        setIsConnected(false);
-        setIsTalking(false);
-      };
-
-      // Set up Audio contexts
-      const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
-      inputAudioCtxRef.current = new AudioCtx({ sampleRate: 16000 });
-      outputAudioCtxRef.current = new AudioCtx({ sampleRate: 24000 });
-
-      // Request mic
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      mediaStreamRef.current = stream;
-
-      const source = inputAudioCtxRef.current.createMediaStreamSource(stream);
-      const processor = inputAudioCtxRef.current.createScriptProcessor(4096, 1, 1);
-
-      processor.onaudioprocess = (e) => {
-        if (!ws || ws.readyState !== WebSocket.OPEN) return;
-        const channelData = e.inputBuffer.getChannelData(0);
-        // Convert to 16-bit PCM base64
-        const base64Pcm = floatTo16BitPcmBase64(channelData);
-        ws.send(JSON.stringify({ audio: base64Pcm }));
-      };
-
-      source.connect(processor);
-      processor.connect(inputAudioCtxRef.current.destination);
-      setIsTalking(true);
-    } catch (err: any) {
-      console.error('[Live Voice] connection error:', err);
-      // Fallback mode if audio hardware access failed
-      setIsConnected(true);
-    }
+  const speakReply = (text: string) => {
+    if (!text || text === lastSpoken.current) return;
+    lastSpoken.current = text;
+    speechEngine.speak(text, 'ar-EG');
   };
 
-  // Helper to convert float audio samples to 16-bit PCM Base64
-  const floatTo16BitPcmBase64 = (float32Array: Float32Array): string => {
-    const buffer = new ArrayBuffer(float32Array.length * 2);
-    const view = new DataView(buffer);
-    let offset = 0;
-    for (let i = 0; i < float32Array.length; i++, offset += 2) {
-      const s = Math.max(-1, Math.min(1, float32Array[i]));
-      view.setInt16(offset, s < 0 ? s * 0x8000 : s * 0x7fff, true);
-    }
-    let binary = '';
-    const bytes = new Uint8Array(buffer);
-    for (let i = 0; i < bytes.byteLength; i++) {
-      binary += String.fromCharCode(bytes[i]);
-    }
-    return btoa(binary);
-  };
-
-  // Helper to play PCM base64
-  const playPcmBase64 = (base64Audio: string) => {
-    try {
-      const binaryString = atob(base64Audio);
-      const len = binaryString.length;
-      const bytes = new Uint8Array(len);
-      for (let i = 0; i < len; i++) {
-        bytes[i] = binaryString.charCodeAt(i);
-      }
-      const int16 = new Int16Array(bytes.buffer);
-      const float32 = new Float32Array(int16.length);
-      for (let i = 0; i < int16.length; i++) {
-        float32[i] = int16[i] / 32768.0;
-      }
-
-      if (outputAudioCtxRef.current) {
-        const audioBuffer = outputAudioCtxRef.current.createBuffer(1, float32.length, 24000);
-        audioBuffer.getChannelData(0).set(float32);
-        const sourceNode = outputAudioCtxRef.current.createBufferSource();
-        sourceNode.buffer = audioBuffer;
-        sourceNode.connect(outputAudioCtxRef.current.destination);
-        sourceNode.start();
-      }
-    } catch (e) {
-      console.warn('Playback error:', e);
-    }
-  };
-
-  // Quick fallback message if user types or simulates speech
   const handleQuickSend = async (text: string) => {
-    setTranscriptHistory((prev) => [...prev, { role: 'user', text }]);
-    if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
-      wsRef.current.send(JSON.stringify({ text }));
-    } else {
-      try {
-        const res = await swarmFetch('/api/gemini/live-converse', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ prompt: text }),
-        });
-        const data = await res.json();
-        if (data.response) {
-          setTranscriptHistory((prev) => [...prev, { role: 'model', text: data.response }]);
-        }
-      } catch (err) {}
+    const prompt = text.trim();
+    if (!prompt) return;
+    speechEngine.prime();
+    setDraft('');
+    setTranscriptHistory((prev) => [...prev, { role: 'user', text: prompt }]);
+    setActiveSpeechText('أجهّز الرد الآن...');
+    setStatusNote('جارٍ الرد...');
+    try {
+      const res = await swarmFetch('/api/gemini/live-converse', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ prompt }),
+      });
+      const data = await res.json().catch(() => ({}));
+      const reply = String(data.response || data.error || 'لم يصل رد من المساعد.');
+      setTranscriptHistory((prev) => [...prev, { role: 'model', text: reply }]);
+      setActiveSpeechText(reply);
+      setStatusNote(data.provider === 'gemini' ? 'الرد من Gemini' : 'الرد من المساعد المحلي');
+      speakReply(reply);
+    } catch {
+      const reply = 'تعذر الاتصال بالخادم. أعد المحاولة بعد لحظات.';
+      setTranscriptHistory((prev) => [...prev, { role: 'model', text: reply }]);
+      setActiveSpeechText(reply);
+      speakReply(reply);
     }
+  };
+
+  const connectLive = async () => {
+    speechEngine.prime();
+    setIsConnected(true);
+    setIsTalking(true);
+    setStatusNote('المحادثة مفعّلة. تحدّث الآن أو اكتب في المربع.');
+    speakReply('المحادثة الصوتية تعمل. تفضل، أنا أسمعك.');
+    speechEngine.startListening({
+      onResult: (transcript, isFinal) => {
+        setActiveSpeechText(transcript);
+        if (isFinal && transcript.trim().length > 1) {
+          void handleQuickSend(transcript);
+        }
+      },
+      onError: (err) => {
+        setStatusNote(`الميكروفون غير متاح (${err}). اكتب الجملة واضغط إرسال، وسأرد بصوت.`);
+      },
+      onStateChange: (listening) => setIsTalking(listening),
+    });
   };
 
   if (!isOpen) return null;
@@ -274,13 +201,12 @@ export const LiveVoiceModal: React.FC<LiveVoiceModalProps> = ({
 
           <div className="space-y-1">
             <span className="text-xs font-bold text-slate-200 block">
-              {isConnected
-                ? 'جلسة Live API نشطة ومباشرة - تحدث الآن بشكل طبيعي'
-                : 'الجلسة متوقفة - اضغط على زر الاتصال لبدء المحادثة الصوتية'}
+              {isConnected ? 'المحادثة الصوتية تعمل' : 'اضغط بدء المحادثة'}
             </span>
-            <p className="text-[11px] text-slate-500">
-              مدعوم ببروتوكول WebSockets وتدفق PCM 16kHz للمايكروفون وتشغيل 24kHz للإخراج.
-            </p>
+            <p className="text-[11px] text-slate-400">{statusNote}</p>
+            {activeSpeechText && (
+              <p className="text-xs text-cyan-200">{activeSpeechText}</p>
+            )}
           </div>
 
           {/* Connect/Disconnect Call Button */}
@@ -321,20 +247,39 @@ export const LiveVoiceModal: React.FC<LiveVoiceModalProps> = ({
               }`}
             >
               <span className="text-[10px] text-slate-400 font-bold block mb-0.5">
-                {item.role === 'user' ? 'صوتك:' : 'Gemini Live (Zephyr):'}
+                {item.role === 'user' ? 'صوتك:' : 'رد المساعد:'}
               </span>
               <p>{item.text}</p>
             </div>
           ))}
         </div>
 
+                <form
+          className="flex gap-2"
+          onSubmit={(e) => {
+            e.preventDefault();
+            speechEngine.prime();
+            void handleQuickSend(draft);
+          }}
+        >
+          <input
+            value={draft}
+            onChange={(e) => setDraft(e.target.value)}
+            placeholder="اكتب هنا إن لم يعمل الميكروفون، ثم إرسال"
+            className="flex-1 rounded-xl bg-slate-950 border border-slate-700 px-3 py-2 text-xs text-slate-100 outline-none focus:border-cyan-500"
+          />
+          <button type="submit" className="px-3 py-2 rounded-xl bg-cyan-600 text-white text-xs font-bold">
+            إرسال والرد صوتياً
+          </button>
+        </form>
+
         {/* Quick Voice Prompt Shortcuts */}
         <div className="flex flex-wrap items-center gap-1.5 text-[11px]">
           <span className="text-slate-400 text-[10px]">جرّب نطق أو إرسال:</span>
           {[
-            'قارن لي أسعار RTX 5090',
-            'افحص سلامة نظام ويندوز',
-            'ما هي حالة سرب الوكلاء الآن؟',
+            'هل تسمعني؟',
+            'اشرح لي قيد اليومية',
+            'ما حد الصرف في اللائحة؟',
           ].map((prompt, i) => (
             <button
               key={i}

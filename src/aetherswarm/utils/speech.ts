@@ -102,28 +102,36 @@ class SpeechEngine {
     }
   }
 
-  public speak(text: string, lang: string = 'ar-SA', onEnd?: () => void) {
+  /** يُستدعى داخل ضغطة المستخدم حتى لا يحجب المتصفح النطق بعد انتظار الشبكة. */
+  public prime() {
     if (typeof window === 'undefined' || !window.speechSynthesis) return;
+    window.speechSynthesis.getVoices();
+    const unlock = new SpeechSynthesisUtterance('\u200b');
+    unlock.volume = 0;
+    unlock.lang = 'ar-EG';
+    window.speechSynthesis.speak(unlock);
+  }
 
-    window.speechSynthesis.cancel(); // Stop any pending speech
-
-    const utterance = new SpeechSynthesisUtterance(text);
-    utterance.lang = lang;
-    utterance.rate = 1.05;
-    utterance.pitch = 1.0;
-
-    // Pick Arabic voice if available
-    const voices = window.speechSynthesis.getVoices();
-    const arabicVoice = voices.find((v) => v.lang.startsWith('ar') || v.name.includes('Arabic'));
-    if (arabicVoice) {
-      utterance.voice = arabicVoice;
-    }
-
-    if (onEnd) {
-      utterance.onend = onEnd;
-    }
-
-    window.speechSynthesis.speak(utterance);
+  public speak(text: string, lang: string = 'ar-EG', onEnd?: () => void) {
+    if (typeof window === 'undefined' || !window.speechSynthesis || !text.trim()) return;
+    const synth = window.speechSynthesis;
+    const run = () => {
+      synth.cancel();
+      const utterance = new SpeechSynthesisUtterance(text);
+      utterance.lang = lang;
+      utterance.rate = 1.02;
+      utterance.pitch = 1.0;
+      const voices = synth.getVoices();
+      const arabicVoice = voices.find((v) => v.lang.startsWith('ar') || v.name.includes('Arabic'));
+      if (arabicVoice) utterance.voice = arabicVoice;
+      if (onEnd) utterance.onend = onEnd;
+      synth.speak(utterance);
+      if (synth.paused) synth.resume();
+    };
+    run();
+    window.setTimeout(() => {
+      if (synth.paused) synth.resume();
+    }, 80);
   }
 
   public stopSpeaking() {

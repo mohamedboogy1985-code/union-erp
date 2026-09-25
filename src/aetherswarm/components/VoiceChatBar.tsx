@@ -17,6 +17,7 @@ interface VoiceChatBarProps {
   onSendMessage: (text: string) => void;
   isExecuting: boolean;
   activeStatusMessage?: string;
+  assistantReply?: string;
   soundEnabled: boolean;
   onOpenTranscribe?: () => void;
   onOpenLiveVoice?: () => void;
@@ -45,6 +46,7 @@ export const VoiceChatBar: React.FC<VoiceChatBarProps> = ({
   onSendMessage,
   isExecuting,
   activeStatusMessage,
+  assistantReply,
   soundEnabled,
   onOpenTranscribe,
   onOpenLiveVoice,
@@ -68,9 +70,16 @@ export const VoiceChatBar: React.FC<VoiceChatBarProps> = ({
       setIsListening(false);
     } else {
       setSpeechError(null);
+      speechEngine.prime();
       speechEngine.startListening({
         onResult: (transcript, isFinal) => {
           setInputText(transcript);
+          if (isFinal && transcript.trim().length > 1 && !isExecuting) {
+            speechEngine.stopListening();
+            setIsListening(false);
+            onSendMessage(transcript.trim());
+            setInputText('');
+          }
         },
         onWakeWord: () => {
           setWakeWordDetected(true);
@@ -91,6 +100,7 @@ export const VoiceChatBar: React.FC<VoiceChatBarProps> = ({
     if (e) e.preventDefault();
     const trimmed = inputText.trim();
     if (!trimmed || isExecuting) return;
+    speechEngine.prime();
 
     if (isListening) {
       speechEngine.stopListening();
@@ -170,6 +180,16 @@ export const VoiceChatBar: React.FC<VoiceChatBarProps> = ({
             </div>
           </div>
         </div>
+
+        {assistantReply && (
+          <div className="rounded-xl border border-cyan-500/40 bg-cyan-950/50 px-3 py-2 text-sm text-cyan-50" role="status">
+            <div className="mb-1 flex items-center gap-1.5 text-[11px] font-bold text-cyan-300">
+              <Volume2 className="h-3.5 w-3.5" />
+              رد المساعد
+            </div>
+            <p>{assistantReply}</p>
+          </div>
+        )}
 
         {/* Input Bar Form */}
         <form onSubmit={handleSubmit} className="flex items-center gap-2">
