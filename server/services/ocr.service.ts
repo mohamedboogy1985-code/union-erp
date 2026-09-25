@@ -105,14 +105,14 @@ export class EnhancedOCRService {
     const latin = convertArabicDigits(text);
 
     // نمط "الإجمالي/الاجمالي/Total: 51,300.00"
-    const totalMatch = latin.match(/(?:الإجمالي|الاجمالي|الاجمالى|الإجمالى|المبلغ|الأجمالي|total|amount|grand total)\s*[:：]?\s*([\d,]+(?:\.\d+)?)/i);
+    const totalMatch = latin.match(/(?:الإجمالي|الاجمالي|الاجمالى|الإجمالى|المبلغ|الأجمالي|total|amount|grand total)[\s:：]*([\d,]+(?:\.\d+)?)/i);
     if (totalMatch) {
       const v = Number(totalMatch[1].replace(/,/g, ''));
       if (!Number.isNaN(v) && v > 0) return v;
     }
 
     // أكبر قيمة رقمية في المستند (عادةً الإجمالي أعلى قيمة)
-    const numbers = (latin.match(/([\d,]+\.\d{2})/g) || []).map((n) => Number(n.replace(/,/g, ''))).filter((n) => !Number.isNaN(n) && n > 0);
+    const numbers = (latin.match(/\b\d+(?:,\d+)*\.\d{2}\b/g) || []).map((n) => Number(n.replace(/,/g, ''))).filter((n) => !Number.isNaN(n) && n > 0);
     if (numbers.length > 0) return Math.max(...numbers);
 
     const integers = (latin.match(/\d{3,}/g) || []).map(Number).filter((n) => n > 0);
@@ -126,7 +126,7 @@ export class EnhancedOCRService {
    */
   public extractTax(text: string, subtotal?: number): number | undefined {
     const latin = convertArabicDigits(text);
-    const taxMatch = latin.match(/(?:ضريبه|ضريبة|vat|tax)\s*[:：]?\s*([\d,]+(?:\.\d+)?)/i);
+    const taxMatch = latin.match(/(?:ضريبه|ضريبة|vat|tax)[\s:：]*([\d,]+(?:\.\d+)?)/i);
     if (taxMatch) {
       const v = Number(taxMatch[1].replace(/,/g, ''));
       if (!Number.isNaN(v) && v > 0) return v;
@@ -169,10 +169,10 @@ export class EnhancedOCRService {
     const latin = convertArabicDigits(text);
     const result: { invoiceNumber?: string; vendorName?: string; taxNumber?: string; description?: string } = {};
 
-    const invNo = latin.match(/(?:رقم الفاتور[ةه]|فاتور[ةه] رقم|فاتور[ةه] رقم\.|invoice\s*(?:no\.?|number|#)?)\s*[:#]?\s*([A-Za-z0-9\-\/]{3,20})/i);
+    const invNo = latin.match(/(?:رقم الفاتور[ةه]|فاتور[ةه] رقم(?:\s*\.)?|invoice)[\s:#]*(?:(?:no|number|#)[\s:#]*)?([A-Za-z0-9\-\/]{3,20})/i);
     if (invNo) result.invoiceNumber = invNo[1];
 
-    const taxNo = latin.match(/(?:الرقم الضريب[يى]|الضريب[يى]|tax\s*(?:no\.?|id|number)?)\s*[:#]?\s*([\d\-]{9,20})/i);
+    const taxNo = latin.match(/(?:الرقم الضريب[يى]|الضريب[يى]|tax)[\s:#]*(?:(?:no|id|number)[\s:#]*)?([\d\-]{9,20})/i);
     if (taxNo) result.taxNumber = taxNo[1];
 
     const vendor = latin.match(/(?:شركة|شركه|مؤسسة|مؤسسه|مكتب)\s+([\u0600-\u06FF0-9\s]{3,40})/);
