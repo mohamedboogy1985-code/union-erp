@@ -1,0 +1,2 @@
+.aetherswarm-root .no-scrollbar::-webkit-scrollbar { display: none; }
+.aetherswarm-root .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }

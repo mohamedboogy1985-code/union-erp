@@ -20,6 +20,7 @@ import {
   Boxes,
   FileCode2,
   Bot,
+  Cpu,
   Settings,
   School,
   Globe,
@@ -103,6 +104,7 @@ export const SCREENS: ScreenDef[] = [
   { id: 'final-accounts-2024', label: 'الميزانية العمومية والحسابات الختامية 2024 (مركز التدريب)', icon: Scale, group: 'بيانات البوابات والملفات المستوردة', portals: ['training'] },
   // الذكاء الاصطناعي والإعدادات (مشتركة)
   { id: 'aihub', label: 'الذكاء الاصطناعي والمساعد الحي', icon: Bot, group: 'الذكاء الاصطناعي والإعدادات', portals: ALL },
+  { id: 'aetherswarm', label: 'سرب الوكيل AetherSwarm', icon: Cpu, group: 'الذكاء الاصطناعي والإعدادات', portals: ALL },
   { id: 'jules', label: 'Jules — وكيل البرمجة', icon: FileCode2, group: 'الذكاء الاصطناعي والإعدادات', portals: ALL },
   { id: 'settings', label: 'الإعدادات والصلاحيات', icon: Settings, group: 'الذكاء الاصطناعي والإعدادات', portals: ALL },
 ];

@@ -18,6 +18,7 @@ import { registerReportExportRoutes } from './server/routes/report-export.routes
 import { registerEtaRoutes } from './server/routes/eta.routes.js';
 import { registerOperatorAssistantRoutes } from './server/routes/operator-assistant.routes.js';
 import { registerJulesRoutes } from './server/routes/jules.routes.js';
+import { attachAetherSwarmLiveSocket, registerAetherSwarmRoutes } from './server/routes/aetherswarm.routes.js';
 import { configureAdminCredentials, configureUserCredentials, publicUser } from './server/security/admin-credentials.js';
 import { receiptsService } from './server/services/receipts.service.js';
 import { reportsService } from './server/services/reports.service.js';
@@ -194,6 +195,7 @@ async function startServer() {
     requirePermission,
     persistAudit: (event) => postgresManager.persistAuditLog(event),
   });
+  registerAetherSwarmRoutes(app);
 
   // ==========================================
   // 1. HEALTH & SYSTEM INFO
@@ -2736,6 +2738,7 @@ async function startServer() {
 
   const httpServer = http.createServer(app);
   attachLiveAgentWebSocketServer(httpServer);
+  attachAetherSwarmLiveSocket(httpServer);
 
   // استعادة كشوف المرتبات المستوردة المعتمدة سابقاً
   const restoredImports = payrollImportService.loadPersistedImports();

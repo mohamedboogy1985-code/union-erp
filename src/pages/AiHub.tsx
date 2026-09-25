@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { Bot, Radio, Headset, Calculator, Sparkles } from 'lucide-react';
+import { Bot, Radio, Headset, Calculator, Sparkles, Cpu } from 'lucide-react';
+import { AetherSwarmApp } from '../aetherswarm/AetherSwarmApp.js';
 import { AIAssistant } from './AIAssistant.js';
 import { LiveAgent } from './LiveAgent.js';
 import { AccountingChat } from './AccountingChat.js';
@@ -7,7 +8,7 @@ import { CustomAgentStudio } from '../components/CustomAgentStudio.js';
 import { ModuleTabs, ModuleTabDef } from '../components/ModuleTabs.js';
 import { User } from '../types/erp.js';
 
-export type AiTabId = 'ai' | 'accountant' | 'liveagent' | 'customagent';
+export type AiTabId = 'ai' | 'accountant' | 'liveagent' | 'customagent' | 'swarm';
 
 interface AiHubProps {
   organizationId: string;
@@ -24,6 +25,7 @@ interface AiHubProps {
 }
 
 const SUB_TABS: ModuleTabDef<AiTabId>[] = [
+  { id: 'swarm', label: 'سرب الوكيل (AetherSwarm)', icon: Cpu, badge: 'مدمج' },
   { id: 'customagent', label: 'الوكيل الذكي المخصص (Custom Agent)', icon: Sparkles, badge: 'Studio' },
   { id: 'ai', label: 'استوديو الذكاء الاصطناعي (Gemini)', icon: Bot, badge: 'OCR/Forensics' },
   { id: 'accountant', label: 'الخبير المحاسبي', icon: Calculator, badge: 'Expert' },
@@ -52,6 +54,7 @@ export const AiHub: React.FC<AiHubProps> = ({
       />
 
       <div>
+        {activeTab === 'swarm' && <AetherSwarmApp />}
         {activeTab === 'customagent' && (
           <CustomAgentStudio
             organizationId={organizationId}

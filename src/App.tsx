@@ -90,6 +90,7 @@ const AI_HUB_ALIASES: Record<string, AiTabId> = {
   aihub: 'ai',
   ai: 'ai',
   liveagent: 'liveagent',
+  aetherswarm: 'swarm',
 };
 
 function loadStoredPortal(): PortalId {
@@ -255,7 +256,7 @@ currentTab === 'membership' ||
           </ErrorBoundary>
         ) : null}
 
-        {currentTab === 'liveagent' || currentTab === 'ai' || currentTab === 'aihub' ? (
+        {currentTab === 'liveagent' || currentTab === 'ai' || currentTab === 'aihub' || currentTab === 'aetherswarm' ? (
           <ErrorBoundary label="الذكاء الاصطناعي والمساعد الحي" onNavigate={setCurrentTab}>
             <AiHub
               key={currentTab}
