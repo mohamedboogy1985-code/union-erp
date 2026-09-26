@@ -65,7 +65,7 @@ export const FinancialRegulation: React.FC<FinancialRegulationProps> = ({
   const [docLoading, setDocLoading] = useState(false);
   const [docState, setDocState] = useState<'missing' | 'error' | null>(null);
   const [docError, setDocError] = useState<string | null>(null);
-  const [showDoc, setShowDoc] = useState(false);
+  const [showDoc, setShowDoc] = useState(true);
 
   useEffect(() => {
     loadRegulation();
@@ -115,14 +115,18 @@ export const FinancialRegulation: React.FC<FinancialRegulationProps> = ({
     void loadRegulationFile();
   };
 
+  const regulationPreviewSrc = regulationDoc?.fileUrl
+    || (regulationDoc?.fileData
+      ? (regulationDoc.fileData.startsWith('data:')
+        ? regulationDoc.fileData
+        : `data:${regulationDoc.fileType || 'application/pdf'};base64,${regulationDoc.fileData}`)
+      : '');
+
   const downloadRegulation = () => {
-    if (!regulationDoc) return;
-    const dataUrl = regulationDoc.fileData?.startsWith('data:')
-      ? regulationDoc.fileData
-      : `data:${regulationDoc.fileType || 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'};base64,${regulationDoc.fileData}`;
+    if (!regulationDoc || !regulationPreviewSrc) return;
     const a = document.createElement('a');
-    a.href = dataUrl;
-    a.download = regulationDoc.fileName || 'لائحة_النظام_الاساسي.docx';
+    a.href = regulationPreviewSrc;
+    a.download = regulationDoc.fileName || 'لائحة_النظام_الاساسي.pdf';
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
@@ -255,9 +259,11 @@ export const FinancialRegulation: React.FC<FinancialRegulationProps> = ({
                     </>
                   )}
                 </p>
-                <p className="text-[10px] font-mono text-slate-500 mt-1 truncate max-w-[420px]">
-                  SHA-256: {regulationDoc.sha256}
-                </p>
+                {regulationDoc.sha256 && (
+                  <p className="text-[10px] font-mono text-slate-500 mt-1 truncate max-w-[420px]">
+                    SHA-256: {regulationDoc.sha256}
+                  </p>
+                )}
               </div>
             </div>
             <div className="flex items-center gap-2">
@@ -281,13 +287,15 @@ export const FinancialRegulation: React.FC<FinancialRegulationProps> = ({
           {showDoc && (
             <div className="mt-4 border-t border-slate-800 pt-4">
               <iframe
-                src={regulationDoc.fileData?.startsWith('data:') ? regulationDoc.fileData : `data:${regulationDoc.fileType || 'application/pdf'};base64,${regulationDoc.fileData}`}
-                className="w-full h-[480px] rounded-xl border border-slate-800 bg-white"
+                src={regulationPreviewSrc}
+                className="w-full h-[78vh] min-h-[640px] rounded-xl border border-slate-800 bg-white"
                 title="لائحة النظام الأساسي"
               />
               <p className="text-[10px] text-slate-500 mt-2 flex items-center gap-1.5">
                 <Award className="w-3.5 h-3.5 text-amber-400" />
-                محفوظة في قاعدة البيانات المركزية PostgreSQL مع بصمة SHA-256 مضادة للتلاعب
+                {regulationDoc.source === 'bundled'
+                  ? 'عرض كامل لمسح لائحة النظام الأساسي المرفق مع المشروع. قواعد اللائحة المالية المفعّلة معروضة أسفل هذا المسح.'
+                  : 'محفوظة في قاعدة البيانات المركزية PostgreSQL مع بصمة SHA-256 مضادة للتلاعب'}
               </p>
             </div>
           )}

@@ -23,6 +23,7 @@ import { configureAdminCredentials, configureUserCredentials, publicUser } from 
 import { receiptsService } from './server/services/receipts.service.js';
 import { reportsService } from './server/services/reports.service.js';
 import { calculateSimilarity, normalizeArabicText } from './server/utils/arabic.js';
+import { bundledBasicStatuteMeta, resolveBasicStatutePath } from './server/services/regulation-documents.js';
 import { generateVerificationToken, hashNationalId, maskNationalId, sha256 } from './server/utils/crypto.js';
 import { verifyLedgerChain, rebuildLedgerChain } from './server/services/ledger-chain.service.js';
 
@@ -2037,29 +2038,49 @@ async function startServer() {
     });
   });
 
-  // استرجاع لائحة النظام الأساسي المؤرشفة من قاعدة البيانات PostgreSQL (ملف Word/PDF)
+  // عرض مسح لائحة النظام الأساسي المرفق مع المشروع، حتى بدون PostgreSQL
+  app.get('/api/regulation/files/basic-statute', (_req: Request, res: Response) => {
+    const filePath = resolveBasicStatutePath();
+    if (!filePath) {
+      return res.status(404).json({ error: 'ملف لائحة النظام الأساسي غير موجود في المستودع.' });
+    }
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', 'inline; filename="basic-statute.pdf"');
+    fs.createReadStream(filePath).pipe(res);
+  });
+
+  // استرجاع لائحة النظام الأساسي: من PostgreSQL إن وُجدت، وإلا من الملف المرفق
   app.get('/api/regulation/document', async (_req: Request, res: Response) => {
     try {
       const { db } = await import('./src/db/index.js');
       const schema = await import('./src/db/schema.js');
       const docs = await db.select().from(schema.documents);
       const regulation = docs.find((d: any) => d.entityType === 'REGULATION');
-      if (!regulation) return res.status(404).json({ error: 'لم تُعثر على لائحة النظام الأساسي في قاعدة البيانات.' });
-      res.json({
-        id: regulation.id,
-        fileName: regulation.fileName,
-        fileType: regulation.fileType,
-        fileSize: regulation.fileSize,
-        fileData: regulation.fileData,
-        sha256: regulation.sha256,
-        isSealed: regulation.isSealed,
-        sealedBy: regulation.sealedBy,
-        sealTimestamp: regulation.sealTimestamp,
-        createdAt: regulation.createdAt,
-      });
+      if (regulation?.fileData) {
+        return res.json({
+          id: regulation.id,
+          fileName: regulation.fileName,
+          fileType: regulation.fileType,
+          fileSize: regulation.fileSize,
+          fileData: regulation.fileData,
+          fileUrl: '/api/regulation/files/basic-statute',
+          sha256: regulation.sha256,
+          isSealed: regulation.isSealed,
+          sealedBy: regulation.sealedBy,
+          sealTimestamp: regulation.sealTimestamp,
+          createdAt: regulation.createdAt,
+          source: 'database',
+        });
+      }
     } catch (err: any) {
-      res.status(500).json({ error: err.message });
+      console.warn('تعذر قراءة لائحة النظام الأساسي من قاعدة البيانات، سيُستخدم الملف المرفق:', err?.message);
     }
+
+    const filePath = resolveBasicStatutePath();
+    if (!filePath) {
+      return res.status(404).json({ error: 'لم تُعثر على لائحة النظام الأساسي في قاعدة البيانات ولا في ملفات المشروع.' });
+    }
+    return res.json(bundledBasicStatuteMeta(filePath));
   });
 
   // ترقيم قاعدة إنفاذ من نص المادة المطبوعة (قيمة + رقم مادة + صرامة)

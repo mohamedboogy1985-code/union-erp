@@ -2,6 +2,7 @@ import assert from 'assert';
 import { erpStore } from '../server/db/store.js';
 import { accountingService } from '../server/services/accounting.service.js';
 import { regulationService } from '../server/services/regulation.service.js';
+import { resolveBasicStatutePath } from '../server/services/regulation-documents.js';
 import { smartAgentEnhancer } from '../server/services/smart-agent.service.js';
 
 /**
@@ -27,6 +28,7 @@ function runTests() {
   const zeroViolations = regulationService.checkJournalEntry({ totalDebit: 9_000_000, linesCount: 2 });
   assert.deepStrictEqual(zeroViolations, [], 'بدون سطور تُستخدم للقواعد التخصصية لا تحذير كاذب');
   console.log('  ✅ Passed: regulation is live at boot; aggregate-only entries stay silent.');
+  assert.ok(resolveBasicStatutePath(), 'مسح لائحة النظام الأساسي موجود للعرض الكامل');
 
   // -------------------------------------------------------------
   // Test 2: ترقيم قاعدة حد الاعتماد — مانعة (BLOCK)
