@@ -246,6 +246,13 @@ async function startServer() {
     },
   });
 
+  // ===== حدود معدل صريحة للمسارات الحسّاسة (CodeQL js/missing-rate-limiting) =====
+  // الحد العام موجود، لكنه يعفي مدير البرنامج، ومسارات التحقق التالية تُعيد حساب
+  // تجزئات آلاف القيود والأحداث عند كل نداء (سطح إغراق حقيقي)، ولذلك تُقيَّد صراحةً.
+  const healthRateLimiter = createRateLimiter(SENSITIVE_ROUTES_RATE_LIMIT_MAX, 60_000);
+  const chainVerifyRateLimiter = createRateLimiter(SENSITIVE_ROUTES_RATE_LIMIT_MAX, 60_000);
+  const auditReadRateLimiter = createRateLimiter(SENSITIVE_ROUTES_RATE_LIMIT_MAX, 60_000);
+
   registerAIRoutes(app);
   registerAICoreRoutes(app, { requirePermission });
   registerAIActionRoutes(app, { requirePermission });
@@ -261,7 +268,8 @@ async function startServer() {
   // ==========================================
   // 1. HEALTH & SYSTEM INFO
   // ==========================================
-  app.get('/api/health', (req: Request, res: Response) => {
+  // حد معدل صريح: نقطة عامة تُقرأ منها حالة النظام — تُقيَّد لمنع الاستنطاق/الإغراق
+  app.get('/api/health', healthRateLimiter, (req: Request, res: Response) => {
     res.json({
       status: 'ok',
       system: 'Union Financial ERP - General Syndicate',
@@ -1007,7 +1015,8 @@ async function startServer() {
   // ==============================================================
   // سلسلة التجزئة المضادة للتلاعب (Blockchain-style Ledger Chain)
   // ==============================================================
-  app.get('/api/ledger-chain/verify', async (req: Request, res: Response) => {
+  // حد معدل صريح: إعادة حساب تجزئة آلاف القيود لكل نداء
+  app.get('/api/ledger-chain/verify', chainVerifyRateLimiter, async (req: Request, res: Response) => {
     // سلسلة السجل الرسمي = القيود المخزّنة (ذات التجزئة). القيود غير المخزّنة تُبلَّغ منفصلة.
     const durableEntries = erpStore.journalEntries.filter((e) => Boolean(e.currentHash));
     const nonDurableCount = erpStore.journalEntries.length - durableEntries.length;
@@ -1956,7 +1965,8 @@ async function startServer() {
     res.json(erpStore.assets);
   });
 
-  app.get('/api/audit-logs', async (req: Request, res: Response) => {
+  // حد معدل صريح: قراءة سجل التدقيق كاملاً + المسار الحسّاس للتدقيق
+  app.get('/api/audit-logs', auditReadRateLimiter, async (req: Request, res: Response) => {
     // البيانات المالية/الأمنية للسجل: صلاحية تدقيق مستقلة (P0-3)
     const auditViewer = requirePermission(req, res, 'audit:read');
     if (!auditViewer) return;
@@ -1998,7 +2008,8 @@ async function startServer() {
    * يُعاد حساب تجزئة كل حدث من حقوله ومن تجزئة الحدث السابق؛ أي تعديل أو حذف أو
    * إعادة ترتيب يظهر في `brokenCount` مع أول موضع مكسور.
    */
-  app.get('/api/audit-logs/verify', async (req: Request, res: Response) => {
+  // حد معدل صريح: إعادة حساب سلسلة التدقيق بالكامل
+  app.get('/api/audit-logs/verify', auditReadRateLimiter, async (req: Request, res: Response) => {
     const user = requirePermission(req, res, 'audit:read');
     if (!user) return;
 
