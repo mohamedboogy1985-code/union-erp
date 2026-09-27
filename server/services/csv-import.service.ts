@@ -477,7 +477,7 @@ export class CsvImportService {
     const admin = erpStore.users[0];
 
     try {
-      const chartPath = this.findDataFile(/دليل_الحسابات|chart/i);
+      const chartPath = this.findUnifiedChartFile();
       if (chartPath) {
         const csv = fs.readFileSync(chartPath, 'utf-8');
         const chartSummary = this.applyUnifiedChartOfAccounts(csv, admin);
@@ -542,6 +542,33 @@ export class CsvImportService {
     } catch {
       return null;
     }
+  }
+
+  /**
+   * اختيار ملف «الدليل الموحد» الصحيح عند وجود أكثر من ملف مطابق للنمط.
+   * fix(data): ملفات التدريب (مثل تدريب_دليل_الحسابات_2024.csv) تطابق النمط نفسه
+   * لكنها بأعمدة مختلفة (الكود/الكود الأب) فتُنتج 0 حساباً بعد مسح المتجر التجريبي،
+   * وينهار تبعاً لها استيراد القيود (لا حسابات للمطابقة بالاسم).
+   * الأولوية: ملف يحوي عمود «الكود الجديد» فعلياً ← ثم الاسم (موحد/نهائي) ← ثم أول مطابق.
+   */
+  private findUnifiedChartFile(): string | null {
+    const candidates = this.findAllDataFiles(/دليل_الحسابات|chart/i);
+    if (candidates.length === 0) return null;
+    if (candidates.length === 1) return candidates[0];
+
+    const hasNewCodeColumn = (file: string): boolean => {
+      try {
+        const rows = parseCsvToObjects(fs.readFileSync(file, 'utf-8'));
+        const wanted = normalizeArabicText('الكود الجديد');
+        return rows.some((row) => Object.keys(row).some((h) => normalizeArabicText(h) === wanted));
+      } catch {
+        return false;
+      }
+    };
+
+    const withExpectedSchema = candidates.filter(hasNewCodeColumn);
+    const pool = withExpectedSchema.length > 0 ? withExpectedSchema : candidates;
+    return pool.find((f) => /موحد|نهائي|unified|final/i.test(path.basename(f))) || pool[0];
   }
 
   private findAllDataFiles(pattern: RegExp): string[] {
