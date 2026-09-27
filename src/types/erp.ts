@@ -680,11 +680,19 @@ export interface PredictiveAnalyticsResult {
 }
 
 export interface VoiceParsedTransaction {
-  intent: 'RECEIPT' | 'JOURNAL_ENTRY';
+  /**
+   * UNPARSEABLE: لم يتمكن الخادم من استخلاص عملية صالحة من الإملاء — لا تُعرض مسودة
+   * ولا يُنفَّذ أي شيء (P0-1 في docs/AI_AGENT_AUDIT.md: لا مبالغ ولا أطراف مختلَقة).
+   */
+  intent: 'RECEIPT' | 'JOURNAL_ENTRY' | 'UNPARSEABLE';
   confidence: number;
   rawSpeech: string;
   structuredData: any;
   summary: string;
+  /** مصدر النتيجة: نموذج متصل، قواعد حتمية محلية، أو تعذّر الإنتاج */
+  provenance?: 'MODEL' | 'DETERMINISTIC' | 'UNAVAILABLE';
+  /** سطور أسقطها الخادم لأن حساباتها غير موجودة في الدليل النشط */
+  unresolved?: { line: number; accountCode: string; reason: string }[];
 }
 
 // ----------------------------------------------------

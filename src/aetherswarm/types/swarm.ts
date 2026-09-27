@@ -92,7 +92,9 @@ export interface AuditLogEntry {
   agentName: string;
   tool: string;
   riskLevel: RiskLevel;
-  status: 'SUCCESS' | 'BLOCKED' | 'FLAGGED' | 'VERIFIED';
+  // P0-1: 'SIMULATED'/'UNVERIFIED' تُضاف لأن النتيجة لم تمرّ بتنفيذ أو تحقق فعلي
+  status: 'SUCCESS' | 'BLOCKED' | 'FLAGGED' | 'VERIFIED' | 'SIMULATED' | 'UNVERIFIED';
+  simulated?: boolean;
   details: string;
   confidence: number;
 }

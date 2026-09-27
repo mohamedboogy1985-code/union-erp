@@ -31,6 +31,32 @@ export const AI_PRIMARY_MODEL = AI_MODELS[0];
 export const AI_REQUEST_TIMEOUT_MS = Number(process.env.AI_REQUEST_TIMEOUT_MS || 25000);
 export const MAX_OCR_IMAGE_BYTES = Number(process.env.MAX_OCR_IMAGE_BYTES || 8 * 1024 * 1024);
 
+/**
+ * ===== P0-1 (docs/AI_AGENT_AUDIT.md): مصدر كل مخرج من مخرجات الذكاء الاصطناعي =====
+ * حقل إلزامي في كل استجابة حتى تستطيع الواجهة (والمراجع) التمييز بين:
+ * - MODEL:         صاغه نموذج ذكاء اصطناعي متصل فعلياً
+ * - DETERMINISTIC: حسبه الخادم بقواعد حتمية من البيانات الحية (بلا نموذج)
+ * - UNAVAILABLE:   تعذّر الإنتاج — لا توجد بيانات مقترحة إطلاقاً
+ * لا يُسمح لأي مسار بإعادة أرقام أو أسماء "نموذجية" مختلَقة بدل إعلان التعذّر.
+ */
+export type AIProvenance = 'MODEL' | 'DETERMINISTIC' | 'UNAVAILABLE';
+
+/** نتيجة استخراج مستند (OCR/فاتورة) — البنية الوحيدة المسموح بها لمسار الاقتراح */
+export interface AiExtractionResult {
+  status: 'SUGGESTED' | 'AI_UNAVAILABLE';
+  provenance: AIProvenance;
+  documentInfo: Record<string, unknown> | null;
+  description: string;
+  lines: any[];
+  totalDebit?: number;
+  totalCredit?: number;
+  balanced?: boolean;
+  /** سطور أسقطها الخادم لأن حسابها غير موجود في الدليل النشط (بدل ربطها بحساب اعتباطي) */
+  unresolved?: { line: number; accountCode: string; reason: string }[];
+  validationErrors?: string[];
+  error?: string;
+}
+
 let aiClient: GoogleGenAI | null = null;
 
 /**
@@ -191,70 +217,68 @@ export class AIService {
   /**
    * Financial Copilot: Answers questions, suggests journal entries, analyzes debtors (1301) and cash flow
    */
-  public async queryFinancialAssistant(prompt: string, contextOrgId?: string): Promise<{ answer: string; suggestedAction?: any }> {
+  public async queryFinancialAssistant(
+    prompt: string,
+    contextOrgId?: string
+  ): Promise<{ answer: string; suggestedAction?: any; provenance: AIProvenance }> {
     const ai = getAIClient();
 
-    // Prepare current ERP context (cached 30s)
+    // سياق النظام الحيّ (كاش 30 ثانية) — للأرقام المحسوبة محلياً فقط.
+    // P0-1/P2: حُذف `systemSummary` السابق لأنه كان كوداً ميتاً يضمّ أسماء المدينين وأرصدتهم
+    // وأسماء دافعي الإيصالات في نص مُعدّ للإرسال إلى نموذج خارجي (خطر خصوصية كامن).
     const ctx = getAIContext(contextOrgId);
-    const tb = ctx.trialBalance;
     const ie = ctx.incomeExpense;
     const debtors = ctx.debtors;
-    const availableAccounts = ctx.availableAccounts;
-    const latestReceipts = ctx.latestReceipts;
-    const pendingEntries = ctx.pendingEntries;
-    const accountsListStr = ctx.accountsListStr;
-
-    const systemSummary = `
-أنت المساعد المالي والمحاسبي الذكي وروبوت الرد التلقائي لنظام "Union Financial ERP" للنقابة العامة واللجان المهنية ولجان الشركات.
-أنت خبير محاسبي قانوني ومصمم نظم ERP متطورة.
-
-بيانات النظام الحالية المباشرة:
-- إجمالي الإيرادات: ${(ie?.totalRevenues ?? 0).toLocaleString()} ج.م
-- إجمالي المصروفات: ${(ie?.totalExpenses ?? 0).toLocaleString()} ج.م
-- صافي الفائض/العجز: ${(ie?.netSurplusOrDeficit ?? 0).toLocaleString()} ج.م
-- إجمالي رصيد المدينين المتنوعين (حساب 1301): ${(debtors.reduce((s, d) => s + (d.currentBalance || 0), 0)).toLocaleString()} ج.م
-- قائمة المدينين الحاليين بحساب 1301: ${debtors.map((d) => `${d.name} (${(d.currentBalance ?? 0).toLocaleString()} ج.م)`).join('، ')}
-- آخر الإيصالات: ${latestReceipts.map((r) => `${r.receiptNumber} بتاريخ ${r.date} بقيمة ${r.amount.toLocaleString()} ج.م من ${r.payerName}`).join('؛ ') || 'لا يوجد'}
-- القيود بانتظار الاعتماد: ${pendingEntries.count} قيداً بإجمالي ${pendingEntries.totalValue.toLocaleString()} ج.م
-
-دليل الحسابات الفعلي النشط في النظام:
-${accountsListStr}
-
-قواعد صارمة وإرشادات الرد التلقائي:
-1. قدم تحليلات محاسبية دقيقة ومباشرة ومهنية باللغة العربية مع صياغة سهلة الفهم.
-2. إذا طلب المستخدم إنشاء أو اقتراح قيد أو فحص معاملة، حدد الأطراف المدينة والدائنة بدقة من دليل الحسابات أعلاه مع التأكد التام من توازن القيد (المدين = الدائن).
-3. في حال كان الحساب يمثل مديونية أو استحقاق طرف ثالث (كحساب 1301)، حدد اسم الجهة/الطرف المساعد.
-4. اقترح دائماً خطوات عملية قابلة للتنفيذ بنقرة واحدة (مثل: ترحيل القيد، مراجعة رصيد الحساب، إرسال إشعار مطالبة).
-5. التزم التام بمبادئ الحوكمة والرقابة الداخلية وفصل المهام (SoD).
-`;
 
     if (!ai) {
-      // Offline fallback smart response if API key is not yet set
+      // ===== P0-1: لا تصنيع بيانات عند غياب المحرك =====
+      // كل الأرقام أدناه محسوبة من السجلات الفعلية؛ لا أسماء مختلَقة («شركة الأمل») ولا
+      // إقرارات امتثال لم يُتحقق منها («جميع القيود مرحلة ومتوازنة وتتوافق مع المعايير»).
       const lower = prompt.toLowerCase();
-      if (lower.includes('مدين') || lower.includes('1301') || lower.includes('امل') || lower.includes('أحمد')) {
+      const asksAboutDebtors = /مدين|مديون|ديون|1301/.test(lower);
+      const debtorsTotal = debtors.reduce((s, d) => s + (d.currentBalance || 0), 0);
+      const debtorsAccount = findDebtorsAccount();
+      const debtorsLabel = debtorsAccount
+        ? `حساب [${debtorsAccount.code} - ${debtorsAccount.name}]`
+        : 'حساب المدينين المتنوعين';
+
+      if (asksAboutDebtors) {
         const topDebtor = debtors[0];
-        const topDebtorBalance = topDebtor ? (topDebtor.currentBalance ?? 0).toLocaleString() : '0';
         return {
-          answer: `بناءً على سجلات الأستاذ المساعد لحساب 1301 (مدينون متنوعون):\n- إجمالي المديونيات القائمة: ${(debtors.reduce((s, d) => s + (d.currentBalance || 0), 0)).toLocaleString()} ج.م.\n- أكبر مدين: ${topDebtor?.name || 'شركة الأمل'} برصيد ${topDebtorBalance} ج.م.\n- جميع الحركات مسجلة بكشوف حساب تفصيلية مع احتساب الرصيد المتراكم آلياً.`,
+          provenance: 'DETERMINISTIC',
+          answer: topDebtor
+            ? `من سجلات الأستاذ المساعد لـ${debtorsLabel} — محسوب محلياً (محرك الذكاء الاصطناعي غير مفعّل):\n` +
+              `- إجمالي المديونيات القائمة: ${debtorsTotal.toLocaleString()} ج.م عبر ${debtors.length} طرفاً.\n` +
+              `- أكبر مدين: ${topDebtor.name} برصيد ${(topDebtor.currentBalance ?? 0).toLocaleString()} ج.م.`
+            : `من سجلات الأستاذ المساعد لـ${debtorsLabel}: لا توجد أرصدة مدينين مسجلة حالياً (النتيجة محسوبة محلياً والمحرك غير مفعّل).`,
         };
       }
+
       return {
-        answer: `تحليل مالي آلي ملخص:\n- إجمالي الإيرادات المسجلة: ${(ie?.totalRevenues ?? 0).toLocaleString()} ج.م\n- إجمالي المصروفات: ${(ie?.totalExpenses ?? 0).toLocaleString()} ج.م\n- صافي الفائض المحقق: ${(ie?.netSurplusOrDeficit ?? 0).toLocaleString()} ج.م\n- جميع القيود مرحلة ومتوازنة وتتوافق مع معايير المحاسبة المصرية والدولية.`,
+        provenance: 'DETERMINISTIC',
+        answer:
+          `ملخص محسوب محلياً من القيود المرحّلة (محرك الذكاء الاصطناعي غير مفعّل — لا يوجد GEMINI_API_KEY):\n` +
+          `- إجمالي الإيرادات: ${(ie?.totalRevenues ?? 0).toLocaleString()} ج.م\n` +
+          `- إجمالي المصروفات: ${(ie?.totalExpenses ?? 0).toLocaleString()} ج.م\n` +
+          `- صافي الفائض/العجز: ${(ie?.netSurplusOrDeficit ?? 0).toLocaleString()} ج.م\n` +
+          `هذه قيم محسوبة آلياً وليست تحليلاً من نموذج ذكاء اصطناعي، ولا تتضمن أي إقرار بالامتثال للمعايير المحاسبية.`,
       };
     }
 
     try {
       const result = await this.globalAssistantChat(prompt, contextOrgId, undefined, 'general');
       return {
-        answer: result.answer || 'تم معالجة الطلب المالي بنجاح.',
+        provenance: result.provenance || 'MODEL',
+        answer: result.answer || 'لم يُنتج المحرك ردّاً لهذا الطلب؛ أعد صياغته أو نفّذ العملية من شاشتها.',
         suggestedAction: result.proposedEntry
-          ? { type: 'PROPOSED_ENTRY', entry: result.proposedEntry }
+          ? { type: 'PROPOSED_ENTRY', entry: result.proposedEntry, provenance: result.provenance }
           : undefined,
       };
     } catch (err: any) {
       console.error('Gemini API query error:', err);
       return {
-        answer: `تعذر الاتصال بـ Gemini API: ${err.message || 'خطأ غير معروف'}. يرجى التحقق من مفتاح GEMINI_API_KEY.`,
+        provenance: 'UNAVAILABLE',
+        answer: `تعذر الاتصال بـ Gemini API: ${err.message || 'خطأ غير معروف'}. تحقق من مفتاح GEMINI_API_KEY — لم تُحتسب أي نتيجة بديلة.`,
       };
     }
   }
@@ -262,71 +286,36 @@ ${accountsListStr}
   /**
    * Suggest Journal Entry from Invoice OCR, Image or Natural Text
    */
-  public async parseSlipAndSuggestJournal(rawText?: string, imageBase64?: string, mimeType?: string): Promise<any> {
+  public async parseSlipAndSuggestJournal(
+    rawText?: string,
+    imageBase64?: string,
+    mimeType?: string
+  ): Promise<AiExtractionResult> {
     const ai = getAIClient();
 
-    // Fallback template if Gemini is unavailable
-    const findAccount = (codeOrName: string, defaultCode: string) => {
-      const acc = erpStore.accounts.find((a) => a.code === codeOrName || a.name.includes(codeOrName)) ||
-                  erpStore.accounts.find((a) => a.code === defaultCode) ||
-                  (defaultCode === '5101' ? findExpenseAccount() : defaultCode === '1101' || defaultCode === '1301' ? findTreasuryAccount() : undefined) ||
-                  erpStore.accounts[0];
-      return acc;
-    };
-
-    const buildFallback = (textSample: string) => {
-      const expAcc = findAccount('5101', '5101');
-      const vatAcc = findAccount('1302', '1302');
-      const debAcc = findAccount('1301', '1301');
-
-      return {
-        documentInfo: {
-          invoiceNumber: 'INV-2026-9041',
-          date: new Date().toISOString().split('T')[0],
-          vendorName: 'شركة الأمل للمقاولات والتوريدات',
-          taxNumber: '102-394-881',
-          subtotal: 45000,
-          taxAmount: 6300,
-          totalAmount: 51300,
-        },
-        description: `قيد استحقاق فاتورة توريدات ومستلزمات مكتبية (${textSample.slice(0, 35)}...)`,
-        lines: [
-          {
-            accountId: expAcc.id,
-            accountCode: expAcc.code,
-            accountName: expAcc.name,
-            partyName: '',
-            debit: 45000,
-            credit: 0,
-            description: 'قيمة المستلزمات المكتبية والتوريدات',
-          },
-          {
-            accountId: vatAcc.id,
-            accountCode: vatAcc.code,
-            accountName: vatAcc.name,
-            partyName: '',
-            debit: 6300,
-            credit: 0,
-            description: 'ضريبة القيمة المضافة 14%',
-          },
-          {
-            accountId: debAcc.id,
-            accountCode: debAcc.code,
-            accountName: debAcc.name,
-            partyName: 'شركة الأمل للمقاولات والتوريدات',
-            debit: 0,
-            credit: 51300,
-            description: 'استحقاق الفاتورة للجهة الموردة (حساب 1301)',
-          },
-        ],
-      };
-    };
+    /**
+     * P0-1 (docs/AI_AGENT_AUDIT.md): تعذّر القراءة = إعلان صريح، لا فاتورة مختلَقة.
+     * المسار الاحتياطي السابق كان يخترع رقم فاتورة (INV-2026-9041) ورقماً ضريبياً (102-394-881)
+     * ومورداً («شركة الأمل للمقاولات والتوريدات») ومبالغ (45,000 + 6,300 = 51,300 ج.م)، ثم يبني
+     * منها قيداً "متوازناً" يُعرض للمستخدم للتأكيد كأنه استخراج حقيقي من مستنده.
+     */
+    const extractionUnavailable = (reason: string): AiExtractionResult => ({
+      status: 'AI_UNAVAILABLE',
+      provenance: 'UNAVAILABLE',
+      documentInfo: null,
+      description: '',
+      lines: [],
+      unresolved: [],
+      error:
+        `تعذّر استخراج بيانات المستند: ${reason}. ` +
+        'أدخل القيد يدوياً من شاشة اليومية، أو اضبط GEMINI_API_KEY على الخادم لتفعيل القراءة الآلية. لم تُقترح أي أرقام بديلة.',
+    });
 
     const availableAccounts = erpStore.accounts.filter((a) => !a.isParent && a.isActive);
     const accountsListStr = availableAccounts.map((a) => `[كود: ${a.code} | اسم: ${a.name} | معرف: ${a.id} | أستاذ مساعد: ${a.requiresSubledger ? 'نعم (1301)' : 'لا'}]`).join('\n');
 
     if (!ai) {
-      return buildFallback(rawText || 'مستند مالي');
+      return extractionUnavailable('محرك الذكاء الاصطناعي غير مفعّل (لا يوجد GEMINI_API_KEY)');
     }
 
     try {
@@ -417,26 +406,81 @@ ${accountsListStr}
       });
 
       const parsed = parseGeminiJsonResponse(response);
-      if (parsed?.lines && Array.isArray(parsed.lines)) {
-        parsed.lines = parsed.lines.map((line: any) => {
-          const matchedAcc = erpStore.getAccountByCode(String(line.accountCode)) ||
-                             erpStore.getAccountById(String(line.accountId)) ||
-                             erpStore.accounts.find((a) => a.name.includes(line.accountName)) ||
-                             erpStore.accounts[0];
-          return {
-            ...line,
-            accountId: matchedAcc.id,
-            accountCode: matchedAcc.code,
-            accountName: matchedAcc.name,
-            partyName: line.partyName || (matchedAcc.requiresSubledger ? (parsed.documentInfo?.vendorName || '') : ''),
-          };
-        });
-        return parsed;
+      if (parsed?.lines && Array.isArray(parsed.lines) && parsed.lines.length > 0) {
+        // P0-1: لا ربط اعتباطي بحساب. أي سطر لا يُحلّ حسابه من الدليل النشط يُسقط ويُبَلَّغ عنه،
+        // بدل `erpStore.accounts[0]` السابق الذي كان يربط المبلغ بأول حساب في الدليل
+        // (وهو قسم تجميعي في الدليل الموحّد) فيُنتج ترحيلاً خاطئاً أو رفضاً غامضاً.
+        const unresolved: NonNullable<AiExtractionResult['unresolved']> = [];
+        const debtorsAccount = findDebtorsAccount();
+        const lines = (parsed.lines as any[])
+          .map((line: any, idx: number) => {
+            const code = String(line.accountCode ?? '').trim();
+            const name = String(line.accountName ?? '').trim();
+            const matchedAcc =
+              (code ? erpStore.getAccountByCode(code) : undefined) ||
+              (line.accountId ? erpStore.getAccountById(String(line.accountId)) : undefined) ||
+              (name
+                ? erpStore.accounts.find(
+                    (a) => !a.isParent && a.isActive && normalizeArabicText(a.name) === normalizeArabicText(name)
+                  )
+                : undefined);
+            if (!matchedAcc) {
+              unresolved.push({
+                line: idx + 1,
+                accountCode: code || name || '(فارغ)',
+                reason: 'الحساب غير موجود في دليل الحسابات النشط — لم يُربط بأي حساب بديل',
+              });
+              return null;
+            }
+            const requiresParty = Boolean(matchedAcc.requiresSubledger) || matchedAcc.id === debtorsAccount?.id;
+            const debit = Number(line.debit) || 0;
+            const credit = Number(line.credit) || 0;
+            return {
+              ...line,
+              accountId: matchedAcc.id,
+              accountCode: matchedAcc.code,
+              accountName: matchedAcc.name,
+              debit,
+              credit,
+              partyName: String(line.partyName || (requiresParty ? parsed.documentInfo?.vendorName || '' : '') || ''),
+            };
+          })
+          .filter(Boolean) as any[];
+
+        if (lines.length < 2) {
+          return extractionUnavailable(
+            `أعاد النموذج ${parsed.lines.length} سطراً لم يُحلّ أيٌّ منها إلى حسابات نشطة صالحة`
+          );
+        }
+
+        // المجاميع والتوازن تُحسب خادمياً دائماً — لا تُصدَّق حسابات النموذج
+        const totalDebit = Math.round(lines.reduce((s, l) => s + (l.debit || 0), 0) * 100) / 100;
+        const totalCredit = Math.round(lines.reduce((s, l) => s + (l.credit || 0), 0) * 100) / 100;
+        const validationErrors: string[] = [];
+        if (Math.abs(totalDebit - totalCredit) > 0.001) {
+          validationErrors.push(`القيد غير متوازن: المدين ${totalDebit} مقابل الدائن ${totalCredit}.`);
+        }
+        if (unresolved.length > 0) {
+          validationErrors.push(`أُسقطت ${unresolved.length} سطوراً لأن حساباتها غير موجودة في الدليل النشط.`);
+        }
+
+        return {
+          status: 'SUGGESTED',
+          provenance: 'MODEL',
+          documentInfo: parsed.documentInfo ?? null,
+          description: String(parsed.description || ''),
+          lines,
+          totalDebit,
+          totalCredit,
+          balanced: Math.abs(totalDebit - totalCredit) <= 0.001 && unresolved.length === 0,
+          unresolved,
+          validationErrors,
+        };
       }
-      return buildFallback(rawText || 'مستند مالي');
+      return extractionUnavailable('لم يُعد النموذج سطوراً صالحة للقيد');
     } catch (err: any) {
       console.error('Gemini OCR / Journal suggestion error:', err);
-      return buildFallback(rawText || 'مستند مالي');
+      return extractionUnavailable(err?.message || 'خطأ غير معروف أثناء القراءة الآلية');
     }
   }
 
@@ -636,6 +680,7 @@ ${accountsListStr}
       if (isReceipt && balanced) {
         return {
           intent: 'RECEIPT',
+          provenance: 'DETERMINISTIC',
           confidence: intention.confidence,
           rawSpeech: speech,
           structuredData: {
@@ -652,6 +697,7 @@ ${accountsListStr}
       if (balanced) {
         return {
           intent: 'JOURNAL_ENTRY',
+          provenance: 'DETERMINISTIC',
           confidence: intention.confidence,
           rawSpeech: speech,
           structuredData: {
@@ -670,23 +716,18 @@ ${accountsListStr}
         };
       }
 
-      // مسار احتياطي نهائي عندما يفشل استخراج المبلغ
-      const numbers = speech.match(/\d+/g);
-      const amount = numbers ? parseInt(numbers[0], 10) : 500;
-      const cashAcc = erpStore.accounts.find((a) => a.code === '1101') || findTreasuryAccount() || erpStore.accounts[0];
-      const expAcc = erpStore.accounts.find((a) => a.code === '5101') || findExpenseAccount() || erpStore.accounts[0];
+      // ===== P0-1: لا مبلغ مختلَق عند فشل الاستخلاص =====
+      // المسار السابق كان يخترع مبلغاً (500 ج.م) ويربطه بأول حساب في الدليل
+      // (`erpStore.accounts[0]` = قسم تجميعي في الدليل الموحّد) ثم يعرضه كمسودة قابلة للتنفيذ.
       return {
-        intent: 'JOURNAL_ENTRY',
-        confidence: 0.6,
+        intent: 'UNPARSEABLE',
+        confidence: 0,
         rawSpeech: speech,
-        structuredData: {
-          description: `قيد مسجل بالإملاء الصوتي: ${speech}`,
-          lines: [
-            { accountId: expAcc.id, accountCode: expAcc.code, accountName: expAcc.name, debit: amount, credit: 0, description: speech },
-            { accountId: cashAcc.id, accountCode: cashAcc.code, accountName: cashAcc.name, debit: 0, credit: amount, description: 'صرف من الخزينة' },
-          ],
-        },
-        summary: `قيد صرف بمبلغ ${amount.toLocaleString()} ج.م من الخزينة لحساب المصروفات (لم يُميز المبلغ صوتياً بدقة)`,
+        structuredData: null,
+        provenance: 'UNAVAILABLE',
+        summary:
+          'لم أستطع استخلاص مبلغ أو عملية محاسبية واضحة من الإملاء. أعد الصياغة ذاكراً المبلغ والجهة والغرض ' +
+          '(مثال: «صرف 1500 جنيه صيانة من بنك مصر») — لم تُنشأ أي مسودة.',
       };
     };
 
@@ -765,26 +806,52 @@ ${accountsListStr}
       const parsed = parseGeminiJsonResponse(response);
       if (!parsed) return fallbackParser(spokenText);
       const struct = parsed.structuredData || {};
+      const unresolved: NonNullable<VoiceParsedTransaction['unresolved']> = [];
       if (struct.lines && Array.isArray(struct.lines)) {
-        struct.lines = struct.lines.map((line: any) => {
-          const matchedAcc = erpStore.getAccountByCode(String(line.accountCode)) ||
-                             erpStore.getAccountById(String(line.accountId)) ||
-                             erpStore.accounts.find((a) => a.name.includes(line.accountName)) ||
-                             erpStore.accounts[0];
-          return {
-            ...line,
-            accountId: matchedAcc.id,
-            accountCode: matchedAcc.code,
-            accountName: matchedAcc.name,
-          };
-        });
+        // P0-1: كل سطر يجب أن يُحلّ إلى حساب فعلي في الدليل النشط؛ غير ذلك يُسقط ويُبلَّغ عنه
+        // (بدل `erpStore.accounts[0]` الذي كان يربط المبلغ بأول حساب ولو كان قسماً تجميعياً).
+        struct.lines = (struct.lines as any[])
+          .map((line: any, idx: number) => {
+            const code = String(line.accountCode ?? '').trim();
+            const name = String(line.accountName ?? '').trim();
+            const matchedAcc =
+              (code ? erpStore.getAccountByCode(code) : undefined) ||
+              (line.accountId ? erpStore.getAccountById(String(line.accountId)) : undefined) ||
+              (name
+                ? erpStore.accounts.find(
+                    (a) => !a.isParent && a.isActive && normalizeArabicText(a.name) === normalizeArabicText(name)
+                  )
+                : undefined);
+            if (!matchedAcc) {
+              unresolved.push({
+                line: idx + 1,
+                accountCode: code || name || '(فارغ)',
+                reason: 'الحساب غير موجود في دليل الحسابات النشط',
+              });
+              return null;
+            }
+            return {
+              ...line,
+              accountId: matchedAcc.id,
+              accountCode: matchedAcc.code,
+              accountName: matchedAcc.name,
+              debit: Number(line.debit) || 0,
+              credit: Number(line.credit) || 0,
+            };
+          })
+          .filter(Boolean);
+        if (struct.lines.length < 2) return fallbackParser(spokenText);
       }
 
+      // لا ثقة مختلَقة: القيمة المعلنة من النموذج فقط، ومقيّدة بسقف محافظ عند غيابها
+      const modelConfidence = Number(parsed.confidence);
       return {
-        intent: parsed.intent || 'RECEIPT',
-        confidence: parsed.confidence || 0.92,
+        intent: parsed.intent === 'JOURNAL_ENTRY' ? 'JOURNAL_ENTRY' : 'RECEIPT',
+        confidence: Number.isFinite(modelConfidence) ? Math.min(0.95, Math.max(0, modelConfidence)) : 0.5,
         rawSpeech: spokenText,
         structuredData: struct,
+        provenance: 'MODEL',
+        unresolved: unresolved.length ? unresolved : undefined,
         summary: parsed.summary || spokenText,
       };
     } catch (err) {
@@ -1019,7 +1086,17 @@ ${accountsListStr}
     contextOrgId?: string,
     history?: { role: 'user' | 'model'; text: string }[],
     mode: 'global' | 'accounting' | 'general' = 'global'
-  ): Promise<{ answer: string; proposedEntry?: any; postedEntry?: any; actionIntent?: any; confidence?: number; sources?: any[] }> {
+  ): Promise<{
+    answer: string;
+    proposedEntry?: any;
+    postedEntry?: any;
+    actionIntent?: any;
+    confidence?: number;
+    sources?: any[];
+    /** P0-1: مصدر النتيجة — MODEL (نموذج متصل) / DETERMINISTIC (قواعد محلية) / UNAVAILABLE (تعذّر) */
+    provenance: AIProvenance;
+    draftToken?: string;
+  }> {
     const ai = getAIClient();
 
     const ctx = getAIContext(contextOrgId);
@@ -1212,14 +1289,17 @@ ${accountsListStr || 'لا توجد حسابات نشطة حالياً.'}
 
     // موقّت لتخزين المسودة أثناء دورة الاستدعاء
     let pendingDraft: any = null;
+    // P0-1: من أين جاءت المسودة؟ (نموذج vs باني حتمي محلي) — يُعلن للمستخدم وللواجهة
+    let draftProvenance: AIProvenance = 'MODEL';
     // نوع/معطيات أمر تنفيذ يُطلق عبر run_app_action / run_app_report
     let actionIntent: { kind: 'action' | 'report'; actionId: string; args: any } | null = null;
 
     if (!ai) {
       const isEntry = /قيد|ترحيل|تسجيل|صرف|قبض|إيداع|سند|مصروف/.test(message);
       return {
+        provenance: 'UNAVAILABLE',
         answer: isEntry
-          ? 'يمكن للمساعد العالمي صياغة وترحيل القيود عبر Gemini، لكنه غير متصل الآن لعدم ضبط GEMINI_API_KEY. أنشئ القيد يدوياً من وحدة المحاسبة.'
+          ? 'يمكن للمساعد العالمي صياغة وترحيل القيود عبر Gemini، لكنه غير متصل الآن لعدم ضبط GEMINI_API_KEY. أنشئ القيد يدوياً من وحدة المحاسبة — لم تُقترح أي مسودة.'
           : 'مساعد الذكاء الاصطناعي (Gemini) غير متصل حالياً لعدم ضبط GEMINI_API_KEY.',
       };
     }
@@ -1489,6 +1569,7 @@ ${accountsListStr || 'لا توجد حسابات نشطة حالياً.'}
         const built = buildDefaultDraft(message);
         if (built) {
           pendingDraft = built;
+          draftProvenance = 'DETERMINISTIC';
           finalText = quotaIssue
             ? 'استُهلكت حصة محرك Gemini المجانية الآن، فجهّزت القيد محلياً (افتراض ذكي). راجع البيانات ثم اضغط "تأكيد وترحيل" لترسيخها في الدفاتر مع سجل تدقيق.'
             : 'تم إعداد مسودة القيد أدناه (افتراض ذكي حدّده النظام تلقائياً). راجعها ثم اضغط "تأكيد وترحيل" لترسيخها في الدفاتر مع سجل تدقيق.';
@@ -1498,6 +1579,7 @@ ${accountsListStr || 'لا توجد حسابات نشطة حالياً.'}
       // إن وصلنا هنا دون نص بعد كل المحاولات، نفشل برسالة ودّية واضحة (ما لم نكن قد جهّزنا قيداً محلياً)
       if (!finalText) {
         return {
+          provenance: 'UNAVAILABLE',
           answer: quotaIssue
             ? 'استُهلكت حصة محرك Gemini المجانية (429) وتعذّر صياغة هذه المساعدة محلياً. حاول مرة أخرى بعد بضع دقائق.'
             : 'محرك Gemini مشغول مؤقتاً أو تعذّر الوصول إليه (الموديلات المتاحة: gemini-3.7-flash و gemini-3.6-flash). حاول مرة أخرى بعد لحظات.',
@@ -1519,6 +1601,7 @@ ${accountsListStr || 'لا توجد حسابات نشطة حالياً.'}
         answer: (finalText || 'تمت المعالجة.') + validationNotice,
         proposedEntry: validatedDraft || undefined,
         actionIntent: actionIntent || undefined,
+        provenance: validatedDraft ? draftProvenance : 'MODEL',
         confidence: validatedDraft ? (validatedDraft.validationErrors?.length ? 0.55 : 0.9) : 0.85,
         sources: validatedDraft?.validationErrors?.length
           ? [{ type: 'VALIDATION', reference: 'قواعد القيد المتوازن', excerpt: 'تحقق آلي من الأكواد والتوازن والأستاذ المساعد' }]
@@ -1527,7 +1610,8 @@ ${accountsListStr || 'لا توجد حسابات نشطة حالياً.'}
     } catch (err: any) {
       console.error('Global AI assistant error:', err);
       return {
-        answer: `تعذر الاتصال بمحرك المساعد الذكي: ${err.message || 'خطأ غير معروف'}.`,
+        provenance: 'UNAVAILABLE',
+        answer: `تعذر الاتصال بمحرك المساعد الذكي: ${err.message || 'خطأ غير معروف'}. لم تُنشأ أي مسودة.`,
       };
     }
   }
