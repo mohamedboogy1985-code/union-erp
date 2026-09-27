@@ -533,43 +533,27 @@ export class CsvImportService {
     return summary;
   }
 
-  /**
-   * ملفات التدريب (البادئة «تدريب_») مخصّصة لبيئة التدريب فقط ولا يجوز
-   * استيرادها ضمن البيانات الحقيقية — تُستبعد قبل مطابقة النمط، وإلا فقد
-   * يطابق مثلاً «تدريب_قيود_اليومية_2024.csv» نمط ملف القيود الحقيقي.
-   */
-  private static readonly TRAINING_FILE_PREFIX = 'تدريب_';
-
-  private isTrainingFile(fileName: string): boolean {
-    return fileName.normalize('NFC').trim().startsWith(CsvImportService.TRAINING_FILE_PREFIX);
-  }
-
-  private listEligibleCsvFiles(pattern: RegExp): { dir: string; files: string[] } | null {
+  private findDataFile(pattern: RegExp): string | null {
     try {
       const dir = fs.statSync(CSV_DATA_DIR).isDirectory() ? CSV_DATA_DIR : path.dirname(CSV_DATA_DIR);
-      const files = fs.readdirSync(dir).filter((f) => {
-        if (!f.toLowerCase().endsWith('.csv')) return false;
-        if (this.isTrainingFile(f)) {
-          console.log(`⏭️ تم تجاهل ملف تدريب: ${f}`);
-          return false;
-        }
-        pattern.lastIndex = 0; // حماية من الأنماط ذات العلم g
-        return pattern.test(f);
-      });
-      return { dir, files };
+      const files = fs.readdirSync(dir);
+      const match = files.find((f) => f.toLowerCase().endsWith('.csv') && pattern.test(f));
+      return match ? path.join(dir, match) : null;
     } catch {
       return null;
     }
   }
 
-  private findDataFile(pattern: RegExp): string | null {
-    const res = this.listEligibleCsvFiles(pattern);
-    return res && res.files.length ? path.join(res.dir, res.files[0]) : null;
-  }
-
   private findAllDataFiles(pattern: RegExp): string[] {
-    const res = this.listEligibleCsvFiles(pattern);
-    return res ? res.files.map((f) => path.join(res.dir, f)) : [];
+    try {
+      const dir = fs.statSync(CSV_DATA_DIR).isDirectory() ? CSV_DATA_DIR : path.dirname(CSV_DATA_DIR);
+      const files = fs.readdirSync(dir);
+      return files
+        .filter((f) => f.toLowerCase().endsWith('.csv') && pattern.test(f))
+        .map((f) => path.join(dir, f));
+    } catch {
+      return [];
+    }
   }
 }
 
