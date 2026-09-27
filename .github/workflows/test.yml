@@ -23,6 +23,9 @@ jobs:
 
       - name: Install Dependencies
         run: npm ci
+        env:
+          # الاختبارات لا تحتاج ثنائيات Electron (تُبنى في workflow منفصل)
+          ELECTRON_SKIP_BINARY_DOWNLOAD: '1'
 
       - name: Voice reply without Gemini key
         run: npm run test:voice-reply
@@ -32,3 +35,6 @@ jobs:
 
       - name: Build Application
         run: npm run build
+
+      - name: Bundle Server + smoke test (same server shipped in the Windows package)
+        run: npm run build:server && node scripts/smoke-server-bundle.mjs

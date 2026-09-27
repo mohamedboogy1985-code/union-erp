@@ -92,8 +92,10 @@ async function startServer() {
 
   // خدمة الأصول الثابتة (صور المستخدمين وأيقونة التطبيق) — بمسارات مرشحة
   // تدعم التطوير وحزمة الإنتاج وتطبيق Electron المُغلَّف
-  const { resolveFirst, moduleDir } = await import('./server/utils/runtime-paths.js');
+  const { resolveFirst, moduleDir, appVersion } = await import('./server/utils/runtime-paths.js');
   const esmDir = moduleDir(import.meta.url);
+  // إصدار التطبيق من package.json (مصدر واحد للحقيقة مع وسوم الإصدار v*)
+  const APP_VERSION = appVersion(import.meta.url);
   const assetsDir =
     resolveFirst([
       path.join(process.cwd(), 'assets'),
@@ -205,7 +207,7 @@ async function startServer() {
     res.json({
       status: 'ok',
       system: 'Union Financial ERP - General Syndicate',
-      version: '1.1.0',
+      version: APP_VERSION,
       timestamp: new Date().toISOString(),
       rbac: {
         activeUser: erpStore.users.find((u) => u.id === ((req.headers['x-user-id'] as string) || 'usr-mohamed-abdallah'))?.fullName || 'محمد عبد الله أحمد',

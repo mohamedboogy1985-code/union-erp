@@ -59,6 +59,12 @@
 - **إعداد محلي بأمر واحد:** `npm run assistant:setup`، أو `npm run assistant:check` للفحص دون عرض الأسرار.
 - [دليل الإعداد والخصوصية والحدود](./docs/OPERATOR_ASSISTANT.md). الخدمات الخارجية معطّلة افتراضياً؛ لا حفظ صوت أو أرشيف محادثات كامل.
 
+### 9️⃣ الإصدارات ونسخة سطح المكتب (Windows)
+- **بناء سحابي تلقائي** عبر GitHub Actions: مثبت NSIS + نسخة محمولة لكل دفعة على `main`، و**GitHub Release** كامل عند دفع وسم `v*`.
+- رقم الإصدار من مصدر واحد (`package.json`) يظهر في `/api/health` وداخل تطبيق Electron.
+- بصمات SHA-256 مرفقة مع كل إصدار للتحقق قبل التوزيع.
+- [دليل الإصدار خطوة بخطوة](./docs/RELEASE.md) · [بناء Electron](./docs/ELECTRON.md)
+
 ## المكدس التكنولوجي
 
 - **Frontend**: TypeScript, React 19, Vite, Tailwind CSS
