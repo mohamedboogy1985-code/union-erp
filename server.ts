@@ -54,6 +54,7 @@ import { can, isReadOnlyUser, ROLE_DEFINITIONS } from './server/security/permiss
 import { assertRuntimeSecurity, isSqlConsoleAllowed, isStrictAuth } from './server/security/runtime-config.js';
 import { installApiGuard } from './server/security/api-guard.js';
 import { withRequestContext } from './server/security/request-context.js';
+import { createSensitiveRateLimiter } from './server/security/sensitive-rate-limit.js';
 import { debtorsAccountId, findAccountByCodeOrName, findExpenseAccount, findRevenueAccount, findTreasuryAccount } from './server/utils/account-lookup.js';
 import type { User } from './src/types/erp.js';
 
@@ -246,12 +247,12 @@ async function startServer() {
     },
   });
 
-  // ===== حدود معدل صريحة للمسارات الحسّاسة (CodeQL js/missing-rate-limiting) =====
-  // الحد العام موجود، لكنه يعفي مدير البرنامج، ومسارات التحقق التالية تُعيد حساب
-  // تجزئات آلاف القيود والأحداث عند كل نداء (سطح إغراق حقيقي)، ولذلك تُقيَّد صراحةً.
-  const healthRateLimiter = createRateLimiter(SENSITIVE_ROUTES_RATE_LIMIT_MAX, 60_000);
-  const chainVerifyRateLimiter = createRateLimiter(SENSITIVE_ROUTES_RATE_LIMIT_MAX, 60_000);
-  const auditReadRateLimiter = createRateLimiter(SENSITIVE_ROUTES_RATE_LIMIT_MAX, 60_000);
+  // ===== حدود معدل صريحة للمسارات الحسّاسة =====
+  // الحد العام يعفي مدير البرنامج، ومسارات التحقق التالية تُعيد حساب تجزئات آلاف
+  // القيود والأحداث عند كل نداء (سطح إغراق حقيقي)، فتُقيَّد صراحةً بمحدِّد قياسي.
+  const healthRateLimiter = createSensitiveRateLimiter();
+  const chainVerifyRateLimiter = createSensitiveRateLimiter();
+  const auditReadRateLimiter = createSensitiveRateLimiter();
 
   registerAIRoutes(app);
   registerAICoreRoutes(app, { requirePermission });
