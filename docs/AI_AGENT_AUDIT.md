@@ -172,9 +172,19 @@ numeric(number mode): [["accgrp-1200",0,"number"]]
 ## 5) أوامر إعادة إنتاج الأدلة
 
 ```bash
-# القراءة بلا توثيق (P0-3)
-curl -s -o /dev/null -w "%{http_code}\n" http://localhost:3000/api/employees    # 200 — 76 موظفاً برواتبهم
-curl -s -o /dev/null -w "%{http_code}\n" http://localhost:3000/api/audit-logs    # 200 — سجل التدقيق كاملاً
+# القراءة بلا توثيق (P0-3) — بعد الإصلاح: 401 لكل ما لم يُقدَّم معه هوية صريحة
+curl -s -o /dev/null -w "%{http_code}\n" http://localhost:3000/api/employees     # 401 AUTH_REQUIRED (كان 200)
+curl -s -o /dev/null -w "%{http_code}\n" http://localhost:3000/api/audit-logs     # 401 AUTH_REQUIRED (كان 200)
+curl -s -o /dev/null -w "%{http_code}\n" http://localhost:3000/api/health          # 200 — نقطة عامة مقصودة
+# الهوية الصريحة (وضع العرض): ترويسة x-user-id لمستخدم قائم — أو توكن JWT في الوضع الصارم
+curl -s -o /dev/null -w "%{http_code}\n" -H "x-user-id: usr-mohamed-abdallah" http://localhost:3000/api/employees  # 200
+# صلاحية التدقيق مستقلة: مدقق داخلي 200، رئيس الحسابات 403، إعادة بناء السلسلة system:admin فقط
+curl -s -o /dev/null -w "%{http_code}\n" -H "x-user-id: usr-auditor" http://localhost:3000/api/audit-logs            # 200
+curl -s -o /dev/null -w "%{http_code}\n" -H "x-user-id: usr-hisham-mostafa" http://localhost:3000/api/audit-logs   # 403
+
+# سلامة السلسلتين بعد إعادة التشغيل (البند الحاكم في P0-3)
+curl -s -H "x-user-id: usr-mohamed-abdallah" http://localhost:3000/api/ledger-chain/verify | jq '{chainValid,tamperedCount,legacyFormatCount,hashVersion,persisted}'
+curl -s -H "x-user-id: usr-mohamed-abdallah" http://localhost:3000/api/audit-logs/verify  | jq '{valid,verifiedCount,legacyFormatCount,hashVersion,source}'
 
 # الأكواد المثبّتة مقابل الدليل الحقيقي (P1-1)
 curl -s http://localhost:3000/api/dashboard/summary | jq .balanceSummary
@@ -203,9 +213,58 @@ grep -n "double precision" server/db/pg-schema.sql | head
 |---|---|---|
 | P0‑1 | منع تصنيع البيانات + `provenance` إلزامي | منفَّذة في هذا الفرع |
 | P0‑2 | إنفاذ التأكيد خادمياً (رمز مسودة موقّع) + SoD حقيقي | منفَّذة في هذا الفرع |
-| P0‑3/4 | دوام التدقيق والسلسلة + إغلاق القراءة + مزامنة المخطط | منفَّذة في هذا الفرع |
+| P0‑3/4 | دوام التدقيق والسلسلة + إغلاق القراءة + مزامنة المخطط | منفَّذة في هذا الفرع (تفصيل التنفيذ والأدلة أدناه) |
 | P1‑1 | الأدوار الدلالية بدل الأكواد المثبّتة | مقترح لاحق |
 | P1‑2 | وكيل المطابقة البنكية + بوابة وكلاء موحّدة | مقترح لاحق |
 | P1‑3 | RAG دلالي (pgvector) | مقترح لاحق |
+
+### 6.1 تفصيل تنفيذ P0‑3 / P0‑4 (ما نُفِّذ فعلاً وما أُثبت)
+
+**إغلاق القراءة غير الموثّقة (P0‑3/2):** حارس شامل على `/api` بمنطق «المنع افتراضاً»
+(`server/security/api-guard.ts`) — كل نقطة بعده تتطلب هوية صريحة (توكن JWT، أو ترويسة
+`x-user-id` لمستخدم **قائم ومفعّل** في وضع العرض)، وقائمة السماح العامة محصورة في:
+`/api/health`، `/api/auth/login`(+`/2fa`)، `/api/operator-assistant/status`،
+`/api/verify-receipt/:token`. أُلغي المستخدم الافتراضي الصامت في `getActiveUser`
+(كان يسقط إلى المدير عند غياب الترويسة)، وكل رفض يُسجَّل `AUTH_REQUIRED` بحالة `BLOCKED`
+مع عنوان IP ومعرّف ارتباط حقيقيين، ويُعدّ الطلبات المرفوضة في `/api/health`.
+الصلاحيات: `audit:read` لسجل التدقيق وفحص السلسلة (المدقق الداخلي يملكها)، و`system:admin`
+لإعادة بناء سلسلة الأستاذ بدل `journal:post`.
+
+**دوام سجل التدقيق:** `recordAudit` → طابور كتابة واحد إلى `audit_logs` (بدل مسارَي
+المساعد وJules فقط)، مع `sequence` أحادي وفهرس فريد `audit_logs_sequence_unique`،
+واستعادة طرف السلسلة من القاعدة عند الإقلاع (`loadAuditChainState`) بدل بدء سلسلة جديدة،
+وتعبئة أحداث ما قبل تهيئة القاعدة مرة واحدة (`backfillAuditLogs`) وختم لاحق لأحداث
+قاعدة قديمة بلا تجزئة (يُعلَن صراحةً أنه لا يُثبت ما قبل الختم).
+
+**تجزئة التدقيق (`a2`):** كانت `v1` تُجزّئ `timestamp:userId:action:entityId:prev` فقط،
+أي أن تعديل **نص التفاصيل** أو النوع أو الحالة يمرّ بلا كسر — أُدخلت كل حقول الحدث
+(بما فيها `previousState/newState` بصيغة JSON حتمية) ووُسِمت التجزئة `a2:` مع ترقية
+مسجَّلة للترميز القديم (لا تُحتسب تلاعباً، ولا تُغفر كأنها سليمة).
+
+**سلسلة الأستاذ (`v2`):** المضمون مطبَّع (مبالغ `toFixed(2)`، تواريخ `YYYY-MM-DD`،
+ترتيب أسطر حتمي) لأن القيد الواحد يأتي من مسارين مختلفين (بذر من الذاكرة بأرقام JS،
+وتحميل من `numeric` نصوصاً) — كان اختلاف التمثيل يجعل كل قيد يبدو «متلاعباً به» بعد
+إعادة التشغيل. إعادة الختم صريحة ومحدودة (بذر أولي ← صفوف بلا تجزئة ← ترقية ترميز ←
+استيراد فعلي استقر في القاعدة) ومُسجَّلة في التدقيق (`LEDGER_CHAIN_RESEALED`)؛ أما
+كسر السلسلة بلا استيراد فلا يُصلَح لأنه تلاعب حقيقي. سلسلة السجل **الرسمي** تغطي
+الصفوف المخزّنة فقط، والقيود الذاكرية غير القابلة للتخزين (أرقام قيود مكررة بين ملفات
+CSV) تُبلَّغ منفصلة كـ`nonDurableEntries` بدل أن تُلوّث التحقق.
+
+**سياق الطلب:** `AsyncLocalStorage` يمرّر `req.ip` الحقيقي (مع `x-forwarded-for`) ومعرّف
+ارتباط (`x-correlation-id` أو مُولَّد) إلى `recordAudit` بدل القيمة المثبّتة
+`127.0.0.1 (Desktop Client)` والمعرّف العشوائي.
+
+**P0‑4 انحراف المخطط:** `server/db/schema-drift.ts` يقرأ `pg-schema.sql` كمصدر وحيد
+للحقيقة ويصالح القاعدة عند كل إقلاع. أُثبت على قاعدة مُتراجَعة صناعياً (double precision
++ أعمدة سلسلة محذوفة): **25 إصلاحاً** — 16 تحويل `ALTER COLUMN … TYPE numeric(…)`
+(منها `revenue_distribution_rules.percentage → numeric(5,2)`) + 8 أعمدة سلسلة/حالة +
+`audit_logs_sequence_unique`. أربعة أعمدة `double precision` مقصودة (معدلات ونِسب:
+`discount_rate`, `inflation_rate`, `solvency_ratio`, `ai_confidence_score`).
+
+**التحقق الآلي:** `npm test` = **123 اختباراً / 0 فشل** (منها 10 جديدة في
+`test/security-audit-chain.test.ts` تغطي الحارس، حتمية التجزئة ووسمها، كشف التعديل،
+وتمييز الترميز القديم عن التلاعب)، و`npm run typecheck` = صفر أخطاء عبر
+`tsconfig.json` + `tsconfig.server.json` (بوابة أنواع صارت تشمل `server/**` أيضاً،
+وكانت سابقاً لا تفحص الخادم إطلاقاً).
 
 **الحكم النهائي:** النظام ليس بعد «برنامج حسابات يعمل كلياً بالوكلاء الذكيين»، لكنه يملك أصعب جزء (المحرك الصارم + التأريض بالبيانات الحية). الفجوة الحقيقية في **الانضباط**: أسطح تعرض محاكاة كأنها حقيقية، ومسار كتابة يتجاوز فصل المهام، وتدقيق لا ينجو من إعادة التشغيل. بعد معالجة P0 ترتفع النسبة المتوقعة إلى **~82%** ويصبح النظام قابلاً للتدقيق أمام مراقب حسابات خارجي.
