@@ -82,7 +82,8 @@ jobs:
       prerelease: ${{ steps.meta.outputs.prerelease }}
     env:
       # تخزين ثنائيات Electron وأدوات electron-builder داخل مساحة العمل لتسريع البناءات التالية
-      ELECTRON_CACHE: ${{ github.workspace }}\.cache\electron
+      # (install-electron يقرأ electron_config_cache، وelectron-builder يقرأ ELECTRON_BUILDER_CACHE)
+      electron_config_cache: ${{ github.workspace }}\.cache\electron
       ELECTRON_BUILDER_CACHE: ${{ github.workspace }}\.cache\electron-builder
       # لا توجد شهادة توقيع — تعطيل الاكتشاف التلقائي حتى لا يتوقف البناء
       CSC_IDENTITY_AUTO_DISCOVERY: 'false'
@@ -136,6 +137,9 @@ jobs:
 
       - name: Smoke-test bundled server (same server the Windows package runs)
         run: node scripts/smoke-server-bundle.mjs
+
+      - name: Ensure Electron binary (Electron ≥ 40 downloads lazily, not in postinstall)
+        run: npm run electron:ensure
 
       - name: Package Windows installer + portable (electron-builder)
         run: npx electron-builder --win nsis portable --publish never

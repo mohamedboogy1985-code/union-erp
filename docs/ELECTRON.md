@@ -18,6 +18,7 @@ electron/
 
 | الأمر | الوصف |
 |-------|-------|
+| `npm run electron:ensure` | تنزيل الملف التنفيذي لـ Electron إلى `node_modules/electron/dist` إن لم يكن موجوداً (يُستدعى تلقائياً من أوامر البناء) |
 | `npm run electron:dev` | فتح تطبيق سطح المكتب على خادم التطوير |
 | `npm run electron:dir` | حزمة سريعة غير مضغوطة (اختبار محلي) في `release/` |
 | `npm run electron:build` | **بناء كامل**: مثبت NSIS + نسخة محمولة لـ Windows x64 |
@@ -25,6 +26,7 @@ electron/
 
 ### خطوات البناء الكامل (ما يفعله `electron:build`)
 
+0. `install-electron` → التأكد من وجود `node_modules/electron/dist` (Electron 40+ ينزّله عند الطلب لا في postinstall)
 1. `vite build` → `dist/` (الواجهة)
 2. `esbuild` تجميع `server.ts` → `dist-server/index.cjs` (الخادم بملف واحد)
 3. `electron-builder` → `release/UnionERP-<version>-x64.exe` (مثبت) + `release/UnionERP-Portable-<version>-x64.exe`
@@ -59,6 +61,7 @@ npx electron-builder --mac dmg          # ماك (يتطلب بيئة macOS لل
 |---------|------|
 | المنفذ 3000 مستخدم | أغلق العملية القديمة أو شغّل بـ `PORT=3100 electron .` |
 | نافذة خطأ "تعذر تشغيل الخادم" | شغّل التطبيق من طرفية وشاهد سجل الخادم |
+| `The specified electronDist does not exist: node_modules/electron/dist` | Electron 40+ لا ينزّل الملف التنفيذي أثناء `npm install`؛ شغّل `npm run electron:ensure` (أو `npx install-electron`) — سكربتات `electron:build`/`electron:dir` وسير العمل تفعل ذلك تلقائياً |
 | فشل تنزيل ثنائيات Electron | اضبط `ELECTRON_MIRROR=https://npmmirror.com/mirrors/electron/` |
 
 ## البناء السحابي عبر GitHub Actions (بدون جهاز محلي)
