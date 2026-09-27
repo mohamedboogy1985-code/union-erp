@@ -1196,6 +1196,10 @@ export interface LedgerChainVerificationResult {
   totalEntries: number;
   verifiedCount: number;
   tamperedCount: number;
+  /** تجزئات بترميز قديم غير مُوسَّمة (قابلة للترقية بإعادة ختم صريحة، لا تُعدّ تلاعباً) */
+  legacyFormatCount: number;
+  /** إصدار ترميز التجزئة الحالي (v2) */
+  hashVersion: string;
   chainValid: boolean;
   tamperedEntries: {
     id: string;

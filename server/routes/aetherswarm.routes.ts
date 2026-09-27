@@ -884,7 +884,7 @@ export function attachAetherSwarmLiveSocket(httpServer: Server): void {
       const session = await ai.live.connect({
         model: 'gemini-3.8-live',
         config: {
-          responseModalities: ['AUDIO'],
+          responseModalities: ['AUDIO'] as any,
           systemInstruction: 'You are the Arabic voice assistant inside Union ERP. Answer briefly. Do not provide operating-system commands.',
         },
         callbacks: {

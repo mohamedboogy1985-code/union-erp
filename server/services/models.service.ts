@@ -32,7 +32,7 @@ export function resolveModelsDir(): string {
   const candidates = [
     process.env.UNION_MODELS_DIR,
     path.join(process.cwd(), 'نماذج'),
-    process.resourcesPath ? path.join(process.resourcesPath, 'نماذج') : null,
+    (process as any).resourcesPath ? path.join((process as any).resourcesPath, 'نماذج') : null,
     path.join(MODULE_DIR, '..', '..', 'نماذج'),
   ].filter(Boolean) as string[];
 
@@ -164,7 +164,7 @@ export function probeFirstEncrypted(): Buffer | null {
 /** حفظ/استبدال محتوى ملف من base64 (يُشفَّر عند التفعيل بقفل المكتبة) */
 export function writeModel(name: string, contentBase64: string): ModelFileInfo {
   const p = safeModelPath(name);
-  let buffer = Buffer.from(contentBase64 || '', 'base64');
+  let buffer: Buffer = Buffer.from(contentBase64 || '', 'base64');
   const pw = modelsCrypto.getSessionPassword();
   if (pw) {
     // المكتبة مقفلة: كُل الملفات المرسلة تُخزَّن مشفّرة
