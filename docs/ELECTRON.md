@@ -27,7 +27,7 @@ electron/
 
 1. `vite build` → `dist/` (الواجهة)
 2. `esbuild` تجميع `server.ts` → `dist-server/index.cjs` (الخادم بملف واحد)
-3. `electron-builder` → `release/UnionERP-x64.exe` (مثبت) + `release/UnionERP-Portable-x64.exe`
+3. `electron-builder` → `release/UnionERP-<version>-x64.exe` (مثبت) + `release/UnionERP-Portable-<version>-x64.exe`
 
 ## التكوين
 
@@ -63,12 +63,23 @@ npx electron-builder --mac dmg          # ماك (يتطلب بيئة macOS لل
 
 ## البناء السحابي عبر GitHub Actions (بدون جهاز محلي)
 
-ملف `.github/workflows/build-electron.yml` يبني تلقائياً مثبت Windows عند كل دفع
-للفرع الرئيسي، ويمكن تشغيله يدوياً من تبويب **Actions → Build Electron Desktop App → Run workflow**.
+سير العمل `.github/workflows/build-electron.yml` (**Build Electron Desktop App**) يبني مثبت Windows تلقائياً:
 
-الناتج يظهر في صفحة التشغيل ضمن **Artifacts** باسم `UnionERP-Windows-x64` ويحتوي:
-- `UnionERP-1.1.0-x64.exe` — المثبت (NSIS)
-- `UnionERP-Portable-1.1.0-x64.exe` — النسخة المحمولة بدون تثبيت
+| الحدث | النتيجة |
+|-------|---------|
+| دفع إلى `main` | اختبارات + بناء، والملفات في **Artifacts** باسم `UnionERP-Windows-x64-<version>` (30 يوماً) |
+| دفع وسم `v*` (مثل `v1.2.0`) | اختبارات + بناء + **GitHub Release** منشور بالملفات وبصمات SHA-256 |
+| **Run workflow** يدوياً | بناء من أي فرع، ومع خيار `publish_draft_release` يُنشأ Release كمسودة للمراجعة |
+
+الملفات الناتجة:
+- `UnionERP-<version>-x64.exe` — المثبت (NSIS)
+- `UnionERP-Portable-<version>-x64.exe` — النسخة المحمولة بدون تثبيت
+- `SHA256SUMS.txt` — بصمات التحقق
+
+قبل التغليف يمرّ البناء بحزمة الاختبارات الكاملة (Linux) ثم اختبار دخان للخادم المجمّع على Windows
+(`scripts/smoke-server-bundle.mjs`) — نفس الخادم الذي يعمل داخل الحزمة.
+
+> خطوات إخراج إصدار جديد خطوة بخطوة: [RELEASE.md](./RELEASE.md)
 
 ## ملاحظة عن بيئات البناء المقيدة الشبكة
 
@@ -76,13 +87,3 @@ npx electron-builder --mac dmg          # ماك (يتطلب بيئة macOS لل
 (`objects.githubusercontent.com`). في هذه الحالة استخدم أحد الخيارين:
 1. **GitHub Actions** (أعلاه) — يبني على خوادم GitHub دون قيود.
 2. **جهازك المحلي** عبر `BUILD_ELECTRON_WINDOWS.cmd` حيث الشبكة مفتوحة.
-
-> ⚠️ **ملاحظة لصاحب المستودع**: ملف الـ workflow (`.github/workflows/build-electron.yml`)
-> جاهز في مجلد المشروع لكن يتطلب دفعه حسابك الشخصي (توكنات التطبيقات تُمنع من
-> تعديل الـ workflows). ادفعه مرة واحدة بأمر واحد من جهازك:
->
-> ```bash
-> git add .github/workflows/build-electron.yml && git commit -m "ci: electron build" && git push
-> ```
->
-> بعدها ستجد البناء التلقائي في تبويب **Actions** مع كل دفعة، وعلى فرع `main` بعد الدمج.

@@ -109,6 +109,8 @@ function createMainWindow() {
       nodeIntegration: false,
       contextIsolation: true,
       sandbox: true,
+      // تمرير إصدار التطبيق (من package.json) إلى preload المعزول بلا حاجة إلى require
+      additionalArguments: [`--union-erp-version=${app.getVersion()}`],
     },
   });
 

@@ -28,8 +28,8 @@ if errorlevel 1 goto :error
 echo.
 echo ===================================================================
 echo   اكتمل البناء بنجاح. الملفات الناتجة في مجلد release\
-echo   - UnionERP-x64.exe         (مثبت NSIS)
-echo   - UnionERP-Portable-x64.exe (نسخة محمولة بدون تثبيت)
+echo   - UnionERP-[version]-x64.exe          (مثبت NSIS)
+echo   - UnionERP-Portable-[version]-x64.exe (نسخة محمولة بدون تثبيت)
 echo ===================================================================
 pause
 exit /b 0
