@@ -35,7 +35,9 @@ import {
   PayrollRun,
 } from '../../src/types/erp.js';
 import { normalizeArabicText } from '../utils/arabic.js';
-import { calculateAuditHash, generateVerificationToken, hashNationalId, maskIban, maskNationalId, sha256 } from '../utils/crypto.js';
+import { getRequestContext } from '../security/request-context.js';
+import { hashAuditLog } from '../services/audit-chain.service.js';
+import { generateVerificationToken, hashNationalId, maskIban, maskNationalId, sha256 } from '../utils/crypto.js';
 import { rebuildLedgerChain } from '../services/ledger-chain.service.js';
 
 export class ERPStore {
@@ -95,6 +97,13 @@ export class ERPStore {
 
   private lastAuditHash = '0000000000000000000000000000000000000000000000000000000000000000';
 
+  /**
+   * خطّاف الدوام (P0-3): يُستدعى لكل حدث تدقيق ليُكتب في الطبقة الدائمة.
+   * لا يعتمد المتجر على قاعدة البيانات مباشرةً (تفادي اعتماد دائري)، ويُمرَّر
+   * من `server.ts` إلى `postgresManager.persistAuditLog`.
+   */
+  private auditPersistHook?: (log: AuditLog) => void;
+
   constructor() {
     this.seedInitialData();
     this.rebuildAccountIndexes();
@@ -150,6 +159,34 @@ export class ERPStore {
     return item;
   }
 
+  /** توصيل سجل التدقيق بالطبقة الدائمة (أو فصله بتمرير undefined) */
+  public setAuditPersistHook(hook: ((log: AuditLog) => void) | undefined): void {
+    this.auditPersistHook = hook;
+  }
+
+  /**
+   * تحميل أحداث التدقيق الدائمة عند الإقلاع (الأحدث أولاً) واستعادة طرف السلسلة،
+   * حتى تُبنى الأحداث الجديدة فوق السلسلة المخزّنة لا فوق سلسلة جديدة من الصفر.
+   */
+  public hydrateAuditLogs(logs: AuditLog[], lastHash?: string): void {
+    if (!Array.isArray(logs) || logs.length === 0) return;
+    const normalized = logs.map((log) => ({
+      ...log,
+      ipAddress: log.ipAddress || '127.0.0.1 (Desktop Client)',
+      previousState: log.previousState ?? undefined,
+      newState: log.newState ?? undefined,
+      status: (log.status as AuditLog['status']) || 'SUCCESS',
+    })) as AuditLog[];
+    // دمج (لا استبدال): سجل القاعدة مرجعي، وسجل الجلسة الحالية يُحفظ معه بلا تكرار
+    const byId = new Map<string, AuditLog>();
+    for (const log of [...this.auditLogs, ...normalized]) {
+      if (log?.id && !byId.has(log.id)) byId.set(log.id, log);
+    }
+    this.auditLogs = [...byId.values()].sort((a, b) => String(b.timestamp).localeCompare(String(a.timestamp)));
+    const tip = lastHash || normalized.find((l) => l.eventHash)?.eventHash;
+    if (tip) this.lastAuditHash = tip;
+  }
+
   public recordAudit(
     userId: string,
     userName: string,
@@ -164,8 +201,26 @@ export class ERPStore {
     status: 'SUCCESS' | 'FAILURE' | 'BLOCKED' = 'SUCCESS'
   ): AuditLog {
     const timestamp = new Date().toISOString();
-    const correlationId = `CORR-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
-    const eventHash = calculateAuditHash(timestamp, userId, action, entityId, this.lastAuditHash);
+    // سياق الطلب (P0-3): معرّف الارتباط وعنوان IP الحقيقي من الوسيط بدل قيمة مثبّتة/عشوائية
+    const context = getRequestContext();
+    const correlationId = context?.correlationId || `CORR-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
+    const ipAddress = context?.ipAddress || '127.0.0.1 (Desktop Client)';
+    // التجزئة تُبنى من كل حقول الحدث (a2) — نفس دالة الطبقة الدائمة بالضبط
+    const eventHash = hashAuditLog(
+      {
+        timestamp,
+        userId,
+        action,
+        entityType,
+        entityId,
+        details,
+        status,
+        correlationId,
+        previousState,
+        newState,
+      } as AuditLog,
+      this.lastAuditHash
+    );
 
     const log: AuditLog = {
       id: `AUDIT-${Date.now()}-${this.auditLogs.length + 1}`,
@@ -174,7 +229,7 @@ export class ERPStore {
       userName,
       userRole,
       organizationId,
-      ipAddress: '127.0.0.1 (Desktop Client)',
+      ipAddress,
       action,
       entityType,
       entityId,
@@ -189,6 +244,15 @@ export class ERPStore {
 
     this.lastAuditHash = eventHash;
     this.auditLogs.unshift(log);
+
+    // الدوام (P0-3): كل حدث يُكتب في القاعدة — لا يبقى التدقيق في الذاكرة وحدها.
+    // الخطّاف لا يُفشل العملية: أي خطأ داخل الطبقة الدائمة يُلتقط ويُسجَّل هناك.
+    try {
+      this.auditPersistHook?.(log);
+    } catch (error) {
+      console.error('⚠️ تعذّر تمرير حدث التدقيق للطبقة الدائمة:', error);
+    }
+
     return log;
   }
 

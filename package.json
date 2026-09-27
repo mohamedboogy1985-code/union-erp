@@ -8,7 +8,7 @@
     "dev": "tsx watch --ignore pgdata --clear-screen=false server.ts",
     "build": "vite build",
     "start": "NODE_ENV=production tsx server.ts",
-    "test": "tsx test/accounting.test.ts && tsx test/improvements.test.ts && tsx test/employee-affairs.test.ts && tsx test/regulation.test.ts && tsx test/attendance.test.ts && tsx test/journal-delete.test.ts && npm run test:jules && npm run test:operator-assistant && npm run test:assistant-setup && npm run test:voice-reply",
+    "test": "tsx test/accounting.test.ts && tsx test/improvements.test.ts && tsx test/employee-affairs.test.ts && tsx test/regulation.test.ts && tsx test/attendance.test.ts && tsx test/journal-delete.test.ts && npm run test:jules && npm run test:operator-assistant && npm run test:assistant-setup && npm run test:voice-reply && npm run test:ai-no-fabrication && npm run test:ai-draft-token && npm run test:security-audit",
     "test:watch": "jest --watch",
     "lint": "eslint src --ext .ts,.tsx",
     "lint:fix": "eslint src --ext .ts,.tsx --fix",
@@ -31,11 +31,15 @@
     "test:operator-assistant": "tsx --test test/operator-assistant.test.ts test/operator-assistant-ui.test.tsx",
     "typecheck:operator-assistant": "tsc --noEmit -p tsconfig.operator-assistant.json",
     "test:server-bundle": "npm run build && npm run build:server && node scripts/smoke-server-bundle.mjs",
-    "typecheck": "tsc --noEmit",
+    "typecheck": "tsc --noEmit && tsc --noEmit -p tsconfig.server.json",
     "assistant:setup": "node scripts/configure-operator-assistant.mjs",
     "assistant:check": "node scripts/configure-operator-assistant.mjs --check",
     "test:assistant-setup": "tsx --test test/operator-setup.test.ts",
-    "test:voice-reply": "tsx --test test/local-voice-reply.test.ts"
+    "test:voice-reply": "tsx --test test/local-voice-reply.test.ts",
+    "test:ai-no-fabrication": "tsx --test test/ai-no-fabrication.test.ts",
+    "test:ai-draft-token": "tsx --test test/ai-draft-token.test.ts",
+    "typecheck:server": "tsc --noEmit -p tsconfig.server.json",
+    "test:security-audit": "tsx --test test/security-audit-chain.test.ts"
   },
   "keywords": [
     "accounting",

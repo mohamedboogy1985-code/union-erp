@@ -251,21 +251,23 @@ function generateCognitiveSwarmPlan(prompt: string, autonomyLevel: string) {
     agents,
     taskGraph,
     blackboardSeed: {
+      // P0-1: لا تُدرَج مواصفات بيئة المستخدم كـ"وقائع" — الخادم لم يفحص نظام التشغيل ولا المتصفح.
       initialFacts: [
-        'نظام التشغيل: Windows 11 Pro 64-bit',
-        'المتصفح النشط: Chrome / Edge عبر Playwright CDP',
         'مستوى الاستقلالية المطبق: ' + autonomyLevel.toUpperCase(),
+        'لم يُفحص نظام تشغيل المستخدم أو متصفحه فعلياً من الخادم.',
       ],
       hypotheses: [
-        'يمكن إنجاز المهمة بمسار متوازي لتقليل وقت الاستجابة بنسبة 65%',
-        'التحقق المستقل ضروري لمنع الهلوسة في بيانات الأسعار والإعدادات',
+        'قد تُنجَز المهمة بمسار متوازي يقلل زمن الاستجابة (لم يُقَس بعد).',
+        'التحقق المستقل من المصادر مطلوب قبل اعتماد أي سعر أو إعداد.',
       ],
     },
   };
 }
 
 // Cognitive step simulation
-function simulateCognitiveStep(step: any, agent: any, prompt: string) {
+// P0-1 (docs/AI_AGENT_AUDIT.md): هذه الدالة لا تنفّذ شيئاً — لا متصفح ولا Win32 ولا تجزئة أدلة.
+// كل مخرجاتها نص مُعدّ مسبقاً، لذلك تُلفّ بـ simulateCognitiveStep التي تعلن المحاكاة صراحةً.
+function simulateCognitiveStepRaw(step: any, agent: any, prompt: string) {
   const isSearch = step.tool?.includes('search') || step.tool?.includes('open') || step.tool?.includes('extract');
   const isExcel = step.tool?.includes('table') || step.tool?.includes('excel');
   const isCritic = step.tool?.includes('cross_check') || step.agentId === 'agent-critic';
@@ -392,8 +394,36 @@ function simulateCognitiveStep(step: any, agent: any, prompt: string) {
     selfCorrectionTriggered: false,
     desktopAction: {
       type: 'terminal_run',
-      payload: 'Write-Host "Task verified successfully by Supreme Orchestrator"',
+      payload: 'Write-Host "AetherSwarm simulation mode - no verified execution performed"',
     },
+  };
+}
+
+const SIMULATION_NOTE =
+  'محاكاة نصية لأغراض العرض — لم يُنفَّذ أي فعل على النظام، ولم يُتحقَّق من أي دليل أو تجزئة.';
+
+function simulateCognitiveStep(step: any, agent: any, prompt: string) {
+  const raw = simulateCognitiveStepRaw(step, agent, prompt);
+  // لا ثقة مختلَقة ولا "تحقّق" لم يحدث: تُصفَّر الثقة وتُلغى علامة التحقق وتُوسم السجلات بالمحاكاة.
+  const evidence = raw.evidence
+    ? {
+        ...raw.evidence,
+        source: 'محاكاة نصية (لا مصدر حقيقي مُستخرَج)',
+        confidence: 0,
+        verified: false,
+      }
+    : raw.evidence;
+
+  return {
+    ...raw,
+    status: 'SIMULATED',
+    executionSummary: `[محاكاة] ${raw.executionSummary}`,
+    logs: Array.isArray(raw.logs) ? raw.logs.map((line: string) => `[محاكاة] ${line}`) : raw.logs,
+    evidence,
+    simulated: true,
+    provenance: 'SIMULATED' as const,
+    verificationPassed: false,
+    verificationNote: SIMULATION_NOTE,
   };
 }
 
@@ -521,8 +551,16 @@ export function registerAetherSwarmRoutes(app: Express): void {
       }
 
       // Cognitive Fallback Engine if API key is not yet set or rate-limited
+      // P0-1: خطة جاهزة مُعدّة مسبقاً — تُعلن كمحاكاة حتى لا تُقرأ كتخطيط نموذج حقيقي
       const plan = generateCognitiveSwarmPlan(prompt, autonomyLevel);
-      return res.json({ success: true, plan, provider: 'cognitive-engine' });
+      return res.json({
+        success: true,
+        plan,
+        provider: 'cognitive-engine',
+        simulated: true,
+        provenance: 'SIMULATED',
+        notice: SIMULATION_NOTE,
+      });
     } catch (error: any) {
       console.error('Orchestration failed:', error);
       res.status(500).json({ error: error.message || 'Internal Server Error' });
@@ -630,15 +668,19 @@ export function registerAetherSwarmRoutes(app: Express): void {
         }
       }
 
+      // P0-1: بدون نموذج لا يوجد تحكيم فعلي — لا ندّعي حسم التعارض ولا نخترع نسبة ثقة
       return res.json({
         success: true,
+        simulated: true,
+        provenance: 'SIMULATED',
         resolution: {
-          resolved: true,
-          rootCause: 'اختلاف معايير التسعير وتاريخ توفر المنتج بين المتاجر المحلية والمتاجر العالمية',
-          verifiedClaim: 'متوسط السعر المقارن المعتمد هو النطاق الموثق مع توضيح الفوارق الضريبية وتكلفة الشحن',
-          finalConfidence: 0.94,
-          recommendation: 'اعتماد القيمة المرجعية مع تثبيت النطاق السعري في جدول المقارنة للمستخدم',
+          resolved: false,
+          rootCause: 'تعذّر التحكيم الآلي: نموذج الذكاء الاصطناعي غير متاح أو تجاوز الحد المسموح.',
+          verifiedClaim: 'لم يتم التحقق من أي ادعاء — التعارض ما زال مفتوحاً ويتطلب مراجعة بشرية أو إعادة المحاولة بعد توفر النموذج.',
+          finalConfidence: 0,
+          recommendation: 'راجع مصادر الادعاءين يدوياً قبل اعتماد أي قيمة في جدول المقارنة.',
         },
+        notice: SIMULATION_NOTE,
       });
     } catch (error: any) {
       res.status(500).json({ error: error.message });
@@ -842,7 +884,7 @@ export function attachAetherSwarmLiveSocket(httpServer: Server): void {
       const session = await ai.live.connect({
         model: 'gemini-3.8-live',
         config: {
-          responseModalities: ['AUDIO'],
+          responseModalities: ['AUDIO'] as any,
           systemInstruction: 'You are the Arabic voice assistant inside Union ERP. Answer briefly. Do not provide operating-system commands.',
         },
         callbacks: {

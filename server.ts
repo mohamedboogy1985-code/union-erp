@@ -26,6 +26,7 @@ import { calculateSimilarity, normalizeArabicText } from './server/utils/arabic.
 import { bundledBasicStatuteMeta, resolveBasicStatutePath } from './server/services/regulation-documents.js';
 import { generateVerificationToken, hashNationalId, maskNationalId, sha256 } from './server/utils/crypto.js';
 import { verifyLedgerChain, rebuildLedgerChain } from './server/services/ledger-chain.service.js';
+import { verifyAuditLogChain } from './server/services/audit-chain.service.js';
 
 // ===== IMPROVEMENTS.md: الخدمات والوسائط الجديدة =====
 import { securityHeadersMiddleware, comprehensiveAuditMiddleware, createRateLimiter, getRecentAccessLogs, GENERIC_RATE_LIMIT_MAX, SENSITIVE_ROUTES_RATE_LIMIT_MAX } from './server/security/middleware.js';
@@ -51,6 +52,9 @@ import { apiErrorHandler, notFoundHandler } from './server/middleware/error-hand
 import { maybeStartEmbeddedPostgres } from './server/db/pg-embedded.js';
 import { can, isReadOnlyUser, ROLE_DEFINITIONS } from './server/security/permissions.js';
 import { assertRuntimeSecurity, isSqlConsoleAllowed, isStrictAuth } from './server/security/runtime-config.js';
+import { installApiGuard } from './server/security/api-guard.js';
+import { withRequestContext } from './server/security/request-context.js';
+import { createSensitiveRateLimiter } from './server/security/sensitive-rate-limit.js';
 import { debtorsAccountId, findAccountByCodeOrName, findExpenseAccount, findRevenueAccount, findTreasuryAccount } from './server/utils/account-lookup.js';
 import type { User } from './src/types/erp.js';
 
@@ -116,6 +120,31 @@ async function startServer() {
 
   // Initialize and synchronize with Cloud SQL PostgreSQL
   await postgresManager.initialize(erpStore);
+
+  // ===== دوام سجل التدقيق (P0-3): كل حدث يُكتب في القاعدة =====
+  // كانت الكتابة موصولة بمسارين فقط، فسجل التدقيق يضيع مع كل إعادة تشغيل.
+  if (postgresManager.isDbAvailable()) {
+    erpStore.setAuditPersistHook((log) => {
+      void postgresManager.persistAuditLog(log);
+    });
+    // 1) تعبئة أحداث ما قبل تهيئة القاعدة (إقلاع/CSV/بذر) مرة واحدة عند قاعدة فارغة
+    try {
+      await postgresManager.backfillAuditLogs(erpStore.auditLogs as any);
+    } catch (error: any) {
+      console.warn(`⚠️ تعذّر ترحيل أحداث التدقيق السابقة: ${error?.message || error}`);
+    }
+    // 2) استعادة الأحداث الدائمة وطرف السلسلة حتى تُبنى الأحداث الجديدة فوقها
+    try {
+      const persistedLogs = await postgresManager.loadAuditLogs(2000);
+      if (persistedLogs.length > 0) {
+        const tip = persistedLogs.find((l) => l.eventHash)?.eventHash;
+        erpStore.hydrateAuditLogs(persistedLogs as any, tip);
+        console.log(`🧾 تم تحميل ${persistedLogs.length} حدث تدقيق دائماً من PostgreSQL.`);
+      }
+    } catch (error: any) {
+      console.warn(`⚠️ تعذّر تحميل سجل التدقيق الدائم: ${error?.message || error}`);
+    }
+  }
   // Restore configured regulation thresholds before any request can inspect or enforce them.
   await regulationService.initialize();
 
@@ -130,14 +159,19 @@ async function startServer() {
       const verification = advancedAuthService.verifyToken(token);
       if (verification.valid && verification.payload?.sub) {
         const jwtUser = erpStore.users.find((u) => u.id === verification.payload.sub);
-        if (jwtUser) return jwtUser;
+        // حساب معطّل لا يُصادق عليه حتى لو كان توكنه صالحاً (تعطيل فوري بلا انتظار انتهاء التوكن)
+        if (jwtUser && jwtUser.isActive !== false) return jwtUser;
       }
     }
     // الوضع الصارم: لا يسقط إلى حساب افتراضي أبداً
     if (isStrictAuth()) return null;
-    // 2) وضع العرض التجريبي (Desktop Demo)
-    const userId = (req.headers['x-user-id'] as string) || 'usr-mohamed-abdallah';
-    const user = erpStore.users.find((u) => u.id === userId) || erpStore.users[0];
+    // 2) وضع العرض التجريبي (Desktop Demo): ترويسة x-user-id **صريحة** لمستخدم قائم.
+    // لا مستخدم افتراضي صامت — غياب الترويسة أو مجهولها = لا هوية (401).
+    const rawUserId = req.headers['x-user-id'];
+    const userId = (Array.isArray(rawUserId) ? rawUserId[0] : rawUserId)?.toString().trim();
+    if (!userId) return null;
+    const user = erpStore.users.find((u) => u.id === userId);
+    if (!user || user.isActive === false) return null;
     return user;
   }
 
@@ -188,30 +222,66 @@ async function startServer() {
     return null;
   }
 
+  // ===== سياق الطلب (P0-3): عنوان IP حقيقي + معرّف ارتباط لكل طلب =====
+  // يُركَّب أولاً حتى تحمل أحداث التدقيق (بما فيها الرفض) مصدرها الحقيقي.
+  app.use(withRequestContext);
+
+  // ===== حارس التوثيق الشامل (P0-3) =====
+  // كل نقاط /api بعده تتطلب هوية صريحة، باستثناء قائمة سماح صريحة (health/login/…)
+  const apiGuard = installApiGuard(app, {
+    resolveUser: getActiveUser,
+    onRejected: (req, info) => {
+      erpStore.recordAudit(
+        'anonymous',
+        'غير موثّق',
+        'ANONYMOUS',
+        'org-general',
+        'AUTH_REQUIRED',
+        'RBAC',
+        info.path,
+        `رفض ${req.method} ${info.path} — لا هوية صريحة (${info.reason})`,
+        undefined,
+        undefined,
+        'BLOCKED'
+      );
+    },
+  });
+
+  // ===== حدود معدل صريحة للمسارات الحسّاسة =====
+  // الحد العام يعفي مدير البرنامج، ومسارات التحقق التالية تُعيد حساب تجزئات آلاف
+  // القيود والأحداث عند كل نداء (سطح إغراق حقيقي)، فتُقيَّد صراحةً بمحدِّد قياسي.
+  const healthRateLimiter = createSensitiveRateLimiter();
+  const chainVerifyRateLimiter = createSensitiveRateLimiter();
+  const auditReadRateLimiter = createSensitiveRateLimiter();
+
   registerAIRoutes(app);
   registerAICoreRoutes(app, { requirePermission });
   registerAIActionRoutes(app, { requirePermission });
   registerReportExportRoutes(app);
   registerEtaRoutes(app);
-  registerOperatorAssistantRoutes(app, { persistAudit: (event) => postgresManager.persistAuditLog(event) });
+  registerOperatorAssistantRoutes(app, { persistAudit: (event) => { void postgresManager.persistAuditLog(event); } });
   registerJulesRoutes(app, {
     requirePermission,
-    persistAudit: (event) => postgresManager.persistAuditLog(event),
+    persistAudit: (event) => { void postgresManager.persistAuditLog(event); },
   });
   registerAetherSwarmRoutes(app);
 
   // ==========================================
   // 1. HEALTH & SYSTEM INFO
   // ==========================================
-  app.get('/api/health', (req: Request, res: Response) => {
+  // حد معدل صريح: نقطة عامة تُقرأ منها حالة النظام — تُقيَّد لمنع الاستنطاق/الإغراق
+  app.get('/api/health', healthRateLimiter, (req: Request, res: Response) => {
     res.json({
       status: 'ok',
       system: 'Union Financial ERP - General Syndicate',
       version: APP_VERSION,
       timestamp: new Date().toISOString(),
       rbac: {
-        activeUser: erpStore.users.find((u) => u.id === ((req.headers['x-user-id'] as string) || 'usr-mohamed-abdallah'))?.fullName || 'محمد عبد الله أحمد',
+        // نقطة عامة: تُظهر الهوية الفعلية للطلب أو «غير موثّق» — بلا مستخدم افتراضي صامت
+        activeUser: getActiveUser(req)?.fullName || 'غير موثّق (نقطة عامة)',
         readOnly: isReadOnlyUser(getActiveUser(req)),
+        authMode: isStrictAuth() ? 'strict' : 'demo',
+        rejectedApiRequests: apiGuard.rejectedCount(),
       },
       database: {
         connected: postgresManager.isDbAvailable(),
@@ -396,7 +466,7 @@ async function startServer() {
       res.json({
         directory: modelsService.resolveModelsDir(),
         files: modelsService.listModels(),
-        locked: modelsService.probeFirstEncrypted ? isModelsLocked() : false,
+        locked: modelsService.probeFirstEncrypted() ? isModelsLocked() : false,
       });
     } catch (err: any) {
       res.status(500).json({ error: err.message });
@@ -946,8 +1016,20 @@ async function startServer() {
   // ==============================================================
   // سلسلة التجزئة المضادة للتلاعب (Blockchain-style Ledger Chain)
   // ==============================================================
-  app.get('/api/ledger-chain/verify', (req: Request, res: Response) => {
-    const result = verifyLedgerChain(erpStore.journalEntries);
+  // حد معدل صريح: إعادة حساب تجزئة آلاف القيود لكل نداء
+  app.get('/api/ledger-chain/verify', chainVerifyRateLimiter, async (req: Request, res: Response) => {
+    // سلسلة السجل الرسمي = القيود المخزّنة (ذات التجزئة). القيود غير المخزّنة تُبلَّغ منفصلة.
+    const durableEntries = erpStore.journalEntries.filter((e) => Boolean(e.currentHash));
+    const nonDurableCount = erpStore.journalEntries.length - durableEntries.length;
+    const result = verifyLedgerChain(durableEntries);
+    // السلسلة الذاكرية صارت تعكس الحالة الدائمة: القيود تُحمَّل بتجزئاتها من القاعدة.
+    const persistedAuditChain = postgresManager.isDbAvailable()
+      ? await postgresManager.verifyPersistedAuditChain().catch(() => undefined)
+      : undefined;
+    // مقياس الدوام الحقيقي: عدد صفوف القاعدة التي تحمل تجزئة (لا نسخة الذاكرة)
+    const persistedJournalEntries = postgresManager.isDbAvailable()
+      ? await postgresManager.countJournalEntriesWithChain().catch(() => 0)
+      : 0;
     erpStore.recordAudit(
       getActiveUser(req)?.id || 'anonymous',
       'فحص سلامة السلسلة',
@@ -958,11 +1040,21 @@ async function startServer() {
       'GLOBAL',
       `فحص سلسلة التجزئة: ${result.verifiedCount}/${result.totalEntries} قيد سليم، ${result.tamperedCount} متلاعب فيه`
     );
-    res.json(result);
+    res.json({
+      ...result,
+      // دوام السلسلة (P0-3): القيود التي تحمل تجزئة مخزّنة، وحالة سلسلة سجل التدقيق الدائم
+      persisted: {
+        journalEntriesWithChain: persistedJournalEntries,
+        journalEntriesTotal: erpStore.journalEntries.length,
+        nonDurableEntries: nonDurableCount,
+        auditChain: persistedAuditChain || null,
+      },
+    });
   });
 
   app.post('/api/ledger-chain/rebuild', (req: Request, res: Response) => {
-    const user = requirePermission(req, res, 'journal:post');
+    // إعادة بناء السلسلة تُضفي شرعية على الحالة الراهنة — لا يملكها إلا مدير النظام
+    const user = requirePermission(req, res, 'system:admin');
     if (!user) return;
     const result = rebuildLedgerChain(erpStore.journalEntries);
     erpStore.recordAudit(
@@ -1874,13 +1966,73 @@ async function startServer() {
     res.json(erpStore.assets);
   });
 
-  app.get('/api/audit-logs', (req: Request, res: Response) => {
-    // ===== IMPROVEMENTS 7.2: ترقيم صفحي اختياري لسجل التدقيق =====
+  // حد معدل صريح: قراءة سجل التدقيق كاملاً + المسار الحسّاس للتدقيق
+  app.get('/api/audit-logs', auditReadRateLimiter, async (req: Request, res: Response) => {
+    // البيانات المالية/الأمنية للسجل: صلاحية تدقيق مستقلة (P0-3)
+    const auditViewer = requirePermission(req, res, 'audit:read');
+    if (!auditViewer) return;
+    const limit = Math.min(500, Number(req.query.limit) || 200);
+
+    // ===== دوام سجل التدقيق (P0-3): القاعدة هي المصدر عند توفّرها =====
+    // قبل الإصلاح كان السجل ذاكرياً فقط، فيضيع مع كل إعادة تشغيل. عند فشل القراءة
+    // الدائمة نسقط إلى نسخة الذاكرة بدل إفشال الطلب.
+    if (postgresManager.isDbAvailable()) {
+      try {
+        const offset = req.query.page
+          ? (Math.max(1, Number(req.query.page)) - 1) * limit
+          : Math.max(0, Number(req.query.offset) || 0);
+        const persisted = await postgresManager.loadAuditLogs(limit, offset);
+        if (req.query.page) {
+          return res.json({
+            data: persisted,
+            page: Math.max(1, Number(req.query.page)),
+            limit,
+            total: await postgresManager.countAuditLogs(),
+            source: 'database',
+          });
+        }
+        return res.json(persisted);
+      } catch (error: any) {
+        console.warn(`⚠️ تعذّر قراءة سجل التدقيق الدائم — الرجوع للنسخة الذاكرية: ${error?.message || error}`);
+      }
+    }
+
+    // ===== IMPROVEMENTS 7.2: ترقيم صفحي اختياري لسجل التدقيق (النسخة الذاكرية) =====
     if (req.query.page) {
       return res.json(paginationService.paginate(erpStore.auditLogs, paginationService.fromQuery(req.query as any)));
     }
-    const limit = Math.min(500, Number(req.query.limit) || 200);
     res.json(erpStore.auditLogs.slice(0, limit));
+  });
+
+  /**
+   * ===== فحص سلامة سلسلة سجل التدقيق (P0-3) =====
+   * يُعاد حساب تجزئة كل حدث من حقوله ومن تجزئة الحدث السابق؛ أي تعديل أو حذف أو
+   * إعادة ترتيب يظهر في `brokenCount` مع أول موضع مكسور.
+   */
+  // حد معدل صريح: إعادة حساب سلسلة التدقيق بالكامل
+  app.get('/api/audit-logs/verify', auditReadRateLimiter, async (req: Request, res: Response) => {
+    const user = requirePermission(req, res, 'audit:read');
+    if (!user) return;
+
+    let result;
+    if (postgresManager.isDbAvailable()) {
+      result = await postgresManager.verifyPersistedAuditChain();
+    } else {
+      result = verifyAuditLogChain(erpStore.auditLogs as any, 'memory');
+    }
+
+    erpStore.recordAudit(
+      user.id,
+      user.fullName,
+      user.role,
+      user.organizationId,
+      'AUDIT_CHAIN_VERIFIED',
+      'AUDIT_LOG',
+      'GLOBAL',
+      `فحص سلسلة سجل التدقيق (${result.source}): ${result.verifiedCount}/${result.totalEvents} حدثاً سليماً، ${result.brokenCount} مكسور`
+    );
+
+    res.json(result);
   });
 
   // ==========================================

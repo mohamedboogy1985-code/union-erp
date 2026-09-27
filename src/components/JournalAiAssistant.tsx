@@ -69,6 +69,11 @@ export const JournalAiAssistant: React.FC<JournalAiAssistantProps> = ({
   const [postResult, setPostResult] = useState<string | null>(null);
   const [postError, setPostError] = useState<string | null>(null);
   const [confirmOpen, setConfirmOpen] = useState(false);
+  // P0-2: رمز تأكيد موقّع يصدره الخادم مع كل مسودة — أحادي الاستخدام وقصير العمر.
+  // بدونه يرفض /api/ai/execute-entry التنفيذ، فلا تمرّ مسودات مُعدَّلة أو مُعادة.
+  const [draftToken, setDraftToken] = useState<string | null>(null);
+  const [draftExpiresAt, setDraftExpiresAt] = useState<number | null>(null);
+  const [draftProvenance, setDraftProvenance] = useState<string | null>(null);
   const [isListening, setIsListening] = useState(false);
   const [voiceError, setVoiceError] = useState<string | null>(null);
   const [speakOn, setSpeakOn] = useState(true);
@@ -145,6 +150,9 @@ export const JournalAiAssistant: React.FC<JournalAiAssistantProps> = ({
     setProposedEntry(null);
     setFillError(null);
     setFilled(false);
+    setDraftToken(null);
+    setDraftExpiresAt(null);
+    setDraftProvenance(null);
     try {
       const history = messages.map((m) => ({ role: m.role, text: m.text }));
       let finalProposedEntry: any = null;
@@ -155,6 +163,11 @@ export const JournalAiAssistant: React.FC<JournalAiAssistantProps> = ({
             if (evt.proposedEntry && Array.isArray(evt.proposedEntry.lines)) {
               finalProposedEntry = evt.proposedEntry;
             }
+            // P0-1/P0-2: مصدر النتيجة + رمز التأكيد الصادر من الخادم
+            setDraftProvenance(evt.provenance || null);
+            setDraftToken(evt.draftToken || null);
+            setDraftExpiresAt(evt.draftExpiresAt || null);
+            if (evt.draftError) setFillError(evt.draftError);
           },
         }
       );
@@ -245,12 +258,23 @@ export const JournalAiAssistant: React.FC<JournalAiAssistantProps> = ({
   // عند الضغط: يعرض نافذة تأكيد أولاً قبل الترحيل الفوري
   const requestConfirmPost = () => {
     if (!proposedEntry || posting) return;
+    // P0-2: لا نافذة تأكيد بلا رمز صالح — التنفيذ سيرفضه الخادم حتماً
+    if (!draftToken) {
+      setPostError('لا يوجد رمز تأكيد صالح لهذه المسودة (انتهت صلاحيته أو استُخدم) — أعد طلب القيد من المساعد.');
+      return;
+    }
+    setPostError(null);
     setConfirmOpen(true);
   };
 
-  // تنفيذ الترحيل الفوري فعلياً بعد موافقة المستخدم (execute-entry)
+  // تنفيذ القيد بعد موافقة المستخدم — P0-2: برمز تأكيد الخادم (أحادي الاستخدام)
   const handlePostNow = async () => {
     if (!proposedEntry || posting) return;
+    if (!draftToken) {
+      setConfirmOpen(false);
+      setPostError('لا يوجد رمز تأكيد صالح لهذه المسودة — أعد طلب القيد من المساعد.');
+      return;
+    }
     setConfirmOpen(false);
     setPosting(true);
     setPostError(null);
@@ -263,14 +287,46 @@ export const JournalAiAssistant: React.FC<JournalAiAssistantProps> = ({
           'x-user-id': getCurrentUserId(),
           ...(getSessionToken() ? { Authorization: `Bearer ${getSessionToken()}` } : {}),
         },
-        body: JSON.stringify({ proposedEntry, organizationId: organizationId || undefined }),
+        // الخادم ينفّذ نسخته من المسودة؛ والرمز يربط الطلب بما اقترحه فعلاً
+        body: JSON.stringify({ draftToken, proposedEntry, organizationId: organizationId || undefined }),
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'تعذر ترحيل القيد.');
-      setPostResult(data.message || 'تم ترحيل القيد بنجاح.');
+      // الرمز أحادي الاستخدام: يُستهلك في الخادم نجح التنفيذ أم رُفض
+      setDraftToken(null);
+      setDraftExpiresAt(null);
+
+      if (!res.ok) {
+        const code = String(data?.code || '');
+        const tokenRejected = [
+          'DRAFT_TOKEN_EXPIRED',
+          'DRAFT_TOKEN_REUSED',
+          'DRAFT_TOKEN_UNKNOWN',
+          'DRAFT_TOKEN_INVALID',
+          'DRAFT_TOKEN_OWNER_MISMATCH',
+          'DRAFT_MISMATCH',
+        ].includes(code);
+        if (tokenRejected) {
+          setProposedEntry(null);
+          setFilled(false);
+          throw new Error(`${data.error || 'رمز التأكيد غير صالح.'} — أعد طلب القيد للحصول على مسودة جديدة.`);
+        }
+        throw new Error(data.error || 'تعذر تنفيذ القيد.');
+      }
+
+      if (data.requiresApproval) {
+        // فصل المهام: المُعدّ لا يعتمد ما أعدّه — القيد ينتظر مخوّلاً
+        const msg =
+          data.message ||
+          'تم إنشاء القيد وتقديمه للاعتماد؛ فصل المهام يمنع من أعدّه عبر المساعد من اعتماده وترحيله بنفسه.';
+        setPostResult(msg);
+        addAssistant(msg);
+      } else {
+        const msg = data.message || 'تم ترحيل القيد بنجاح.';
+        setPostResult(msg);
+        addAssistant(msg);
+      }
       setProposedEntry(null);
       setFilled(false);
-      addAssistant(`تم ${data.message || 'ترحيل القيد بنجاح'}.`);
     } catch (err: any) {
       setPostError(err.message || 'خطأ في الترحيل.');
     } finally {
@@ -388,6 +444,33 @@ export const JournalAiAssistant: React.FC<JournalAiAssistantProps> = ({
                 <span className="text-[10px] text-rose-400">غير متوازن!</span>
               )}
             </div>
+            {/* P0-1/P0-2: مصدر الاقتراح وحالة رمز التأكيد */}
+            <div className="flex flex-wrap items-center gap-1.5 text-[9px]">
+              <span
+                className={`px-1.5 py-0.5 rounded border ${
+                  draftProvenance === 'MODEL'
+                    ? 'border-purple-700 text-purple-300'
+                    : draftProvenance === 'DETERMINISTIC'
+                      ? 'border-sky-800 text-sky-300'
+                      : 'border-slate-700 text-slate-400'
+                }`}
+              >
+                {draftProvenance === 'MODEL'
+                  ? 'المصدر: نموذج ذكاء اصطناعي'
+                  : draftProvenance === 'DETERMINISTIC'
+                    ? 'المصدر: قواعد محلية حتمية'
+                    : 'المصدر: غير محدد'}
+              </span>
+              {draftToken ? (
+                <span className="px-1.5 py-0.5 rounded border border-emerald-800 text-emerald-300">
+                  رمز تأكيد صالح{draftExpiresAt ? ` حتى ${new Date(draftExpiresAt).toLocaleTimeString('ar-EG')}` : ''} — يُستخدم مرة واحدة
+                </span>
+              ) : (
+                <span className="px-1.5 py-0.5 rounded border border-rose-800 text-rose-300">
+                  لا رمز تأكيد صالح — أعد طلب القيد للتنفيذ
+                </span>
+              )}
+            </div>
             <p className="text-[11px] text-slate-200 font-semibold">{proposedEntry.description || 'قيد محاسبي'}</p>
             <div className="space-y-1">
               {(proposedEntry.lines || []).map((l, idx) => (
@@ -437,12 +520,12 @@ export const JournalAiAssistant: React.FC<JournalAiAssistantProps> = ({
             <button
               type="button"
               onClick={requestConfirmPost}
-              disabled={!balanced || posting}
-              title="إنشاء القيد وترحيله مباشرة (POSTED) مع سجل تدقيق — سيتطلب تأكيدك أولاً"
+              disabled={!balanced || posting || !draftToken}
+              title="يتطلب رمز تأكيد صادر من الخادم (أحادي الاستخدام). يُرحَّل القيد مباشرةً فقط إن كنت مخوّلاً للاعتماد (فصل المهام)؛ وإلا يُنشأ مقدَّماً للاعتماد."
               className="w-full flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg bg-amber-600 hover:bg-amber-500 disabled:opacity-40 disabled:cursor-not-allowed text-[11px] font-bold text-white"
             >
               {posting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Zap className="w-3.5 h-3.5" />}
-              {posting ? 'جارٍ الترحيـل...' : 'تسجيل وترحيل فوري (POSTED)'}
+              {posting ? 'جارٍ التنفيذ...' : draftToken ? 'تأكيد وتنفيذ القيد' : 'لا يمكن التنفيذ — لا رمز تأكيد'}
             </button>
             {postError && (
               <p className="text-[10px] text-rose-400 flex items-center gap-1">
@@ -522,7 +605,8 @@ export const JournalAiAssistant: React.FC<JournalAiAssistantProps> = ({
               تأكيد الترحيل الفوري
             </div>
             <p className="text-xs text-slate-200">
-              سأنشئ القيد التالي <b>وأرحّله مباشرة (POSTED)</b> مع تسجيله في سجل التدقيق باسمك:
+              سأنشئ القيد التالي من <b>نسخة الخادم من المسودة</b> (رمز التأكيد يضمن أنها لم تُعدَّل) مع تسجيله في سجل التدقيق باسمك.
+              إن كنت مخوّلاً للاعتماد ومستثنى من فصل المهام سيُرحَّل مباشرة (POSTED)، وإلا سيُنشأ <b>مقدَّماً للاعتماد (SUBMITTED)</b>:
             </p>
             <div className="bg-slate-900/70 rounded-lg p-2.5 space-y-1">
               <p className="text-[11px] font-semibold text-slate-100">{proposedEntry.description || 'قيد محاسبي'}</p>
@@ -533,7 +617,9 @@ export const JournalAiAssistant: React.FC<JournalAiAssistantProps> = ({
                 </p>
               ))}
             </div>
-            <p className="text-[10px] text-rose-300">لا يمكن التراجع بعد الترحيل. هل أنت متأكد؟</p>
+            <p className="text-[10px] text-rose-300">
+              لا يمكن التراجع بعد الترحيل، ورمز التأكيد يُستهلك بهذه المحاولة (لا تُنفَّذ المسودة مرتين). هل أنت متأكد؟
+            </p>
             <div className="flex items-center gap-2 pt-1">
               <button
                 type="button"

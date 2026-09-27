@@ -40,6 +40,67 @@ import { INITIAL_FILES, INITIAL_PRODUCTS, DesktopFile } from './utils/desktopMoc
 import { speechEngine } from './utils/speech';
 import { swarmFetch } from './erpFetch';
 
+// ---------------------------------------------------------------------------
+// P0-1 (docs/AI_AGENT_AUDIT.md): وسم بيانات العرض الأولية بأنها محاكاة
+// هذه الشاشة عرض توضيحي لمفهوم «السرب المعرفي»: لا متصفح حقيقياً، ولا استدعاء Win32،
+// ولا كتابة ملفات، ولا تحقق من أدلة. كانت البيانات الأولية تُعرض كسجلات «VERIFIED»
+// بثقة 0.95–1.0 ومصادر مثل «NTFS File System Checksum» — أي تصنيع بيانات داخل واجهة تدقيق.
+// الحل: يبقى محتوى العرض لأغراض التوضيح، لكن تُصفَّر الثقة وتُلغى علامة التحقق ويُسبَق
+// كل نص بوسم [عرض توضيحي]، مع لافتة إفصاح دائمة أعلى الشاشة.
+// ---------------------------------------------------------------------------
+const DEMO_TAG = '[عرض توضيحي] ';
+const DEMO_SOURCE = 'عرض توضيحي — لا مصدر حقيقي مُستخرَج';
+
+function demoEvidence(evidence?: TaskStep['evidence']): TaskStep['evidence'] {
+  if (!evidence) return evidence;
+  return { ...evidence, claim: DEMO_TAG + evidence.claim, source: DEMO_SOURCE, confidence: 0 };
+}
+
+function demoStep(step: TaskStep): TaskStep {
+  return { ...step, evidence: demoEvidence(step.evidence), executionTimeMs: undefined };
+}
+
+function demoAudit(entry: AuditLogEntry): AuditLogEntry {
+  return { ...entry, status: 'SIMULATED', simulated: true, details: DEMO_TAG + entry.details, confidence: 0 };
+}
+
+function demoBlackboard(state: BlackboardState): BlackboardState {
+  return {
+    ...state,
+    facts: [
+      'لم يُفحص نظام تشغيل المستخدم أو متصفحه فعلياً — هذه الشاشة عرض توضيحي.',
+      ...state.facts.map((fact) => DEMO_TAG + fact),
+    ],
+    hypotheses: state.hypotheses.map((h) => DEMO_TAG + h),
+    claims: state.claims.map((claim) => ({
+      ...claim,
+      claim: claim.claim.startsWith(DEMO_TAG) ? claim.claim : DEMO_TAG + claim.claim,
+      source: DEMO_SOURCE,
+      confidence: 0,
+      verified: false,
+    })),
+    // لا تحكيم «resolved» بثقة مختلَقة لتعارض لم يُفحص فعلياً
+    conflicts: state.conflicts.map((conflict) => ({
+      ...conflict,
+      status: 'detecting' as const,
+      resolution: undefined,
+      agentA: { ...conflict.agentA, source: DEMO_SOURCE, confidence: 0 },
+      agentB: { ...conflict.agentB, source: DEMO_SOURCE, confidence: 0 },
+    })),
+  };
+}
+
+function demoMemory(mem: MemorySystem): MemorySystem {
+  return {
+    ...mem,
+    working: ['لا توجد مهمة نشطة — البيانات الأولية أدناه عرض توضيحي فقط.', ...mem.working.map((w) => DEMO_TAG + w)],
+    conversation: mem.conversation.map((m) => ({ ...m, text: DEMO_TAG + m.text })),
+    episodic: mem.episodic.map((ep) => ({ ...ep, goal: DEMO_TAG + ep.goal, success: false, duration: '—' })),
+    semantic: mem.semantic.map((sm) => ({ ...sm, value: DEMO_TAG + sm.value })),
+    procedural: mem.procedural.map((pr) => ({ ...pr, successRate: 0, lastExecuted: 'لم يُنفَّذ' })),
+  };
+}
+
 export function AetherSwarmApp() {
   // Navigation & Mode
   const [activeTab, setActiveTab] = useState<'desktop' | 'swarm' | 'chat' | 'memory' | 'audit' | 'architecture'>('desktop');
@@ -270,10 +331,10 @@ export function AetherSwarmApp() {
         confidence: 0.99,
       },
     },
-  ]);
+  ].map((step) => demoStep(step as TaskStep)));
 
   // Blackboard State
-  const [blackboard, setBlackboard] = useState<BlackboardState>({
+  const [blackboard, setBlackboard] = useState<BlackboardState>(demoBlackboard({
     facts: [
       'نظام التشغيل: Windows 11 Pro 64-bit (Build 22631)',
       'المتصفح النشط: Google Chrome / Playwright CDP Bridge v122',
@@ -292,7 +353,7 @@ export function AetherSwarmApp() {
         confidence: 0.99,
         agentId: 'agent-browser',
         timestamp: '12:20 PM',
-        verified: true,
+        verified: false, // P0-1: عرض توضيحي — لا تحقق فعلي (يُعاد وسمه في demoBlackboard)
       },
       {
         id: 'c-2',
@@ -301,7 +362,7 @@ export function AetherSwarmApp() {
         confidence: 0.95,
         agentId: 'agent-critic',
         timestamp: '12:21 PM',
-        verified: true,
+        verified: false, // P0-1: عرض توضيحي — لا تحقق فعلي (يُعاد وسمه في demoBlackboard)
         hasDiscrepancy: true,
         resolvedDiscrepancy: 'تم استبعاد تسعيرات المضاربة على منصات المزادات غير الرسمية واعتماد السعر المعياري للموزعين.',
       },
@@ -312,7 +373,7 @@ export function AetherSwarmApp() {
         confidence: 1.0,
         agentId: 'agent-data',
         timestamp: '12:22 PM',
-        verified: true,
+        verified: false, // P0-1: عرض توضيحي — لا تحقق فعلي (يُعاد وسمه في demoBlackboard)
       },
     ],
     conflicts: [
@@ -341,10 +402,10 @@ export function AetherSwarmApp() {
       },
     ],
     activeTasksCount: 0,
-  });
+  }));
 
   // 5-Layer Cognitive Memory
-  const [memory, setMemory] = useState<MemorySystem>({
+  const [memory, setMemory] = useState<MemorySystem>(demoMemory({
     working: [
       'الهدف الحالي: مراقبة وتحديث جدول مقارنة أسعار بطاقات RTX 5090',
       'النافذة النشطة: Microsoft Excel (RTX5090_Comparison.xlsx)',
@@ -404,23 +465,17 @@ export function AetherSwarmApp() {
         lastExecuted: 'أمس 04:30 PM',
       },
     ],
-  });
+  }));
 
   // Desktop State
   const [files, setFiles] = useState<DesktopFile[]>(INITIAL_FILES);
   const [products, setProducts] = useState<ProductPriceItem[]>(INITIAL_PRODUCTS);
   const [browserUrl, setBrowserUrl] = useState<string>('https://www.google.com/search?q=RTX+5090+prices+specs+retailers');
+  // P0-1: لا مخرجات Win32/PowerShell مختلَقة عند أول تحميل — لم يُنفَّذ أي أمر
   const [terminalLogs, setTerminalLogs] = useState<string[]>([
-    '[INIT] AetherSwarm Windows Bridge v2.0 loaded.',
-    '[SECURITY] Autonomy Policy loaded: ASSISTED mode active.',
-    '[WIN32] Connected to local RPC endpoint on 127.0.0.1:9222.',
-    '[POWER-SHELL] Get-Process -Name "chrome", "excel" | Select-Object Id, ProcessName',
-    'Id      ProcessName',
-    '------  -----------',
-    '14820   chrome',
-    '23104   excel',
-    '[AGENT-WINDOWS] SetForegroundWindow(23104) -> SUCCESS',
-    '[VERIFIED] Return code 0. File RTX5090_Comparison.xlsx open in foreground.',
+    '[وضع العرض] AetherSwarm — الطرفية أدناه تعرض مخرجات محاكاة نصية فقط.',
+    '[وضع العرض] لم يُنفَّذ أي أمر على نظام التشغيل، ولم يُفتح متصفح أو ملف فعلياً.',
+    '[وضع العرض] تظهر هنا سجلات الخطوات عند تشغيلها، موسومة بمصدرها (محاكاة / تنفيذ).',
   ]);
 
   // Audit Ledger
@@ -480,7 +535,7 @@ export function AetherSwarmApp() {
       details: 'جلب نافذة الإكسل للمقدمة وتأكيد انتهاء المهمة',
       confidence: 0.99,
     },
-  ]);
+  ].map((entry) => demoAudit(entry as AuditLogEntry)));
 
   // Auto-speak feedback on speech state
   const speakFeedback = (text: string) => {
@@ -635,6 +690,8 @@ export function AetherSwarmApp() {
 
   // Internal Step Execution
   const executeStepInternal = async (step: TaskStep, index: number) => {
+    // P0-1: زمن تنفيذ مقاس فعلياً بدل القيمة الثابتة 420ms
+    const stepStartedAt = performance.now();
     // Mark running
     setTaskGraph((prev) =>
       prev.map((s, idx) => (idx === index ? { ...s, status: 'running' } : s))
@@ -674,8 +731,9 @@ export function AetherSwarmApp() {
                 id: 'f-' + Date.now(),
                 name: result.desktopAction.payload,
                 path: `C:\\Users\\Workspace\\Documents\\${result.desktopAction.payload}`,
-                size: '48.2 KB',
-                modified: 'الآن (مولد آلياً)',
+                // P0-1: لا حجم ملف مختلَق — لم يُكتب ملف فعلي ما لم يؤكد الخادم ذلك
+                size: result.simulated ? '— (محاكاة)' : 'غير معروف',
+                modified: result.simulated ? 'محاكاة نصية' : 'الآن',
                 type: 'file',
               },
               ...prev,
@@ -685,12 +743,17 @@ export function AetherSwarmApp() {
           setTerminalLogs((prev) => [
             ...prev,
             `[EXEC] ${result.desktopAction.payload}`,
-            `[STATUS] Return Code 0 - Verified by Critic`,
+            // P0-1: لا "Return Code 0 - Verified by Critic" مختلَق
+            result.simulated
+              ? '[محاكاة] لم يُنفَّذ أي أمر فعلي على النظام.'
+              : `[STATUS] Return Code 0${result.verificationPassed ? ' - Verified' : ' - Unverified'}`,
           ]);
         }
       }
 
       // Add to audit log
+      // P0-1: الحالة والثقة تُشتقّان من نتيجة الخادم — لا 'VERIFIED' ولا 0.96 افتراضياً
+      const isSimulated = !!result.simulated;
       const auditEntry: AuditLogEntry = {
         id: 'a-' + Date.now(),
         timestamp: new Date().toLocaleTimeString(),
@@ -698,9 +761,10 @@ export function AetherSwarmApp() {
         agentName: agents.find((a) => a.id === step.agentId)?.name || step.agentId,
         tool: step.tool,
         riskLevel: step.riskLevel,
-        status: 'VERIFIED',
-        details: result.executionSummary || step.title,
-        confidence: result.evidence?.confidence || 0.96,
+        status: isSimulated ? 'SIMULATED' : result.verificationPassed ? 'VERIFIED' : 'UNVERIFIED',
+        simulated: isSimulated,
+        details: result.verificationNote || result.executionSummary || step.title,
+        confidence: typeof result.evidence?.confidence === 'number' ? result.evidence.confidence : 0,
       };
       setAuditLogs((prev) => [auditEntry, ...prev]);
       if (currentUser) {
@@ -715,11 +779,12 @@ export function AetherSwarmApp() {
             {
               id: 'c-' + Date.now(),
               claim: result.evidence.claim || step.title,
-              source: result.evidence.source || 'Verified Swarm Agent',
-              confidence: result.evidence.confidence || 0.95,
+              source: result.evidence.source || 'غير محدد (لم يُستخرَج مصدر حقيقي)',
+              confidence: typeof result.evidence.confidence === 'number' ? result.evidence.confidence : 0,
               agentId: step.agentId,
               timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-              verified: true,
+              // لا "verified: true" ما لم يؤكد الخادم تحققاً فعلياً
+              verified: !!result.verificationPassed && !isSimulated,
               hasDiscrepancy: result.evidence.hasDiscrepancy,
               resolvedDiscrepancy: result.evidence.discrepancyNote,
             },
@@ -737,7 +802,7 @@ export function AetherSwarmApp() {
                 status: 'completed',
                 evidence: result.evidence,
                 logs: result.logs,
-                executionTimeMs: 420,
+                executionTimeMs: stepStartedAt ? Math.max(1, Math.round(performance.now() - stepStartedAt)) : 0,
               }
             : s
         )
@@ -879,13 +944,13 @@ export function AetherSwarmApp() {
     setFiles((prev) => prev.filter((f) => f.id !== fileId));
     setTerminalLogs((prev) => [
       ...prev,
-      `[FILE-DELETE] Remove-Item -Path "${file.path}" -Force -> SUCCESS`,
+      `[عرض توضيحي] أُزيل «${file.name}» من قائمة العرض فقط — لم يُحذف أي ملف من القرص.`,
     ]);
   };
 
   // Export CSV
   const handleExportCsv = () => {
-    let csvContent = 'Brand,Retailer,Price,VRAM,Availability,Verified Source,Confidence\n';
+    let csvContent = 'Brand,Retailer,Price,VRAM,Availability,Source (Demo),Confidence\n';
     products.forEach((p) => {
       csvContent += `"${p.brand}","${p.retailer}","${p.price}","${p.vram}","${p.availability}","${p.verifiedSource}","${(p.confidence * 100).toFixed(0)}%"\n`;
     });
@@ -898,16 +963,21 @@ export function AetherSwarmApp() {
   };
 
   // Overall confidence calculation
+  // P0-1: متوسط الثقة من أدلة فعلية فقط — لا 0.95/0.96 افتراضياً
+  const stepsWithEvidence = taskGraph.filter((t) => typeof t.evidence?.confidence === 'number');
   const overallConfidence =
-    taskGraph.length > 0
-      ? taskGraph
-          .filter((t) => t.evidence?.confidence)
-          .reduce((acc, t) => acc + (t.evidence?.confidence || 0.95), 0) /
-        Math.max(1, taskGraph.filter((t) => t.evidence?.confidence).length)
-      : 0.96;
+    stepsWithEvidence.length > 0
+      ? stepsWithEvidence.reduce((acc, t) => acc + (t.evidence?.confidence || 0), 0) / stepsWithEvidence.length
+      : 0;
 
   return (
     <div className="aetherswarm-root min-h-[720px] bg-slate-950 text-slate-100 flex flex-col selection:bg-indigo-500 selection:text-white rounded-xl overflow-hidden border border-slate-800">
+      {/* P0-1: إفصاح دائم بأن محتوى الشاشة الأولي محاكاة وليس تنفيذاً */}
+      <div className="mx-3 mt-3 rounded-xl border border-amber-700/60 bg-amber-950/40 px-4 py-2.5 text-xs leading-relaxed text-amber-200">
+        ⚠️ شاشة عرض توضيحي (Demo): المهام والأدلة وسجل التدقيق والطرفية والذاكرة المعروضة مسبقاً محتوى
+        محاكاة نصية مُعدّ للعرض — لم يُنفَّذ أي فعل على نظام التشغيل، ولم تُفتح متصفحات أو ملفات فعلية،
+        ولا علاقة لهذا المحتوى بدفاتر المؤسسة. تُوسَم النتائج اللاحقة بمصدرها (محاكاة / تنفيذ).
+      </div>
       {/* Top Header */}
       <Header
         activeTab={activeTab}

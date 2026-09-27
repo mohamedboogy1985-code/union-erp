@@ -3,6 +3,7 @@ import path from 'path';
 import { moduleDir, resolveFirst } from '../utils/runtime-paths.js';
 import { erpStore, ERPStore } from '../db/store.js';
 import { normalizeArabicText } from '../utils/arabic.js';
+import { rebuildLedgerChain } from './ledger-chain.service.js';
 import { parseCsvToObjects } from '../utils/csv.js';
 import type { Account, JournalEntry, JournalEntryLine, SubledgerParty, User } from '../../src/types/erp.js';
 
@@ -527,6 +528,22 @@ export class CsvImportService {
         Object.assign(erpStore, fresh);
       } catch (reSeedErr: any) {
         console.error('فشل إعادة التهيئة التجريبية أيضاً:', reSeedErr?.message);
+      }
+    }
+
+    // ===== سلسلة تجزئة الأستاذ (P0-3) =====
+    // القيود المحمّلة من CSV كانت تدخل بلا previousHash/currentHash، فكان
+    // /api/ledger-chain/verify يُبلّغ عن 3083 قيداً «متلاعباً فيه» (سلسلة فارغة).
+    // البناء هنا يجعل الحالة الابتدائية سليمة وقابلة للتحقق، ثم تُحفظ في القاعدة.
+    if (summary.loaded) {
+      try {
+        const chain = rebuildLedgerChain(erpStore.journalEntries);
+        console.log(
+          `🔐 سلسلة تجزئة الأستاذ: ${erpStore.journalEntries.length} قيداً — ` +
+            (chain.chainValid ? 'سليمة' : `مكسورة عند ${chain.tamperedCount} قيداً`)
+        );
+      } catch (chainError: any) {
+        console.warn(`⚠️ تعذّر بناء سلسلة تجزئة الأستاذ: ${chainError?.message || chainError}`);
       }
     }
 
