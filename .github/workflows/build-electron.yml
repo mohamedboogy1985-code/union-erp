@@ -81,10 +81,10 @@ jobs:
       version: ${{ steps.meta.outputs.version }}
       prerelease: ${{ steps.meta.outputs.prerelease }}
     env:
-      # تخزين ثنائيات Electron وأدوات electron-builder داخل مساحة العمل لتسريع البناءات التالية
-      # (install-electron يقرأ electron_config_cache، وelectron-builder يقرأ ELECTRON_BUILDER_CACHE)
+      # أرشيف Electron (zip فقط) يُخزَّن داخل مساحة العمل ليُحفظ في الكاش (install-electron يقرأ electron_config_cache).
+      # تنبيه: كاش electron-builder يجب أن يبقى في موقعه الافتراضي خارج المشروع (%LOCALAPPDATA%\electron-builder\Cache)
+      # لأن أدواته (icon-tool.js) ملفات CommonJS، ووضعها تحت مشروع فيه "type": "module" يجعل Node يعاملها كـ ESM فتفشل.
       electron_config_cache: ${{ github.workspace }}\.cache\electron
-      ELECTRON_BUILDER_CACHE: ${{ github.workspace }}\.cache\electron-builder
       # لا توجد شهادة توقيع — تعطيل الاكتشاف التلقائي حتى لا يتوقف البناء
       CSC_IDENTITY_AUTO_DISCOVERY: 'false'
 
@@ -98,12 +98,12 @@ jobs:
           node-version: 22
           cache: 'npm'
 
-      - name: Cache Electron binaries
+      - name: Cache Electron binaries and electron-builder tools
         uses: actions/cache@v6
         with:
           path: |
             .cache/electron
-            .cache/electron-builder
+            ~/AppData/Local/electron-builder/Cache
           key: electron-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
           restore-keys: |
             electron-${{ runner.os }}-
