@@ -1,4 +1,4 @@
-import { pgTable, text, serial, integer, doublePrecision, boolean, timestamp, index, numeric } from 'drizzle-orm/pg-core';
+import { pgTable, text, serial, integer, doublePrecision, boolean, timestamp, index, uniqueIndex, numeric, jsonb } from 'drizzle-orm/pg-core';
 import { relations } from 'drizzle-orm';
 
 // 1. Users
@@ -113,6 +113,10 @@ export const journalEntries = pgTable('journal_entries', {
   reversalOfEntryId: text('reversal_of_entry_id'),
   isReversed: boolean('is_reversed').notNull().default(false),
   checksum: text('checksum').notNull(),
+  // سلسلة تجزئة الأستاذ الدائمة (P0-3): تُكتب عند الترحيل وتُتحقق بعد إعادة التشغيل
+  previousHash: text('previous_hash'),
+  currentHash: text('current_hash'),
+  chainIndex: integer('chain_index'),
   createdAt: timestamp('created_at').defaultNow(),
 }, (table) => [
   index('journal_entries_org_idx').on(table.organizationId),
@@ -250,6 +254,15 @@ export const auditLogs = pgTable('audit_logs', {
   organizationId: text('organization_id').notNull().default('org-union-main'),
   details: text('details').notNull(),
   ipAddress: text('ip_address').default('127.0.0.1'),
+  correlationId: text('correlation_id'),
+  status: text('status').notNull().default('SUCCESS'), // SUCCESS, FAILURE, BLOCKED
+  // الحالتان قبل/بعد التغيير: جزء من مضمون التجزئة (تعديل نص الحدث يجب أن يكسر السلسلة)
+  previousState: jsonb('previous_state'),
+  newState: jsonb('new_state'),
+  // سلسلة تجزئة دائمة (P0-3): كل حدث مربوط بتجزئة الحدث السابق — أي تعديل يكسر السلسلة
+  previousHash: text('previous_hash'),
+  eventHash: text('event_hash'),
+  sequence: integer('sequence'), // ترتيب أحادي متزايد داخل السلسلة (فهرس فريد يمنع إعادة الكتابة)
   createdAt: timestamp('created_at').defaultNow(),
 }, (table) => [
   index('audit_logs_user_idx').on(table.userId),
@@ -257,6 +270,8 @@ export const auditLogs = pgTable('audit_logs', {
   index('audit_logs_timestamp_idx').on(table.timestamp),
   index('audit_logs_entity_idx').on(table.entityType, table.entityId),
   index('audit_logs_org_idx').on(table.organizationId),
+  uniqueIndex('audit_logs_sequence_unique').on(table.sequence),
+  index('audit_logs_previous_hash_idx').on(table.previousHash),
 ]);
 
 // 15. Actuarial Funds & Pension Reserves (صناديق المعاشات والتكافل والدراسات الإكتوارية)
