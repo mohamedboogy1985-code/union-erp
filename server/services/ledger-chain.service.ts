@@ -20,8 +20,15 @@ const GENESIS_HASH = '0000000000000000000000000000000000000000000000000000000000
  * تمثيل الرقم أو ترتيب الأسطر — وهذا ما جعل السلسلة تُقرأ مكسورة بعد إعادة التشغيل.
  * الوسم يجعل التمييز ممكناً: تجزئة بلا وسم = ترميز قديم ⇒ تُرقّى بإعادة ختم مسجَّلة،
  * لا تُخفى كأنها تلاعب ولا يُغفر لها كأنها سليمة.
+ *
+ * v3: أُخرج رقم السطر من مضمون التجزئة (وصار ترتيب الأسطر محتوىً لا موضعاً). السبب
+ * مقيس: القاعدة لا تخزّن رقم السطر، وعند التحميل تُعاد ترقيم الأسطر بترتيب المعرّفات
+ * — و«jei-…-c2» يسبق «jei-…-d1» أبجدياً — فينقلب ترتيب المدين/الدائن ويُحسب الطرف
+ * الأول دائناً، فيُقرأ **كل** قيد متلاعباً به بعد كل إعادة تشغيل. المضمون الآن هو
+ * مجموعة أسطر القيد (معرّف/حساب/مدين/دائن/وصف) لا مواضعها، فالسلسلة تصمد أمام دورة
+ * (ذاكرة ← قاعدة ← ذاكرة)، ويبقى أي تغيير في مبلغ أو حساب أو وصف مكشوفاً.
  */
-export const LEDGER_HASH_VERSION = 'v2';
+export const LEDGER_HASH_VERSION = 'v3';
 const HASH_PREFIX = `${LEDGER_HASH_VERSION}:`;
 
 export function isVersionedLedgerHash(hash?: string | null): boolean {
@@ -44,17 +51,21 @@ function canonText(value: unknown): string {
   return value === null || value === undefined ? '' : String(value);
 }
 
-/** أسطر القيد بترتيب حتمي (رقم السطر ثم المعرّف) — اختلاف ترتيب الصفوف لا يعني تعديلاً */
+/**
+ * أسطر القيد بمضمون حتمي **مستقل عن الترتيب ورقم السطر**:
+ * كل سطر يُرمَّز بمضمونه ثم تُرتَّب الأسطر المرمَّزة نفسها وتُوصل. هذا يجعل التجزئة
+ * قابلة للمقارنة بين الذاكرة وبعد التحميل من القاعدة (حيث يُعاد ترقيم الأسطر)،
+ * ويبقي أي تغيير في الحساب أو المبلغ أو الوصف كاسراً للتجزئة.
+ */
 function canonicalLines(entry: JournalEntry): string {
   return (entry.lines || [])
-    .map((l) => ({ l, key: `${canonText(l.lineNumber)}|${canonText(l.id)}` }))
-    .sort((a, b) => a.key.localeCompare(b.key))
     .map(
-      ({ l }) =>
-        `L:${canonText(l.lineNumber)}:${canonText(l.accountCode)}:${canonText(l.accountId)}:D${canonMoney(
+      (l) =>
+        `L:${canonText(l.id)}:${canonText(l.accountCode)}:${canonText(l.accountId)}:D${canonMoney(
           l.debit
         )}:C${canonMoney(l.credit)}:${canonText(l.description)}`
     )
+    .sort()
     .join('|');
 }
 
