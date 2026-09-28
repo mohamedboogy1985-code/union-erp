@@ -28,6 +28,11 @@ import {
 
 export const AI_MODELS = ['gemini-3.7-flash', 'gemini-3.6-flash'];
 export const AI_PRIMARY_MODEL = AI_MODELS[0];
+/**
+ * نموذج المحادثة الحية (Gemini Live). مزوّد النموذج قد يسمّي نموذج الجلسة الحية باسم مختلف،
+ * لذلك يُضبط من البيئة `AI_LIVE_MODEL` بدل تثبيت اسم مخترَع — والافتراضي هو النموذج الأساسي المعلن.
+ */
+export const AI_LIVE_MODEL = process.env.AI_LIVE_MODEL || AI_PRIMARY_MODEL;
 export const AI_REQUEST_TIMEOUT_MS = Number(process.env.AI_REQUEST_TIMEOUT_MS || 25000);
 export const MAX_OCR_IMAGE_BYTES = Number(process.env.MAX_OCR_IMAGE_BYTES || 8 * 1024 * 1024);
 

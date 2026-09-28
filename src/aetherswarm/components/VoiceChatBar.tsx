@@ -168,7 +168,7 @@ export const VoiceChatBar: React.FC<VoiceChatBarProps> = ({
                 className="flex items-center gap-1 text-indigo-400 hover:text-indigo-300 transition-colors"
               >
                 <FileAudio className="w-3 h-3" />
-                <span>نسخ الصوت (gemini-3.5-transcribe)</span>
+                <span>نسخ الصوت</span>
               </button>
             )}
 
@@ -217,7 +217,7 @@ export const VoiceChatBar: React.FC<VoiceChatBarProps> = ({
               type="button"
               onClick={onOpenTranscribe}
               className="p-3 rounded-xl bg-slate-800 hover:bg-slate-700 text-indigo-400 border border-slate-700 hover:border-indigo-500/50 transition-all"
-              title="نسخ الصوت بواسطة نموذج gemini-3.5-transcribe"
+              title="نسخ الصوت بواسطة نموذج التوليد المعلن في الخادم"
             >
               <FileAudio className="w-5 h-5" />
             </button>

@@ -7,6 +7,7 @@ import { isDemoMode } from '../security/runtime-config.js';
 import { erpStore } from '../db/store.js';
 import { can } from '../security/permissions.js';
 import { localVoiceReply } from '../services/local-voice-reply.js';
+import { AI_LIVE_MODEL, AI_MODELS, AI_PRIMARY_MODEL } from '../services/ai.service.js';
 
 function swarmAuth(req: Request, res: Response): boolean {
   try {
@@ -47,7 +48,7 @@ function generateCognitiveSwarmPlan(prompt: string, autonomyLevel: string) {
       role: 'التخطيط، التوجيه ومراقبة مسار المهام',
       archetype: 'Orchestrator',
       icon: 'Cpu',
-      model: 'gemini-3.8-flash',
+      model: AI_PRIMARY_MODEL,
       capabilities: ['intent_decomposition', 'task_graph_scheduling', 'consensus_arbitration'],
       limitations: ['cannot_execute_raw_os_calls'],
       tools: ['swarm_dispatch', 'evidence_evaluator', 'risk_gate'],
@@ -59,7 +60,7 @@ function generateCognitiveSwarmPlan(prompt: string, autonomyLevel: string) {
       role: 'التصفح الآلي واستخراج الأسعار والوثائق الموثوقة',
       archetype: 'BrowserWorker',
       icon: 'Globe',
-      model: 'gemini-3.8-flash',
+      model: AI_PRIMARY_MODEL,
       capabilities: ['playwright_headless', 'cdp_automation', 'dom_extraction', 'screenshot'],
       limitations: ['cannot_modify_os_files'],
       tools: ['browser.open', 'browser.search', 'browser.extract_table', 'browser.screenshot'],
@@ -71,7 +72,7 @@ function generateCognitiveSwarmPlan(prompt: string, autonomyLevel: string) {
       role: 'كشف التناقضات والتحقق المستقل ومقارنة المصادر',
       archetype: 'FactChecker',
       icon: 'ShieldCheck',
-      model: 'gemini-3.8-flash',
+      model: AI_PRIMARY_MODEL,
       capabilities: ['epistemic_cross_check', 'conflict_detection', 'confidence_scoring'],
       limitations: ['no_direct_tools'],
       tools: ['evidence.cross_check', 'evidence.verify_claim'],
@@ -83,7 +84,7 @@ function generateCognitiveSwarmPlan(prompt: string, autonomyLevel: string) {
       role: 'التحكم بالبرامج، النوافذ، PowerShell، وأتمتة UI',
       archetype: 'WindowsExecutive',
       icon: 'Monitor',
-      model: 'gemini-3.8-flash',
+      model: AI_PRIMARY_MODEL,
       capabilities: ['win32_api', 'powershell_core', 'ui_automation', 'focus_window'],
       limitations: ['restricted_by_permission_gate'],
       tools: ['windows.launch', 'windows.powershell', 'windows.focus', 'windows.keystroke'],
@@ -95,7 +96,7 @@ function generateCognitiveSwarmPlan(prompt: string, autonomyLevel: string) {
       role: 'إنشاء ملفات Excel، تنسيق الجداول وتأكيد التخزين الآمن',
       archetype: 'DataSpecialist',
       icon: 'FileSpreadsheet',
-      model: 'gemini-3.8-flash',
+      model: AI_PRIMARY_MODEL,
       capabilities: ['xlsx_builder', 'csv_parser', 'safe_io', 'integrity_verifier'],
       limitations: ['cannot_delete_system_folders'],
       tools: ['file.write_table', 'file.verify_saved', 'excel.create_sheet'],
@@ -107,7 +108,7 @@ function generateCognitiveSwarmPlan(prompt: string, autonomyLevel: string) {
       role: 'التحقق البصري الدلالي من حالة الشاشة وعناصر الـ UI',
       archetype: 'VisionInspector',
       icon: 'Eye',
-      model: 'gemini-3.8-flash',
+      model: AI_PRIMARY_MODEL,
       capabilities: ['semantic_ui_detect', 'ocr_text_reading', 'visual_confirmation'],
       limitations: ['read_only_vision'],
       tools: ['vision.scan_screen', 'vision.find_element'],
@@ -480,7 +481,7 @@ export function registerAetherSwarmRoutes(app: Express): void {
   Provide response in strict JSON conforming to the schema. Output language for titles & explanations should be primarily Arabic with English technical terms where appropriate.`;
 
           const response = await ai.models.generateContent({
-            model: 'gemini-3.8-flash',
+            model: AI_PRIMARY_MODEL,
             contents: `User Request: "${prompt}"\nCurrent Autonomy Level: ${autonomyLevel}\nActive Desktop State: ${JSON.stringify(desktopState || {})}`,
             config: {
               systemInstruction: systemPrompt,
@@ -544,7 +545,7 @@ export function registerAetherSwarmRoutes(app: Express): void {
           });
 
           const parsed = JSON.parse(response.text || '{}');
-          return res.json({ success: true, plan: parsed, provider: 'gemini-3.8-flash' });
+          return res.json({ success: true, plan: parsed, provider: AI_PRIMARY_MODEL });
         } catch (err: any) {
           console.warn('Gemini orchestrate error, falling back to local cognitive engine:', err?.message);
         }
@@ -576,7 +577,7 @@ export function registerAetherSwarmRoutes(app: Express): void {
       if (ai) {
         try {
           const response = await ai.models.generateContent({
-            model: 'gemini-3.8-flash',
+            model: AI_PRIMARY_MODEL,
             contents: `You are Agent "${agent?.name}" (${agent?.role}) in AetherSwarm OS.
   Execute step: "${step?.title}" using tool: "${step?.tool}" with args: "${step?.toolArgs}".
   Overall User Goal: "${prompt}".
@@ -641,7 +642,7 @@ export function registerAetherSwarmRoutes(app: Express): void {
       if (ai) {
         try {
           const response = await ai.models.generateContent({
-            model: 'gemini-3.8-flash',
+            model: AI_PRIMARY_MODEL,
             contents: `AetherSwarm Conflict Resolver Agent:
   There is an epistemic discrepancy between agents:
   ${JSON.stringify(conflict)}
@@ -703,9 +704,9 @@ export function registerAetherSwarmRoutes(app: Express): void {
         });
       }
 
-      // Call gemini-3.5-transcribe
+      // نسخ الصوت عبر نموذج التوليد الأساسي المعلن في ai.service
       const response = await ai.models.generateContent({
-        model: 'gemini-3.5-transcribe',
+        model: AI_PRIMARY_MODEL,
         contents: [
           {
             inlineData: {
@@ -718,9 +719,9 @@ export function registerAetherSwarmRoutes(app: Express): void {
       });
 
       const transcript = response.text?.trim() || '';
-      return res.json({ success: true, transcript, model: 'gemini-3.5-transcribe' });
+      return res.json({ success: true, transcript, model: AI_PRIMARY_MODEL });
     } catch (error: any) {
-      console.error('Transcription error with gemini-3.5-transcribe:', error);
+      console.error('Transcription error with the primary AI model:', error);
       return res.status(500).json({
         error: error.message || 'Transcription failed',
         fallbackTranscript: '',
@@ -729,24 +730,20 @@ export function registerAetherSwarmRoutes(app: Express): void {
   });
 
   // 6. MULTI-TURN GEMINI CHATBOT API
-  // Models: gemini-3.1-pro-preview (complex tasks), gemini-3.5-flash (general tasks), gemini-3.1-flash-lite (fast tasks)
+  // النماذج المتاحة هي AI_MODELS المعلنة في server/services/ai.service.ts (تُقرأ ولا تُكتب يدوياً)
   app.post('/api/gemini/chat', async (req, res) => {
     try {
       const {
         messages = [],
-        model = 'gemini-3.5-flash',
+        model = AI_PRIMARY_MODEL,
         role = 'orchestrator',
         systemInstruction,
       } = req.body;
 
-      const allowedModels = [
-        'gemini-3.1-pro-preview',
-        'gemini-3.5-flash',
-        'gemini-3.1-flash-lite',
-        'gemini-3.8-flash',
-      ];
+      // أسماء النماذج المسموح بها هي المعلنة فعلاً في ai.service (لا أسماء مخترَعة)
+      const allowedModels = [...AI_MODELS];
 
-      const selectedModel = allowedModels.includes(model) ? model : 'gemini-3.5-flash';
+      const selectedModel = allowedModels.includes(model) ? model : AI_PRIMARY_MODEL;
 
       const defaultRoleInstructions: Record<string, string> = {
         orchestrator: `You are the accounting swarm orchestrator inside Union ERP.
@@ -799,7 +796,7 @@ export function registerAetherSwarmRoutes(app: Express): void {
     }
   });
 
-  // 7. REAL-TIME VOICE CONVERSATION API (gemini-3.8-live simulation / fallback)
+  // 7. REAL-TIME VOICE CONVERSATION API (جلسة صوتية عبر AI_LIVE_MODEL، وبديل محلي بلا مفتاح)
   app.post('/api/gemini/live-converse', async (req, res) => {
     try {
       const { prompt, persona = 'Zephyr', language = 'ar-SA' } = req.body || {};
@@ -812,14 +809,14 @@ export function registerAetherSwarmRoutes(app: Express): void {
       if (ai) {
         try {
           const response = await ai.models.generateContent({
-            model: 'gemini-3.8-flash',
+            model: AI_PRIMARY_MODEL,
             contents: `[Live Voice Assistant Mode - Persona: ${persona}]
 User spoke: "${spoken}".
 Respond concisely and naturally in ${language === 'ar-SA' ? 'Arabic' : 'English'} like a voice assistant, in 1-3 short sentences. Do not provide operating-system commands.`,
           });
           const reply = (response.text || '').trim();
           if (reply) {
-            return res.json({ success: true, response: reply, model: 'gemini-3.8-flash', provider: 'gemini' });
+            return res.json({ success: true, response: reply, model: AI_PRIMARY_MODEL, provider: 'gemini' });
           }
         } catch (err: any) {
           console.warn('Live converse Gemini fallback:', err?.message);
@@ -882,7 +879,7 @@ export function attachAetherSwarmLiveSocket(httpServer: Server): void {
     }
     try {
       const session = await ai.live.connect({
-        model: 'gemini-3.8-live',
+        model: AI_LIVE_MODEL,
         config: {
           responseModalities: ['AUDIO'] as any,
           systemInstruction: 'You are the Arabic voice assistant inside Union ERP. Answer briefly. Do not provide operating-system commands.',

@@ -1,4 +1,5 @@
 import { swarmFetch } from '../erpFetch';
+import { SWARM_AI_MODELS, SWARM_AI_MODEL, type SwarmAiModel } from '../model';
 import React, { useState, useRef, useEffect } from 'react';
 import {
   Bot,
@@ -17,10 +18,11 @@ import {
   Terminal
 } from 'lucide-react';
 
-export type GeminiModelChoice =
-  | 'gemini-3.1-pro-preview'
-  | 'gemini-3.5-flash'
-  | 'gemini-3.1-flash-lite';
+/**
+ * الأنواع المعروضة هي نفس النماذج المعلنة في الخادم (`AI_MODELS`) — لا أسماء مخترَعة.
+ * (كانت هنا gemini-3.5-flash / 3.1-pro-preview / 3.1-flash-lite وهي غير موجودة لدى المزوّد.)
+ */
+export type GeminiModelChoice = SwarmAiModel;
 
 export type ChatRole = 'orchestrator' | 'security' | 'windows' | 'critic';
 
@@ -41,7 +43,7 @@ export const GeminiChatbotView: React.FC<GeminiChatbotViewProps> = ({
   onDispatchToSwarm,
   onExecutePowershell,
 }) => {
-  const [model, setModel] = useState<GeminiModelChoice>('gemini-3.5-flash');
+  const [model, setModel] = useState<GeminiModelChoice>(SWARM_AI_MODEL);
   const [activeRole, setActiveRole] = useState<ChatRole>('orchestrator');
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -52,7 +54,7 @@ export const GeminiChatbotView: React.FC<GeminiChatbotViewProps> = ({
       id: 'm-init',
       role: 'model',
       text: 'مرحباً بك! أنا رفيقك الذكي في AetherSwarm OS. يمكنك اختياري كـ (Supreme Orchestrator) أو (Security Gatekeeper) أو (Windows Architect) أو (Critic). حدد النموذج المطلوب وسأقوم بتحليل أي أمر أو إنشاء خطة دقيقة لجهازك.',
-      modelUsed: 'gemini-3.5-flash',
+      modelUsed: SWARM_AI_MODEL,
       timestamp: '12:00 PM',
     },
   ]);
@@ -164,42 +166,29 @@ export const GeminiChatbotView: React.FC<GeminiChatbotViewProps> = ({
         {/* Model Selector Pill Group */}
         <div className="flex flex-wrap items-center gap-1.5 bg-slate-950/80 p-1 rounded-xl border border-slate-800 text-xs">
           <button
-            onClick={() => setModel('gemini-3.1-flash-lite')}
+            onClick={() => setModel(SWARM_AI_MODELS[0])}
             className={`flex items-center gap-1 px-2.5 py-1 rounded-lg transition-all ${
-              model === 'gemini-3.1-flash-lite'
-                ? 'bg-amber-600 text-white font-semibold shadow'
-                : 'text-slate-400 hover:text-slate-200'
-            }`}
-            title="مهام فائقة السرعة واستجابة فورية"
-          >
-            <Zap className="w-3 h-3 text-amber-300" />
-            <span>فائق السرعة (Flash-Lite)</span>
-          </button>
-
-          <button
-            onClick={() => setModel('gemini-3.5-flash')}
-            className={`flex items-center gap-1 px-2.5 py-1 rounded-lg transition-all ${
-              model === 'gemini-3.5-flash'
+              model === SWARM_AI_MODELS[0]
                 ? 'bg-indigo-600 text-white font-semibold shadow'
                 : 'text-slate-400 hover:text-slate-200'
             }`}
-            title="مهام عامة وتحكم وتصفح"
+            title={`الموديل الأساسي المعلن في الخادم (${SWARM_AI_MODELS[0]})`}
           >
             <Sparkles className="w-3 h-3 text-cyan-300" />
-            <span>عام ومرن (3.5 Flash)</span>
+            <span>{SWARM_AI_MODELS[0]}</span>
           </button>
 
           <button
-            onClick={() => setModel('gemini-3.1-pro-preview')}
+            onClick={() => setModel(SWARM_AI_MODELS[1])}
             className={`flex items-center gap-1 px-2.5 py-1 rounded-lg transition-all ${
-              model === 'gemini-3.1-pro-preview'
-                ? 'bg-purple-600 text-white font-semibold shadow'
+              model === SWARM_AI_MODELS[1]
+                ? 'bg-amber-600 text-white font-semibold shadow'
                 : 'text-slate-400 hover:text-slate-200'
             }`}
-            title="تفكير عميق وتخطيط معقد"
+            title={`الموديل الثاني المعلن في الخادم (${SWARM_AI_MODELS[1]})`}
           >
-            <Cpu className="w-3 h-3 text-purple-300" />
-            <span>مهام معقدة (3.1 Pro)</span>
+            <Zap className="w-3 h-3 text-amber-300" />
+            <span>{SWARM_AI_MODELS[1]}</span>
           </button>
 
           <button
