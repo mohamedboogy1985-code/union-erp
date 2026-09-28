@@ -1,14 +1,15 @@
 import React, { useState } from 'react';
-import { Bot, Radio, Headset, Calculator, Sparkles, Cpu } from 'lucide-react';
+import { Bot, Radio, Headset, Calculator, Sparkles, Cpu, Brain } from 'lucide-react';
 import { AetherSwarmApp } from '../aetherswarm/AetherSwarmApp.js';
 import { AIAssistant } from './AIAssistant.js';
 import { LiveAgent } from './LiveAgent.js';
 import { AccountingChat } from './AccountingChat.js';
 import { CustomAgentStudio } from '../components/CustomAgentStudio.js';
+import { AiAgentOverview, AI_AGENT_CAPABILITY_COUNT } from './AiAgentOverview.js';
 import { ModuleTabs, ModuleTabDef } from '../components/ModuleTabs.js';
 import { User } from '../types/erp.js';
 
-export type AiTabId = 'ai' | 'accountant' | 'liveagent' | 'customagent' | 'swarm';
+export type AiTabId = 'overview' | 'ai' | 'accountant' | 'liveagent' | 'customagent' | 'swarm';
 
 interface AiHubProps {
   organizationId: string;
@@ -25,6 +26,7 @@ interface AiHubProps {
 }
 
 const SUB_TABS: ModuleTabDef<AiTabId>[] = [
+  { id: 'overview', label: 'نظرة عامة — AI Agent المتكامل', icon: Brain, badge: `${AI_AGENT_CAPABILITY_COUNT} قدرات` },
   { id: 'swarm', label: 'سرب الوكيل (AetherSwarm)', icon: Cpu, badge: 'مدمج' },
   { id: 'customagent', label: 'الوكيل الذكي المخصص (Custom Agent)', icon: Sparkles, badge: 'Studio' },
   { id: 'ai', label: 'استوديو الذكاء الاصطناعي (Gemini)', icon: Bot, badge: 'OCR/Forensics' },
@@ -54,6 +56,17 @@ export const AiHub: React.FC<AiHubProps> = ({
       />
 
       <div>
+        {activeTab === 'overview' && (
+          <AiAgentOverview
+            organizationId={organizationId}
+            onNavigate={(tab) => {
+              if (['ai', 'accountant', 'liveagent', 'customagent', 'swarm'].includes(tab))
+                setActiveTab(tab as AiTabId);
+              else onNavigate(tab);
+            }}
+            onShowToast={onShowToast}
+          />
+        )}
         {activeTab === 'swarm' && <AetherSwarmApp />}
         {activeTab === 'customagent' && (
           <CustomAgentStudio

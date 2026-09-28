@@ -18,6 +18,7 @@ import { registerReportExportRoutes } from './server/routes/report-export.routes
 import { registerEtaRoutes } from './server/routes/eta.routes.js';
 import { registerOperatorAssistantRoutes } from './server/routes/operator-assistant.routes.js';
 import { registerJulesRoutes } from './server/routes/jules.routes.js';
+import { registerSkillsRoutes } from './server/routes/skills.routes.js';
 import { attachAetherSwarmLiveSocket, registerAetherSwarmRoutes } from './server/routes/aetherswarm.routes.js';
 import { configureAdminCredentials, configureUserCredentials, publicUser } from './server/security/admin-credentials.js';
 import { receiptsService } from './server/services/receipts.service.js';
@@ -265,6 +266,8 @@ async function startServer() {
     persistAudit: (event) => { void postgresManager.persistAuditLog(event); },
   });
   registerAetherSwarmRoutes(app);
+  // نظام المهارات الموحد (Skills Unified System) — استُعيد من PR #24/#26
+  registerSkillsRoutes(app, { requirePermission });
 
   // ==========================================
   // 1. HEALTH & SYSTEM INFO

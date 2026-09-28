@@ -215,6 +215,17 @@ git checkout origin/pr-26 -- src/pages/SkillsHub.tsx src/pages/AiAgentOverview.t
 | **P3 — قاعدة بيانات ومراجعة أمنية** | هجرات `001…004` (numeric، فهارس، RLS + views، pgvector)، `embedding.service.ts` + RAG، بوابة AI و`/api/ai/stream`، توسيع مترادفات `smart-agent` (25 مجموعة) | دقة مالية على مستوى القاعدة + استرجاع دلالي حقيقي | **تعارض جزئي:** `main` يملك `server/db/pg-schema.sql` بأعمدة `numeric(18,2)` ودُمجت PRs #33/#38 لنفس الهدف — يجب مقارنة الهجرات بالوضع الحالي؛ RLS/PgVector يحتاجان مراجعة صلاحيات وتهيئة امتدادات مستقلة |
 | **منفصل** | `docs/AUDIT_REPORT_2026.md` (تقرير لحظي، قيمة أرشيفية)، الصور/الشعارات المضغوطة (9 ملفات) | توثيق ونظافة مستودع | قرار بشأن تضخّم المستودع |
 
+### حالة التنفيذ
+
+| المرحلة | الحالة | ما نُفِّذ فعلاً (تحقق قابل لإعادة التشغيل) |
+|---|---|---|
+| **P1** | ✅ نُفِّذت | 17 مساراً في `server/routes/skills.routes.ts` + مجموعات المتجر وبذورها (15 مهارة/3 برامج/4 مهارات وكلاء/3 إجراءات/2 ارتباط/2 تسجيل) + 17 دالة في `src/services/api.ts`، الأنواع في `src/types/erp.ts`، `SkillsHub.tsx`، شاشة `skills` في البوابات الثلاث، تبويب `overview` في `AiHub` مع `AiAgentOverview.tsx` و`docs/AI_AGENT_OVERVIEW.md` (أُعيد كتابتهما بلا أرقام وهمية)، `PortalWelcome.tsx` (النطق عبر `speakArabic` المشتركة لا `speechSynthesis` مباشرةً)، زرّ طباعة `Journal2024Viewer`، وتصدير CSV حقيقي في `AccountingReports.tsx` عبر `src/utils/report-csv.ts`. **قرار بطاقة الفيديو:** يُبقى `PromoShowcase` (فحص HEAD + إعادة محاولة + حالة «مفقود») ويُضاف إليه رابط تحميل MP4 الذي كان في PR #26 — بدل حذف الملف واستبداله ببطاقة مضمّنة مكرّرة كما فعل الـ PR. الاختبارات الجديدة (27): `skills`، `report-csv`، `portal-welcome`، `ai-agent-overview`، `promo-video` — مربوطة في `npm test`، ودليل نقاط المهارات أُضيف إلى `docs/API.md`. |
+| **P2** | ⏳ لم تبدأ | — |
+| **P3** | ⏳ لم تبدأ | — |
+
+لم يُنقل من الـ PRs أي واجهة تعرض أرقاماً غير مقيسة: شاشة `AiAgentOverview` تقرأ `/api/health`
+و`/api/skills/summary` وتعرض «—» لأي قيمة غير متاحة (اختبار `test/ai-no-fabrication.test.ts` يمرّ).
+
 ---
 
 ## 9) الدروس والوقاية
