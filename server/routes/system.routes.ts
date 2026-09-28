@@ -50,6 +50,10 @@ export const OPENAPI_PATHS: Record<string, { method: 'get' | 'post' | 'put' | 'd
   '/api/operator-assistant/status': { method: 'get', summary: 'حالة مساعد التشغيل', tags: ['Assistant'] },
   '/api/ledger-chain/verify': { method: 'get', summary: 'التحقق من سلسلة الأستاذ', tags: ['Audit'] },
   '/api/audit-logs': { method: 'get', summary: 'سجل التدقيق', tags: ['Audit'] },
+  '/api/swarm/tools': { method: 'get', summary: 'سجل أدوات سرب ERP (قراءة فقط)', tags: ['Swarm'] },
+  '/api/swarm/tasks': { method: 'post', summary: 'إنشاء مهمة سرب وبناء خطتها', tags: ['Swarm'] },
+  '/api/swarm/tasks/:id/run': { method: 'post', summary: 'تنفيذ خطوة واحدة من خطة السرب', tags: ['Swarm'] },
+  '/api/swarm/tasks/:id/run-all': { method: 'post', summary: 'تنفيذ خطة السرب حتى حالة نهائية', tags: ['Swarm'] },
 };
 
 function buildOpenApiDocument() {

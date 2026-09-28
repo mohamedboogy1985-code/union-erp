@@ -1,4 +1,15 @@
 # وثيقة OpenAPI — Union ERP (P2)
+## سرب أدوات ERP (`Swarm`)
+
+| المسار | الطريقة | الوصف |
+| --- | --- | --- |
+| `/api/swarm/tools` | GET | سجل الأدوات المتاحة للمستخدم (`readOnly` دائماً، `permission`، `available`) |
+| `/api/swarm/tasks` | POST / GET | إنشاء مهمة (خطة + حالة نجاح متوقعة لكل خطوة) · قراءة المهام من الخادم |
+| `/api/swarm/tasks/:id/run` | POST | تنفيذ خطوة واحدة |
+| `/api/swarm/tasks/:id/run-all` | POST | تنفيذ الخطة حتى حالة نهائية (`VERIFIED` بتحقق مستقل وأدلة، وإلا `FAILED`/`BLOCKED`) |
+
+التفاصيل: `docs/SWARM_ERP_TOOLS.md`.
+
 
 > نقطة التوثيق الآلية: `GET /api/system/openapi.json` — وتحتاج هوية موثّقة مثل بقية نقاط `/api`.
 
