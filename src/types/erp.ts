@@ -1320,3 +1320,143 @@ export interface EtaDocumentInput {
 
 
 
+
+// =====================================================
+// نظام المهارات الموحد — Skills Unified System
+// يغطي: HR, Training, AI Agent, Accounting Procedures
+// متاح في كل البوابات (ALL)
+// (استُعيد من PR #24/#26 — راجع docs/CLOSED_PR_REVIEW.md)
+// =====================================================
+export type SkillCategory = 'HR' | 'TRAINING' | 'AI_AGENT' | 'ACCOUNTING';
+export type SkillLevel = 'BEGINNER' | 'INTERMEDIATE' | 'ADVANCED' | 'EXPERT';
+
+export const SKILL_CATEGORY_AR: Record<SkillCategory, string> = {
+  HR: 'مهارات الموظفين',
+  TRAINING: 'مهارات تدريبية',
+  AI_AGENT: 'مهارات المساعد الذكي',
+  ACCOUNTING: 'إجراءات محاسبية',
+};
+
+export const SKILL_LEVEL_AR: Record<SkillLevel, string> = {
+  BEGINNER: 'مبتدئ',
+  INTERMEDIATE: 'متوسط',
+  ADVANCED: 'متقدم',
+  EXPERT: 'خبير',
+};
+
+export interface Skill {
+  id: string;
+  code: string; // SKL-001
+  name: string;
+  nameEn?: string;
+  description: string;
+  category: SkillCategory;
+  level: SkillLevel;
+  icon?: string; // اسم أيقونة lucide
+  color?: string; // صنف لون tailwind
+  isActive: boolean;
+  prerequisites?: string[]; // معرّفات المهارات المتطلبة
+  estimatedHours?: number;
+  organizationId?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface EmployeeSkill {
+  id: string;
+  employeeId: string;
+  employeeName: string;
+  skillId: string;
+  skillName: string;
+  skillCategory: SkillCategory;
+  level: SkillLevel;
+  proficiency: number; // 0-100
+  acquiredDate: string;
+  expiryDate?: string;
+  verified: boolean;
+  verifiedBy?: string;
+  certificateUrl?: string;
+  notes?: string;
+  createdAt: string;
+}
+
+export interface TrainingProgram {
+  id: string;
+  code: string;
+  title: string;
+  description: string;
+  category: SkillCategory;
+  durationHours: number;
+  maxParticipants: number;
+  instructor?: string;
+  location?: string;
+  startDate?: string;
+  endDate?: string;
+  status: 'DRAFT' | 'OPEN' | 'IN_PROGRESS' | 'COMPLETED' | 'CANCELLED';
+  skillsGranted: string[]; // معرّفات المهارات المكتسبة
+  organizationId: string;
+  createdAt: string;
+}
+
+export interface TrainingEnrollment {
+  id: string;
+  programId: string;
+  programTitle: string;
+  employeeId: string;
+  employeeName: string;
+  status: 'ENROLLED' | 'IN_PROGRESS' | 'COMPLETED' | 'FAILED' | 'DROPPED';
+  progress: number; // 0-100
+  score?: number;
+  enrolledAt: string;
+  completedAt?: string;
+}
+
+export interface AiAgentSkill {
+  id: string;
+  skillId: string;
+  skillName: string;
+  agentName: string; // مثل: «المحاسب الذكي»، «المدقق الذكي»
+  capability: string;
+  promptTemplate?: string;
+  isEnabled: boolean;
+  usageCount: number;
+  successRate: number; // 0-100
+  config?: Record<string, unknown>;
+  organizationId: string;
+  createdAt: string;
+}
+
+export interface AccountingProcedure {
+  id: string;
+  skillId: string;
+  skillName: string;
+  procedureCode: string; // PROC-001
+  title: string;
+  description: string;
+  category: 'CLOSING' | 'RECONCILIATION' | 'DEPRECIATION' | 'BUDGET' | 'AUDIT' | 'REPORT' | 'OTHER';
+  steps: {
+    order: number;
+    title: string;
+    description: string;
+    accountCode?: string;
+    automated: boolean;
+  }[];
+  estimatedMinutes: number;
+  isAutomated: boolean;
+  templateJournalId?: string; // مرتبط بقيود النماذج
+  organizationId: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface SkillsSummary {
+  totalSkills: number;
+  byCategory: Record<SkillCategory, number>;
+  totalEmployeeSkills: number;
+  totalTrainingPrograms: number;
+  totalEnrollments: number;
+  totalAiSkills: number;
+  totalProcedures: number;
+  topSkills: { skillId: string; skillName: string; count: number }[];
+  expiringSoon: EmployeeSkill[];
+}

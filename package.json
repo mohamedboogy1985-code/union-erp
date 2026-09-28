@@ -8,7 +8,7 @@
     "dev": "tsx watch --ignore pgdata --clear-screen=false server.ts",
     "build": "vite build",
     "start": "NODE_ENV=production tsx server.ts",
-    "test": "tsx test/accounting.test.ts && tsx test/improvements.test.ts && tsx test/employee-affairs.test.ts && tsx test/regulation.test.ts && tsx test/attendance.test.ts && tsx test/journal-delete.test.ts && npm run test:jules && npm run test:operator-assistant && npm run test:assistant-setup && npm run test:voice-reply && npm run test:ai-no-fabrication && npm run test:ai-draft-token && npm run test:security-audit && npm run test:csv-identifiers",
+    "test": "tsx test/accounting.test.ts && tsx test/improvements.test.ts && tsx test/employee-affairs.test.ts && tsx test/regulation.test.ts && tsx test/attendance.test.ts && tsx test/journal-delete.test.ts && npm run test:jules && npm run test:operator-assistant && npm run test:assistant-setup && npm run test:voice-reply && npm run test:ai-no-fabrication && npm run test:ai-draft-token && npm run test:security-audit && npm run test:csv-identifiers && npm run test:skills && npm run test:report-csv && npm run test:portal-welcome && npm run test:ai-agent-overview && npm run test:promo-video && npm run test:hardening && npm run test:model-names && npm run test:synonyms && npm run test:rag",
     "test:watch": "jest --watch",
     "lint": "eslint src --ext .ts,.tsx",
     "lint:fix": "eslint src --ext .ts,.tsx --fix",
@@ -40,7 +40,21 @@
     "test:ai-draft-token": "tsx --test test/ai-draft-token.test.ts",
     "typecheck:server": "tsc --noEmit -p tsconfig.server.json",
     "test:security-audit": "tsx --test test/security-audit-chain.test.ts",
-    "test:csv-identifiers": "tsx --test test/csv-import-identifiers.test.ts"
+    "test:csv-identifiers": "tsx --test test/csv-import-identifiers.test.ts",
+    "test:skills": "tsx --test test/skills.test.ts",
+    "test:report-csv": "tsx --test test/report-csv.test.ts",
+    "test:portal-welcome": "tsx --test test/portal-welcome.test.tsx",
+    "test:ai-agent-overview": "tsx --test test/ai-agent-overview.test.tsx",
+    "test:promo-video": "tsx --test test/promo-video.test.ts",
+    "test:hardening": "tsx --test test/production-hardening.test.ts",
+    "test:model-names": "tsx --test test/ai-model-names.test.ts",
+    "test:synonyms": "tsx --test test/smart-agent-synonyms.test.ts",
+    "test:rag": "tsx --test test/rag-and-migrations.test.ts",
+    "test:e2e": "playwright test",
+    "test:load": "k6 run scripts/load-test.k6.js",
+    "assets:compress": "tsx scripts/compress-assets.ts",
+    "db:migrations:check": "tsx scripts/apply-migrations.ts",
+    "rag:seed": "tsx scripts/seed-rag.ts"
   },
   "keywords": [
     "accounting",
@@ -62,6 +76,7 @@
     "axios": "^1.20.0",
     "bcryptjs": "^3.0.3",
     "busboy": "^1.6.0",
+    "compression": "^1.8.2",
     "cors": "^2.8.5",
     "dotenv": "^16.6.1",
     "drizzle-kit": "^0.31.10",
@@ -88,7 +103,9 @@
     "ws": "^8.21.3"
   },
   "devDependencies": {
+    "@playwright/test": "^1.63.0",
     "@tailwindcss/vite": "^4.1.14",
+    "@types/compression": "^1.8.1",
     "@types/express": "^4.17.25",
     "@types/jest": "^29.5.14",
     "@types/multer": "^1.4.13",
@@ -100,6 +117,7 @@
     "@typescript-eslint/parser": "^8.68.0",
     "@vitejs/plugin-react": "^5.2.0",
     "autoprefixer": "^10.4.21",
+    "drizzle-kit": "^0.31.11",
     "electron": "^44.0.0",
     "electron-builder": "^26.15.3",
     "embedded-postgres": "^18.4.0-beta.17",
@@ -114,8 +132,7 @@
     "ts-jest": "^29.1.1",
     "tsx": "^4.0.0",
     "typescript": "^5.9.3",
-    "vite": "^6.4.3",
-    "drizzle-kit": "^0.31.11"
+    "vite": "^6.4.3"
   },
   "engines": {
     "node": ">=18.0.0",

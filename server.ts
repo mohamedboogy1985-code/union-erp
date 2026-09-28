@@ -18,6 +18,7 @@ import { registerReportExportRoutes } from './server/routes/report-export.routes
 import { registerEtaRoutes } from './server/routes/eta.routes.js';
 import { registerOperatorAssistantRoutes } from './server/routes/operator-assistant.routes.js';
 import { registerJulesRoutes } from './server/routes/jules.routes.js';
+import { registerSkillsRoutes } from './server/routes/skills.routes.js';
 import { attachAetherSwarmLiveSocket, registerAetherSwarmRoutes } from './server/routes/aetherswarm.routes.js';
 import { configureAdminCredentials, configureUserCredentials, publicUser } from './server/security/admin-credentials.js';
 import { receiptsService } from './server/services/receipts.service.js';
@@ -48,7 +49,10 @@ import { attendanceService } from './server/services/attendance.service.js';
 import { payrollService } from './server/services/payroll.service.js';
 import { payrollImportService } from './server/services/payroll-import.service.js';
 import { attachLiveAgentWebSocketServer } from './server/services/live-agent.service.js';
+import compression from 'compression';
 import { apiErrorHandler, notFoundHandler } from './server/middleware/error-handler.js';
+import { requestLoggerMiddleware, logger } from './server/middleware/logger.js';
+import { registerSystemRoutes } from './server/routes/system.routes.js';
 import { maybeStartEmbeddedPostgres } from './server/db/pg-embedded.js';
 import { can, isReadOnlyUser, ROLE_DEFINITIONS } from './server/security/permissions.js';
 import { assertRuntimeSecurity, isSqlConsoleAllowed, isStrictAuth } from './server/security/runtime-config.js';
@@ -84,6 +88,8 @@ async function startServer() {
   // ===== IMPROVEMENTS 5.1/5.2: طبقة الأمان قبل أي معالجة =====
   app.use(securityHeadersMiddleware);
   app.use(comprehensiveAuditMiddleware); // سجل تدقيق شامل لكل عمليات API
+  app.use(compression({ threshold: 1024 })); // ضغط الاستجابات الأكبر من 1KB (P2)
+  app.use(requestLoggerMiddleware); // P2: سجل pino + عدادات Prometheus لكل طلب
   // fix(security): حد معدل صريح وأكثر صرامة لمسارات النظام والحساسية العالية (100 طلب/دقيقة افتراضياً)
   // يُطبَّق قبل الحد العام ليقيّد /api/system و/api/security و/api/auth (تسجيل الدخول و2FA) ضد الإساءة والـ brute-force
   app.use(['/api/system', '/api/security', '/api/auth'], createRateLimiter(SENSITIVE_ROUTES_RATE_LIMIT_MAX, 60_000));
@@ -92,7 +98,10 @@ async function startServer() {
   // Coding-agent inputs are text only; do not inherit the document-upload limit.
   app.use('/api/jules', express.json({ limit: '64kb' }));
   app.use('/api/operator-assistant', express.json({ limit: '3mb' }));
-  app.use(express.json({ limit: '250mb' })); // دعم رفع الملفات الكبيرة base64 للمستندات
+  // fix(security) P2: خُفِّض من 250mb — المستندات تُرفع كـ base64 والفواتير المضغوطة أقل من 4MB،
+  // وترك الباب مفتوحاً لـ 250mb كان يسمح بإسقاط الخادم بحمولة واحدة (DoS).
+  app.use(express.json({ limit: '50mb' }));
+  app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 
   // خدمة الأصول الثابتة (صور المستخدمين وأيقونة التطبيق) — بمسارات مرشحة
   // تدعم التطوير وحزمة الإنتاج وتطبيق Electron المُغلَّف
@@ -265,6 +274,18 @@ async function startServer() {
     persistAudit: (event) => { void postgresManager.persistAuditLog(event); },
   });
   registerAetherSwarmRoutes(app);
+  // نظام المهارات الموحد (Skills Unified System) — استُعيد من PR #24/#26
+  registerSkillsRoutes(app, { requirePermission });
+
+  // ===== P2: مسارات النظام (مقاييس Prometheus + صحة مفصّلة + OpenAPI) =====
+  registerSystemRoutes(app, {
+    requirePermission,
+    getActiveUser,
+    databaseStatus: () => ({
+      connected: postgresManager.isDbAvailable(),
+      mode: postgresManager.isDbAvailable() ? 'PostgreSQL (مستمر)' : 'ذاكرة داخلية (عرض)',
+    }),
+  });
 
   // ==========================================
   // 1. HEALTH & SYSTEM INFO

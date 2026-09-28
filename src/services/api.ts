@@ -43,6 +43,13 @@ import {
   EtaDocumentRecord,
   EtaSubmitResponse,
   EtaDocumentInput,
+  Skill,
+  SkillsSummary,
+  EmployeeSkill,
+  TrainingProgram,
+  TrainingEnrollment,
+  AiAgentSkill,
+  AccountingProcedure,
 } from '../types/erp.js';
 
 // المستخدم الافتراضي: مدير البرنامج محمد عبد الله أحمد (جميع الصلاحيات)
@@ -538,6 +545,71 @@ export const api = {
   etaCancel: (uuid: string, reason: string) =>
     request<any>(`/api/eta/documents/${uuid}/cancel`, { method: 'POST', body: JSON.stringify({ reason }) }),
   etaDownloadUrl: (uuid: string) => `/api/eta/documents/${uuid}/download`,
+
+  // ─── نظام المهارات الموحد — Skills Unified System (استُعيد من PR #24/#26) ───
+  getSkills: (params: { category?: string; search?: string; isActive?: boolean } = {}) => {
+    const qs = new URLSearchParams();
+    if (params.category) qs.set('category', params.category);
+    if (params.search) qs.set('search', params.search);
+    if (params.isActive !== undefined) qs.set('isActive', String(params.isActive));
+    const q = qs.toString();
+    return request<Skill[]>(`/api/skills${q ? `?${q}` : ''}`);
+  },
+  getSkillsSummary: () => request<SkillsSummary>('/api/skills/summary'),
+  createSkill: (data: Partial<Skill>) => request<Skill>('/api/skills', { method: 'POST', body: JSON.stringify(data) }),
+  updateSkill: (id: string, data: Partial<Skill>) =>
+    request<Skill>(`/api/skills/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
+  deleteSkill: (id: string) => request<{ success: boolean }>(`/api/skills/${id}`, { method: 'DELETE' }),
+  getEmployeeSkills: (params: { employeeId?: string; skillId?: string; category?: string } = {}) => {
+    const qs = new URLSearchParams();
+    if (params.employeeId) qs.set('employeeId', params.employeeId);
+    if (params.skillId) qs.set('skillId', params.skillId);
+    if (params.category) qs.set('category', params.category);
+    const q = qs.toString();
+    return request<EmployeeSkill[]>(`/api/employee-skills${q ? `?${q}` : ''}`);
+  },
+  addEmployeeSkill: (data: Partial<EmployeeSkill> & { employeeId: string; skillId: string }) =>
+    request<EmployeeSkill>('/api/employee-skills', { method: 'POST', body: JSON.stringify(data) }),
+  deleteEmployeeSkill: (id: string) =>
+    request<{ success: boolean }>(`/api/employee-skills/${id}`, { method: 'DELETE' }),
+  getTrainingPrograms: (params: { category?: string; status?: string } = {}) => {
+    const qs = new URLSearchParams();
+    if (params.category) qs.set('category', params.category);
+    if (params.status) qs.set('status', params.status);
+    const q = qs.toString();
+    return request<TrainingProgram[]>(`/api/training-programs${q ? `?${q}` : ''}`);
+  },
+  createTrainingProgram: (data: Partial<TrainingProgram> & { title: string }) =>
+    request<TrainingProgram>('/api/training-programs', { method: 'POST', body: JSON.stringify(data) }),
+  getTrainingEnrollments: (params: { programId?: string; employeeId?: string } = {}) => {
+    const qs = new URLSearchParams();
+    if (params.programId) qs.set('programId', params.programId);
+    if (params.employeeId) qs.set('employeeId', params.employeeId);
+    const q = qs.toString();
+    return request<TrainingEnrollment[]>(`/api/training-enrollments${q ? `?${q}` : ''}`);
+  },
+  enrollTraining: (data: { programId: string; employeeId: string; employeeName?: string }) =>
+    request<TrainingEnrollment>('/api/training-enrollments', { method: 'POST', body: JSON.stringify(data) }),
+  updateEnrollmentProgress: (
+    id: string,
+    data: { progress?: number; status?: TrainingEnrollment['status']; score?: number }
+  ) =>
+    request<TrainingEnrollment>(`/api/training-enrollments/${id}/progress`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    }),
+  getAiAgentSkills: () => request<AiAgentSkill[]>('/api/ai-agent-skills'),
+  toggleAiAgentSkill: (id: string) =>
+    request<AiAgentSkill>(`/api/ai-agent-skills/${id}/toggle`, { method: 'PUT' }),
+  getAccountingProcedures: (category?: string) =>
+    request<AccountingProcedure[]>(
+      category ? `/api/accounting-procedures?category=${encodeURIComponent(category)}` : '/api/accounting-procedures'
+    ),
+  executeAccountingProcedure: (id: string) =>
+    request<{ success: boolean; message: string; procedure: AccountingProcedure; executedAt: string }>(
+      `/api/accounting-procedures/${id}/execute`,
+      { method: 'POST' }
+    ),
 
   // ─── مكتبة النماذج والمستندات (مجلد «نماذج») ───
   getModels: () => request<{ directory: string; files: any[]; locked: boolean }>('/api/models'),

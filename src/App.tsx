@@ -1,6 +1,7 @@
 import { useState, useEffect, lazy, Suspense } from 'react';
 import { Layout } from './components/Layout.js';
 import { ToastContainer, ToastMessage } from './components/Toast.js';
+import { PortalWelcome } from './components/PortalWelcome.js';
 import { api } from './services/api.js';
 import { User } from './types/erp.js';
 
@@ -39,6 +40,7 @@ const ModelsViewer = lazy(() => import('./pages/ModelsViewer.js').then((m) => ({
 const TrainingAccounting2024 = lazy(() => import('./pages/TrainingAccounting2024.js').then((m) => ({ default: m.TrainingAccounting2024 })));
 const FinalAccounts2024 = lazy(() => import('./pages/FinalAccounts2024.js').then((m) => ({ default: m.FinalAccounts2024 })));
 const BalanceSheet = lazy(() => import('./pages/BalanceSheet.js').then((m) => ({ default: m.BalanceSheet })));
+const SkillsHub = lazy(() => import('./pages/SkillsHub.js').then((m) => ({ default: m.SkillsHub })));
 
 // الوحدات القديمة المُدمجة في الوحدات الموحدة — تبقى معرفاتها شغّالة كتحويلات
 // داخلية ليتواصل كل تنقل قديم (لوحة التحكم/المساعد الذكي) مع الوحدة الصحيحة.
@@ -105,6 +107,8 @@ export function App() {
   const [selectedOrgId, setSelectedOrgId] = useState(portalMeta?.organizationId || 'org-general');
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
+  // ترحيب ذكي عند اختيار بوابة (يُغلق تلقائياً عند المتابعة)
+  const [welcomePortal, setWelcomePortal] = useState<PortalId | null>(null);
 
   useEffect(() => {
     loadUser();
@@ -117,6 +121,7 @@ export function App() {
     setSelectedOrgId(meta?.organizationId || 'org-general');
     setCurrentTab(meta?.homeTab || 'portals');
     localStorage.setItem('union_active_portal', gateway);
+    if (meta) setWelcomePortal(gateway);
   };
 
   const loadUser = async () => {
@@ -442,6 +447,18 @@ currentTab === 'membership' ||
           </ErrorBoundary>
         )}
 
+        {currentTab === 'skills' && (
+          <ErrorBoundary label="نظام المهارات الموحد" onNavigate={setCurrentTab}>
+            <Suspense fallback={lazyFallback('نظام المهارات الموحد')}>
+              <SkillsHub
+                organizationId={selectedOrgId}
+                currentUser={currentUser}
+                onShowToast={showToast}
+              />
+            </Suspense>
+          </ErrorBoundary>
+        )}
+
         {currentTab === 'settings' && selectedGateway !== 'syndicate' && (
           <ErrorBoundary label="الإعدادات والصلاحيات" onNavigate={setCurrentTab}>
             <Settings
@@ -455,6 +472,15 @@ currentTab === 'membership' ||
 
       {/* Global Toasts */}
       <ToastContainer toasts={toasts} onDismiss={handleDismissToast} />
+
+      {/* ترحيب ذكي عند اختيار بوابة — نطق عربي + نص، ويُغلق فور المتابعة */}
+      {welcomePortal && (
+        <PortalWelcome
+          portalId={welcomePortal}
+          onClose={() => setWelcomePortal(null)}
+          onShowToast={showToast}
+        />
+      )}
     </>
   );
 }

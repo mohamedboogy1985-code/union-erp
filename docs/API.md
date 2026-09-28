@@ -109,6 +109,49 @@
 | POST | `/employee-advances/:id/payments` | سداد قسط `{amount, date, method?, notes?}` (يُقفل السلفة تلقائياً عند السداد الكامل) |
 | DELETE | `/employee-advances/:id` | حذف سلفة — يتطلب `hr:manage` |
 
+## البحث الدلالي RAG (المرحلة P3)
+
+| Method | Endpoint | الوصف |
+|--------|----------|-------|
+| GET | `/system/rag/stats` | حالة الفهرس: عدد المستندات، حجم المفردات، توفر القاعدة/الجدول، النموذج — `system:admin` |
+| GET | `/system/rag/search?q=&limit=` | بحث في قاعدة المعرفة واللائحة المالية ودليل الحسابات |
+| POST | `/system/rag/seed` | بذر الفهرس محلياً وفي `pgvector` إن توفر — `system:admin` |
+
+الاستجابة تحمل `provenance` صريحاً: `modelUsed` (`local-tfidf` أو `pgvector-embedding`)، و`embedded`،
+و`confidence` (`HIGH`/`MEDIUM`/`LOW`) و`topScore`. بلا `GEMINI_API_KEY` أو بلا جدول `kb_embeddings`
+يعمل البحث محلياً بالكامل ويقول ذلك — ولا يُقدَّم «لا مطابقة واثقة» كأنه نتيجة.
+
+## نظام المهارات الموحد (استُعيد من PR #24/#26)
+
+كل بيانات المهارات في المتجر الموحد `erpStore` (مهارات، ارتباطات الموظفين، برامج تدريبية،
+تسجيلات، مهارات وكلاء الذكاء الاصطناعي، إجراءات محاسبية). القراءة متاحة لكل مستخدم موثّق،
+والكتابة تحتاج `hr:manage` عدا تفعيل/تعطيل مهارات الوكلاء فيحتاج `system:admin` وتنفيذ
+الإجراء المحاسبي فيحتاج `journal:create`. تنفيذ الإجراء **يسجّل خطواته في التدقيق ولا يُرحّل
+قيداً بنفسه** — الترحيل يبقى على شاشة القيود.
+
+| Method | Endpoint | الوصف |
+|--------|----------|-------|
+| GET | `/skills?category=&level=&status=&search=&isActive=` | كتالوج المهارات بمرشّحات (فئة/مستوى/حالة/بحث/مفعّلة) |
+| GET | `/skills/summary` | ملخّص: الإجماليات، التوزيع بفئة، أكثر المهارات، القريبة من الانتهاء |
+| POST | `/skills` | إضافة مهارة `{name, description?, category: HR\|TRAINING\|AI_AGENT\|ACCOUNTING, level?...}` — `hr:manage` |
+| PUT | `/skills/:id` | تعديل مهارة — `hr:manage` |
+| DELETE | `/skills/:id` | حذف مهارة (يحذف ارتباطاتها بالموظفين منعاً لمراجع يتيمة) — `hr:manage` |
+| GET | `/employee-skills?employeeId=&skillId=&category=` | ارتباطات الموظفين بالمهارات |
+| POST | `/employee-skills` | ربط موظف بمهارة `{employeeId, skillId, proficiency?}` (النسبة تُقيَّد ٠..١٠٠) — `hr:manage` |
+| DELETE | `/employee-skills/:id` | إلغاء ربط — `hr:manage` |
+| GET | `/training-programs?category=&status=` | البرامج التدريبية |
+| POST | `/training-programs` | إنشاء برنامج `{title, durationHours?, maxParticipants?, skillsGranted?}` — `hr:manage` |
+| GET | `/training-enrollments?programId=&employeeId=&status=` | التسجيلات |
+| POST | `/training-enrollments` | تسجيل متدرب `{programId, employeeId}` (يُرفض بـ 409 عند اكتمال العدد) — `hr:manage` |
+| PUT | `/training-enrollments/:id/progress` | تحديث `{progress, score?, status?}` (بلوغ ١٠٠٪ يُنهي التسجيل) — `hr:manage` |
+| GET | `/ai-agent-skills` | مهارات وكلاء الذكاء الاصطناعي وحالتها |
+| PUT | `/ai-agent-skills/:id/toggle` | تفعيل/تعطيل مهارة وكيل — `system:admin` |
+| GET | `/accounting-procedures` | الإجراءات المحاسبية وحالاتها |
+| POST | `/accounting-procedures/:id/execute` | تنفيذ إجراء (جدولة خطوات + تدقيق، بلا ترحيل قيود) — `journal:create` |
+
+تحقق: `npm run test:skills` (كتالوج + صلاحيات + تدفق التدريب + التدقيق) و`npm run test:report-csv`
+(تصدير التقارير) و`npm run test:portal-welcome` (الترحيب والتوجيه).
+
 ## التكامل والإشعارات (IMPROVEMENTS 8)
 
 | Method | Endpoint | الوصف |

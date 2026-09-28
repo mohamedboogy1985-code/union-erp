@@ -4,6 +4,7 @@
  */
 
 import React, { useState, useEffect, useRef } from 'react';
+import { SWARM_AI_MODEL } from './model';
 import { Header } from './components/Header';
 import { VoiceChatBar } from './components/VoiceChatBar';
 import { OrchestratorPanel } from './components/OrchestratorPanel';
@@ -139,7 +140,7 @@ export function AetherSwarmApp() {
       role: 'التخطيط، التوجيه ومراقبة مسار المهام',
       archetype: 'Orchestrator',
       icon: 'Cpu',
-      model: 'gemini-3.8-flash',
+      model: SWARM_AI_MODEL,
       capabilities: ['intent_decomposition', 'task_graph_scheduling', 'consensus_arbitration'],
       limitations: ['cannot_execute_raw_os_calls'],
       tools: ['swarm_dispatch', 'evidence_evaluator', 'risk_gate'],
@@ -154,7 +155,7 @@ export function AetherSwarmApp() {
       role: 'التصفح الآلي واستخراج الأسعار والوثائق الموثوقة',
       archetype: 'BrowserWorker',
       icon: 'Globe',
-      model: 'gemini-3.8-flash',
+      model: SWARM_AI_MODEL,
       capabilities: ['playwright_headless', 'cdp_automation', 'dom_extraction', 'screenshot'],
       limitations: ['cannot_modify_os_files'],
       tools: ['browser.open', 'browser.search', 'browser.extract_table', 'browser.screenshot'],
@@ -169,7 +170,7 @@ export function AetherSwarmApp() {
       role: 'كشف التناقضات والتحقق المستقل ومقارنة المصادر',
       archetype: 'FactChecker',
       icon: 'ShieldCheck',
-      model: 'gemini-3.8-flash',
+      model: SWARM_AI_MODEL,
       capabilities: ['epistemic_cross_check', 'conflict_detection', 'confidence_scoring'],
       limitations: ['no_direct_tools'],
       tools: ['evidence.cross_check', 'evidence.verify_claim'],
@@ -184,7 +185,7 @@ export function AetherSwarmApp() {
       role: 'التحكم بالبرامج، النوافذ، PowerShell، وأتمتة UI',
       archetype: 'WindowsExecutive',
       icon: 'Monitor',
-      model: 'gemini-3.8-flash',
+      model: SWARM_AI_MODEL,
       capabilities: ['win32_api', 'powershell_core', 'ui_automation', 'focus_window'],
       limitations: ['restricted_by_permission_gate'],
       tools: ['windows.launch', 'windows.powershell', 'windows.focus', 'windows.keystroke'],
@@ -199,7 +200,7 @@ export function AetherSwarmApp() {
       role: 'إنشاء ملفات Excel، تنسيق الجداول وتأكيد التخزين الآمن',
       archetype: 'DataSpecialist',
       icon: 'FileSpreadsheet',
-      model: 'gemini-3.8-flash',
+      model: SWARM_AI_MODEL,
       capabilities: ['xlsx_builder', 'csv_parser', 'safe_io', 'integrity_verifier'],
       limitations: ['cannot_delete_system_folders'],
       tools: ['file.write_table', 'file.verify_saved', 'excel.create_sheet'],
@@ -214,7 +215,7 @@ export function AetherSwarmApp() {
       role: 'التحقق البصري الدلالي من حالة الشاشة وعناصر الـ UI',
       archetype: 'VisionInspector',
       icon: 'Eye',
-      model: 'gemini-3.8-flash',
+      model: SWARM_AI_MODEL,
       capabilities: ['semantic_ui_detect', 'ocr_text_reading', 'visual_confirmation'],
       limitations: ['read_only_vision'],
       tools: ['vision.scan_screen', 'vision.find_element'],
@@ -588,7 +589,7 @@ export function AetherSwarmApp() {
     }));
 
     try {
-      // Server-side call to Supreme Orchestrator (uses gemini-3.8-flash)
+      // نداء الخادم إلى المنسّق الأعلى (يستخدم SWARM_AI_MODEL المطابق لـ AI_MODELS في الخادم)
       const res = await swarmFetch('/api/swarm/orchestrate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -1103,7 +1104,7 @@ export function AetherSwarmApp() {
         />
       )}
 
-      {/* Gemini Live API Real-Time Voice Modal (gemini-3.8-live) */}
+      {/* نافذة المحادثة الصوتية الحية (نموذج الجلسة يُضبط في الخادم عبر AI_LIVE_MODEL) */}
       <LiveVoiceModal
         isOpen={isLiveVoiceOpen}
         onClose={() => setIsLiveVoiceOpen(false)}
@@ -1113,7 +1114,7 @@ export function AetherSwarmApp() {
         }}
       />
 
-      {/* Audio Transcription Modal (gemini-3.5-transcribe) */}
+      {/* نافذة نسخ الصوت (تعمل بنموذج التوليد الأساسي المعلن) */}
       <AudioTranscribeModal
         isOpen={isTranscribeOpen}
         onClose={() => setIsTranscribeOpen(false)}
