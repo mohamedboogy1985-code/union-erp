@@ -10,6 +10,8 @@ import path from 'path';
  * - أول تشغيل: يهيئ المجلد وينشئ قاعدة union_app والجداول
  * - مقاوم للازدواج: إن كان خادم سابق لا يزال حياً يتصل به بدل الإخفاق
  * - يزيل ملف القفل القديم تلقائياً إذا انهار الخادم السابق دون تنظيف
+ * - يستمع على 0.0.0.0 افتراضياً (منفذ مكشوف للمعاينة/العميل على الشبكة) مع
+ *   إبقاء المصادقة بالكلمة السرية إلزامية؛ للتقييد: SQL_LISTEN_ADDRESSES=127.0.0.1
  * - لتعطيله: DISABLE_EMBEDDED_PG=true — ولقاعدة خارجية: اضبط SQL_HOST
  */
 
@@ -73,6 +75,53 @@ function cleanStaleLock(dataDir: string): boolean {
   }
 }
 
+/**
+ * ===== تعريض منفذ PostgreSQL للشبكة =====
+ * `initdb` يترك `listen_addresses` معلَّقاً (أي localhost فقط) و`pg_hba.conf`
+ * يقبل الاتصال من 127.0.0.1/::1 حصراً، فيبقى المنفذ حبيس الحاوية/الجهاز ولا
+ * تصل إليه المعاينة السحابية ولا عميل على الشبكة. هنا نضبط الاستماع على العنوان
+ * المطلوب ونضيف سطري `pg_hba` للشبكة — المصادقة بالكلمة السرية تبقى إلزامية.
+ * التعديل حتمي وقابل للتكرار (لا يضيف سطراً إن كان موجوداً).
+ */
+function ensureNetworkExposure(dataDir: string, listenAddresses: string): void {
+  const confPath = path.join(dataDir, 'postgresql.conf');
+  const hbaPath = path.join(dataDir, 'pg_hba.conf');
+
+  try {
+    if (fs.existsSync(confPath)) {
+      const conf = fs.readFileSync(confPath, 'utf-8');
+      const line = `listen_addresses = '${listenAddresses}'`;
+      const pattern = /^[ \t]*#?[ \t]*listen_addresses[ \t]*=.*$/m;
+      const next = pattern.test(conf) ? conf.replace(pattern, line) : `${conf}\n${line}\n`;
+      if (next !== conf) fs.writeFileSync(confPath, next, 'utf-8');
+    }
+  } catch (err: any) {
+    console.warn(`⚠️ تعذّر ضبط listen_addresses في postgresql.conf: ${err?.message || err}`);
+  }
+
+  try {
+    if (fs.existsSync(hbaPath)) {
+      const hba = fs.readFileSync(hbaPath, 'utf-8');
+      const missing: string[] = [];
+      if (!/^[ \t]*host[ \t]+all[ \t]+all[ \t]+0\.0\.0\.0\/0[ \t]/m.test(hba)) {
+        missing.push('host    all             all             0.0.0.0/0               password');
+      }
+      if (!/^[ \t]*host[ \t]+all[ \t]+all[ \t]+::\/0[ \t]/m.test(hba)) {
+        missing.push('host    all             all             ::/0                    password');
+      }
+      if (missing.length > 0) {
+        fs.writeFileSync(
+          hbaPath,
+          `${hba.trimEnd()}\n# تعريض الشبكة (يُضاف تلقائياً): اتصال من أي عنوان بكلمة سرية\n${missing.join('\n')}\n`,
+          'utf-8'
+        );
+      }
+    }
+  } catch (err: any) {
+    console.warn(`⚠️ تعذّر ضبط pg_hba.conf لاتصالات الشبكة: ${err?.message || err}`);
+  }
+}
+
 export async function maybeStartEmbeddedPostgres(): Promise<boolean> {
   if (process.env.DISABLE_EMBEDDED_PG === 'true') return false;
   if (process.env.SQL_HOST) return false; // قاعدة خارجية مضبوطة يدوياً
@@ -83,6 +132,8 @@ export async function maybeStartEmbeddedPostgres(): Promise<boolean> {
     const user = process.env.SQL_USER || 'postgres';
     const password = process.env.SQL_PASSWORD || 'postgres';
     const dbName = process.env.SQL_DB_NAME || 'union_app';
+    // منفذ مكشوف للشبكة افتراضياً (0.0.0.0) ليعمل مع المعاينة السحابية والعميل
+    const listenAddresses = process.env.SQL_LISTEN_ADDRESSES || '0.0.0.0';
 
     // 1) خادم حي بالفعل (إقلاع متكرر/نسخة سابقة) — اتصل به مباشرة
     if (await isPostgresAlive(port, user, password)) {
@@ -104,6 +155,8 @@ export async function maybeStartEmbeddedPostgres(): Promise<boolean> {
       password,
       port,
       persistent: true,
+      // رفع الاستماع عن localhost إلى العنوان المطلوب (0.0.0.0 افتراضياً)
+      postgresFlags: ['-c', `listen_addresses=${listenAddresses}`],
     });
 
     const alreadyInitialized = fs.existsSync(path.join(dataDir, 'PG_VERSION'));
@@ -113,6 +166,9 @@ export async function maybeStartEmbeddedPostgres(): Promise<boolean> {
     } else {
       cleanStaleLock(dataDir); // تنظيف قفل انهيار سابق إن وجد
     }
+
+    // 1.b تعريض المنفذ للشبكة (listen_addresses + pg_hba) قبل الإقلاع
+    ensureNetworkExposure(dataDir, listenAddresses);
 
     // 2) تشغيل الخادم (مع إعادة محاولة واحدة بعد تنظيف قفل مكتشف هنا)
     try {
@@ -124,7 +180,9 @@ export async function maybeStartEmbeddedPostgres(): Promise<boolean> {
         throw new Error('فشل بدء خادم PostgreSQL المضمّن');
       }
     }
-    console.log(`🐘 PostgreSQL المضمّن يعمل الآن على المنفذ ${port} (البيانات: ${dataDir})`);
+    console.log(
+      `🐘 PostgreSQL المضمّن يعمل الآن على المنفذ ${port} — الاستماع على ${listenAddresses} (البيانات: ${dataDir})`
+    );
 
     await ensureDatabase(port, user, password, dbName);
 
