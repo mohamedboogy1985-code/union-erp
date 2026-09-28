@@ -109,6 +109,18 @@
 | POST | `/employee-advances/:id/payments` | سداد قسط `{amount, date, method?, notes?}` (يُقفل السلفة تلقائياً عند السداد الكامل) |
 | DELETE | `/employee-advances/:id` | حذف سلفة — يتطلب `hr:manage` |
 
+## البحث الدلالي RAG (المرحلة P3)
+
+| Method | Endpoint | الوصف |
+|--------|----------|-------|
+| GET | `/system/rag/stats` | حالة الفهرس: عدد المستندات، حجم المفردات، توفر القاعدة/الجدول، النموذج — `system:admin` |
+| GET | `/system/rag/search?q=&limit=` | بحث في قاعدة المعرفة واللائحة المالية ودليل الحسابات |
+| POST | `/system/rag/seed` | بذر الفهرس محلياً وفي `pgvector` إن توفر — `system:admin` |
+
+الاستجابة تحمل `provenance` صريحاً: `modelUsed` (`local-tfidf` أو `pgvector-embedding`)، و`embedded`،
+و`confidence` (`HIGH`/`MEDIUM`/`LOW`) و`topScore`. بلا `GEMINI_API_KEY` أو بلا جدول `kb_embeddings`
+يعمل البحث محلياً بالكامل ويقول ذلك — ولا يُقدَّم «لا مطابقة واثقة» كأنه نتيجة.
+
 ## نظام المهارات الموحد (استُعيد من PR #24/#26)
 
 كل بيانات المهارات في المتجر الموحد `erpStore` (مهارات، ارتباطات الموظفين، برامج تدريبية،

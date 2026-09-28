@@ -164,9 +164,12 @@ test('E2E and k6 scripts only hit endpoints the server registers', () => {
   for (const source of sources)
     for (const match of source.matchAll(/\/api\/(?:[a-z0-9-]+\/)*[a-z0-9.-]+/g)) endpoints.add(match[0]);
 
-  // مسارات P3 الموعودة في وثيقة PR #24 ولا يجوز اختبارها قبل وجودها
-  for (const p3 of ['/api/system/rag/search', '/api/system/rag/seed', '/api/system/rag/stats', '/api/ai/gateway'])
-    assert.equal([...endpoints].some((endpoint) => endpoint.startsWith(p3)), false, `${p3} belongs to P3, not yet on main`);
+  // مسارات RAG نُفِّذت في المرحلة P3 ⇒ يجوز أن تظهر في السكربتات، ويجب أن تكون مسجَّلة
+  for (const p3 of ['/api/system/rag/search', '/api/system/rag/seed', '/api/system/rag/stats'])
+    assert.ok(server.includes(`'${p3}'`), `${p3} must be registered now that P3 is implemented`);
+
+  // بوابة AI الموحدة لم تُنقل (تكرار لمسارات main الحالية) — لا يجوز اختبار مسارها
+  assert.equal([...endpoints].some((endpoint) => endpoint.startsWith('/api/ai/gateway')), false);
 
   const missing = [...endpoints].filter((endpoint) => !server.includes(`'${endpoint}'`) && !server.includes(`"${endpoint}"`) && !server.includes(`\`${endpoint}`));
   assert.deepEqual(missing, [], `scripts must not call unregistered endpoints: ${missing.join(', ')}`);

@@ -14,6 +14,7 @@ import type { Request, Response } from 'express';
 import { erpStore } from '../db/store.js';
 import { renderPrometheusMetrics, getMetricsSnapshot } from '../services/metrics.service.js';
 import { cacheService } from '../services/cache.service.js';
+import { embeddingService } from '../services/embedding.service.js';
 import type { User } from '../../src/types/erp.js';
 
 interface SystemRouteDeps {
@@ -131,6 +132,43 @@ export function registerSystemRoutes(app: any, deps: SystemRouteDeps): void {
         aiRequests: snapshot.aiRequests,
       },
     });
+  });
+
+  // ===== RAG (P3): بحث دلالي يعمل محلياً ويتحسّن بـ pgvector عند توفره =====
+  app.get('/api/system/rag/stats', async (req: Request, res: Response) => {
+    const user = deps.requirePermission(req, res, 'system:admin');
+    if (!user) return;
+    res.json({ ...(await embeddingService.getStats()), lastSearch: embeddingService.getLastProvenance() });
+  });
+
+  app.get('/api/system/rag/search', async (req: Request, res: Response) => {
+    if (!deps.getActiveUser(req)) return res.status(401).json({ error: 'يلزم تسجيل الدخول' });
+    const query = String(req.query.q || '').trim();
+    if (!query) return res.status(400).json({ error: 'استعلام البحث مطلوب' });
+    const limit = Math.min(20, Math.max(1, Number(req.query.limit) || 5));
+    const { results, provenance } = await embeddingService.search(query, limit);
+    // provenance صريحة: لا نُسمّي البحث «دلالياً» إن كان TF-IDF محلياً
+    res.json({ query, count: results.length, results, provenance });
+  });
+
+  app.post('/api/system/rag/seed', async (req: Request, res: Response) => {
+    const user = deps.requirePermission(req, res, 'system:admin');
+    if (!user) return;
+    const localCount = embeddingService.seedFromKnowledgeBase();
+    const postgres = await embeddingService.seedToPostgres();
+    erpStore.recordAudit(
+      user.id,
+      user.fullName,
+      user.role,
+      user.organizationId,
+      'RAG_SEEDED',
+      'SYSTEM',
+      'rag',
+      `بذر فهرس RAG: ${localCount} مستنداً محلياً، ${postgres.inserted} في pgvector (${postgres.embedded} متجهاً)`,
+      undefined,
+      { localCount, ...postgres }
+    );
+    res.json({ success: true, localCount, postgres });
   });
 
   // ===== OpenAPI =====
