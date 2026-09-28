@@ -4,7 +4,6 @@
  */
 
 import React, { useState, useEffect, useRef } from 'react';
-import { SWARM_AI_MODEL } from './model';
 import { Header } from './components/Header';
 import { VoiceChatBar } from './components/VoiceChatBar';
 import { OrchestratorPanel } from './components/OrchestratorPanel';
@@ -20,8 +19,7 @@ import { LiveVoiceModal } from './components/LiveVoiceModal';
 import { AuthProfileModal } from './components/AuthProfileModal';
 import { User } from 'firebase/auth';
 import {
-  auth,
-  onAuthStateChanged,
+  onAuthStateChangedSafe,
   saveSwarmSessionToFirestore,
   saveFileToFirestore,
   saveAuditLogToFirestore
@@ -51,19 +49,6 @@ import { swarmFetch } from './erpFetch';
 // ---------------------------------------------------------------------------
 const DEMO_TAG = '[عرض توضيحي] ';
 const DEMO_SOURCE = 'عرض توضيحي — لا مصدر حقيقي مُستخرَج';
-
-function demoEvidence(evidence?: TaskStep['evidence']): TaskStep['evidence'] {
-  if (!evidence) return evidence;
-  return { ...evidence, claim: DEMO_TAG + evidence.claim, source: DEMO_SOURCE, confidence: 0 };
-}
-
-function demoStep(step: TaskStep): TaskStep {
-  return { ...step, evidence: demoEvidence(step.evidence), executionTimeMs: undefined };
-}
-
-function demoAudit(entry: AuditLogEntry): AuditLogEntry {
-  return { ...entry, status: 'SIMULATED', simulated: true, details: DEMO_TAG + entry.details, confidence: 0 };
-}
 
 function demoBlackboard(state: BlackboardState): BlackboardState {
   return {
@@ -104,7 +89,7 @@ function demoMemory(mem: MemorySystem): MemorySystem {
 
 export function AetherSwarmApp() {
   // Navigation & Mode
-  const [activeTab, setActiveTab] = useState<'desktop' | 'swarm' | 'chat' | 'memory' | 'audit' | 'architecture'>('desktop');
+  const [activeTab, setActiveTab] = useState<'desktop' | 'swarm' | 'chat' | 'memory' | 'audit' | 'architecture'>('swarm');
   const [autonomyMode, setAutonomyMode] = useState<AutonomyMode>('ASSISTED');
   const [soundEnabled, setSoundEnabled] = useState(true);
   const [assistantReply, setAssistantReply] = useState('');
@@ -116,7 +101,7 @@ export function AetherSwarmApp() {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
+    const unsubscribe = onAuthStateChangedSafe((user) => {
       setCurrentUser(user);
     });
     return () => unsubscribe();
@@ -125,418 +110,148 @@ export function AetherSwarmApp() {
   // Orchestrator & Swarm State
   const [isExecuting, setIsExecuting] = useState(false);
   const [activeStatusMessage, setActiveStatusMessage] = useState<string>('السرب جاهز لاستقبال الأوامر');
-  const [intentSummary, setIntentSummary] = useState<string>('مقارنة أسعار RTX 5090 عبر المتاجر وتوليد جدول Excel وتحقق من دقة المصادر.');
-  const [intentEnglish, setIntentEnglish] = useState<string>('Multi-agent research and verified Excel table generation for RTX 5090.');
-  const [riskLevel, setRiskLevel] = useState<RiskLevel>('ASSISTED');
-  const [riskReason, setRiskReason] = useState<string>('يتضمن إنشاء وتعديل ملفات على نظام التشغيل وتشغيل نوافذ البرامج وتصفح الويب.');
+  const [intentSummary, setIntentSummary] = useState<string>('لا يوجد طلب بعد — اكتب طلبك محاسبياً (ميزان مراجعة، كشف طرف، تحقق من سلسلة القيود…).');
+  const [intentEnglish, setIntentEnglish] = useState<string>('No request yet — ask for a trial balance, a party statement, or a ledger chain verification.');
+  const [riskLevel, setRiskLevel] = useState<RiskLevel>('SAFE');
+  const [riskReason, setRiskReason] = useState<string>('كل أدوات هذا السرب للقراءة فقط على بيانات ERP: لا كتابة في الأستاذ، ولا تحكّم بنظام التشغيل أو بالمتصفح.');
   const [currentStepIndex, setCurrentStepIndex] = useState<number>(0);
   const [pendingApprovalStep, setPendingApprovalStep] = useState<TaskStep | null>(null);
 
-  // Dynamic Swarm Agents
+  // Dynamic Swarm Agents — الأربعة الحقيقيون (أدواتهم من سجل أدوات ERP على الخادم)
+  // لا وكلاء «متصفح/ويندوز/رؤية شاشة»: لا تنفيذ لهم في هذا المستودع (docs/AETHER_SWARM_HARDENING.md §1)
   const [agents, setAgents] = useState<AgentDNA[]>([
     {
-      id: 'agent-orch',
-      name: 'العقل المركزي (Supreme Orchestrator)',
-      role: 'التخطيط، التوجيه ومراقبة مسار المهام',
+      id: 'agent-orchestrator',
+      name: 'المنسّق (Orchestrator)',
+      role: 'استنتاج النية واختيار الأدوات من السجل وترتيب الخطة ومراقبة التنفيذ',
       archetype: 'Orchestrator',
       icon: 'Cpu',
-      model: SWARM_AI_MODEL,
-      capabilities: ['intent_decomposition', 'task_graph_scheduling', 'consensus_arbitration'],
-      limitations: ['cannot_execute_raw_os_calls'],
-      tools: ['swarm_dispatch', 'evidence_evaluator', 'risk_gate'],
-      confidenceRequired: 0.95,
-      currentConfidence: 0.98,
+      model: 'DETERMINISTIC',
+      capabilities: ['intent_inference', 'tool_selection', 'plan_sequencing', 'replan_once'],
+      limitations: ['لا يقرأ بيانات بنفسه — ينفّذ عبر الوكلاء الأدوات فقط'],
+      tools: [
+        'report.trial-balance',
+        'report.income-expense',
+        'report.receipts-payments',
+        'accounts.search',
+        'ledger.search-entries',
+        'subledger.party-statement',
+        'rag.search',
+        'audit.recent-events',
+        'ledger.verify-chain',
+        'ocr.extract-document',
+      ],
+      confidenceRequired: 1,
       status: 'idle',
-      processedTasksCount: 4,
+      processedTasksCount: 0,
     },
     {
-      id: 'agent-browser',
-      name: 'وكيل المتصفح المتوازي (Browser Swarm)',
-      role: 'التصفح الآلي واستخراج الأسعار والوثائق الموثوقة',
-      archetype: 'BrowserWorker',
-      icon: 'Globe',
-      model: SWARM_AI_MODEL,
-      capabilities: ['playwright_headless', 'cdp_automation', 'dom_extraction', 'screenshot'],
-      limitations: ['cannot_modify_os_files'],
-      tools: ['browser.open', 'browser.search', 'browser.extract_table', 'browser.screenshot'],
-      confidenceRequired: 0.88,
-      currentConfidence: 0.94,
-      status: 'idle',
-      processedTasksCount: 6,
-    },
-    {
-      id: 'agent-critic',
-      name: 'محقق الأدلة (Evidence & Critic)',
-      role: 'كشف التناقضات والتحقق المستقل ومقارنة المصادر',
-      archetype: 'FactChecker',
-      icon: 'ShieldCheck',
-      model: SWARM_AI_MODEL,
-      capabilities: ['epistemic_cross_check', 'conflict_detection', 'confidence_scoring'],
-      limitations: ['no_direct_tools'],
-      tools: ['evidence.cross_check', 'evidence.verify_claim'],
-      confidenceRequired: 0.92,
-      currentConfidence: 0.96,
-      status: 'idle',
-      processedTasksCount: 5,
-    },
-    {
-      id: 'agent-windows',
-      name: 'مشغل ويندوز (Windows Operator)',
-      role: 'التحكم بالبرامج، النوافذ، PowerShell، وأتمتة UI',
-      archetype: 'WindowsExecutive',
-      icon: 'Monitor',
-      model: SWARM_AI_MODEL,
-      capabilities: ['win32_api', 'powershell_core', 'ui_automation', 'focus_window'],
-      limitations: ['restricted_by_permission_gate'],
-      tools: ['windows.launch', 'windows.powershell', 'windows.focus', 'windows.keystroke'],
-      confidenceRequired: 0.90,
-      currentConfidence: 0.95,
-      status: 'idle',
-      processedTasksCount: 8,
-    },
-    {
-      id: 'agent-data',
-      name: 'محلل الملفات وجداول البيانات (File & Data Agent)',
-      role: 'إنشاء ملفات Excel، تنسيق الجداول وتأكيد التخزين الآمن',
-      archetype: 'DataSpecialist',
+      id: 'agent-ledger',
+      name: 'وكيل دفاتر الحسابات (Ledger Agent)',
+      role: 'قراءة ميزان المراجعة والإيرادات والمصروفات والقيود وكشوف الأطراف',
+      archetype: 'LedgerAgent',
       icon: 'FileSpreadsheet',
-      model: SWARM_AI_MODEL,
-      capabilities: ['xlsx_builder', 'csv_parser', 'safe_io', 'integrity_verifier'],
-      limitations: ['cannot_delete_system_folders'],
-      tools: ['file.write_table', 'file.verify_saved', 'excel.create_sheet'],
-      confidenceRequired: 0.95,
-      currentConfidence: 0.99,
+      model: 'DETERMINISTIC',
+      capabilities: ['trial_balance', 'journal_search', 'party_statement', 'chart_of_accounts'],
+      limitations: ['قراءة فقط — لا يُنشئ قيداً ولا يرحّله'],
+      tools: [
+        'report.trial-balance',
+        'report.income-expense',
+        'report.receipts-payments',
+        'accounts.search',
+        'ledger.search-entries',
+        'subledger.party-statement',
+      ],
+      confidenceRequired: 1,
       status: 'idle',
-      processedTasksCount: 3,
+      processedTasksCount: 0,
     },
     {
-      id: 'agent-vision',
-      name: 'وكيل الرؤية الحاسوبية (Computer Vision Agent)',
-      role: 'التحقق البصري الدلالي من حالة الشاشة وعناصر الـ UI',
-      archetype: 'VisionInspector',
-      icon: 'Eye',
-      model: SWARM_AI_MODEL,
-      capabilities: ['semantic_ui_detect', 'ocr_text_reading', 'visual_confirmation'],
-      limitations: ['read_only_vision'],
-      tools: ['vision.scan_screen', 'vision.find_element'],
-      confidenceRequired: 0.91,
-      currentConfidence: 0.98,
+      id: 'agent-documents',
+      name: 'وكيل المستندات والمعرفة (Documents Agent)',
+      role: 'قراءة المستندات المرفوعة (OCR) والبحث في قاعدة معرفة اللائحة',
+      archetype: 'DocumentsAgent',
+      icon: 'FileText',
+      model: 'DETERMINISTIC',
+      capabilities: ['ocr_extract', 'regulation_search'],
+      limitations: ['يحتاج مستنداً مرفوعاً فعلياً — بلا مستند يُعلن UNAVAILABLE'],
+      tools: ['ocr.extract-document', 'rag.search'],
+      confidenceRequired: 1,
       status: 'idle',
-      processedTasksCount: 2,
+      processedTasksCount: 0,
+    },
+    {
+      id: 'agent-verifier',
+      name: 'المتحقّق المستقل (Verifier)',
+      role: 'التحقق المستقل من سلسلة الأستاذ ومراجعة أحداث التدقيق قبل أي إعلان نجاح',
+      archetype: 'VerifierAgent',
+      icon: 'ShieldCheck',
+      model: 'DETERMINISTIC',
+      capabilities: ['ledger_chain_verification', 'audit_event_review'],
+      limitations: ['لا يُصلح خللاً — يُعلنه فقط'],
+      tools: ['ledger.verify-chain', 'audit.recent-events'],
+      confidenceRequired: 1,
+      status: 'idle',
+      processedTasksCount: 0,
     },
   ]);
 
-  // Task Graph
-  const [taskGraph, setTaskGraph] = useState<TaskStep[]>([
-    {
-      id: 'step-1',
-      title: 'تشغيل المتصفح وفتح مصادر التسوق والتقنية المعتمدة',
-      agentId: 'agent-browser',
-      tool: 'browser.open',
-      toolArgs: '{"url": "https://www.google.com/search?q=RTX+5090+prices+specs+retailers", "headless": false}',
-      dependsOn: [],
-      riskLevel: 'SAFE',
-      requiresConfirmation: false,
-      verificationCheck: 'فحص استجابة المتصفح وتحميل صفحة نتائج البحث بنجاح',
-      status: 'completed',
-      evidence: {
-        claim: 'تم تحميل صفحات المتاجر الرسمية (NVIDIA, Newegg, B&H) في 180ms',
-        source: 'Google Shopping & Hardware Aggregate Feed',
-        confidence: 0.98,
-      },
-    },
-    {
-      id: 'step-2',
-      title: 'استخراج عروض ومواصفات RTX 5090 من متاجر متعددة بالتوازي',
-      agentId: 'agent-browser',
-      tool: 'browser.extract_table',
-      toolArgs: '{"query": "RTX 5090 price", "fields": ["retailer", "brand", "price_usd", "availability"]}',
-      dependsOn: ['step-1'],
-      riskLevel: 'SAFE',
-      requiresConfirmation: false,
-      verificationCheck: 'تأكيد الحصول على أكثر من 3 مصادر موثقة بالتواريخ',
-      status: 'completed',
-      evidence: {
-        claim: 'تم استخراج 5 عروض رسمية بمتوسط سعر 1,999$ إلى 2,399$ للنسخ الاحترافية',
-        source: 'Retailer Catalog Feeds (Newegg, B&H, BestBuy)',
-        confidence: 0.95,
-      },
-    },
-    {
-      id: 'step-3',
-      title: 'فحص الأدلة وكشف التناقضات السعرية بين الأسعار الرسمية وأسعار التجزئة',
-      agentId: 'agent-critic',
-      tool: 'evidence.cross_check',
-      toolArgs: '{"target": "RTX 5090 MSRP vs Retail Scalping Gap", "threshold": 0.90}',
-      dependsOn: ['step-2'],
-      riskLevel: 'SAFE',
-      requiresConfirmation: false,
-      verificationCheck: 'احتساب درجة الثقة ومطابقة مصادر الشحن والضرائب',
-      status: 'completed',
-      evidence: {
-        claim: 'تم رصد عروض مضاربة خارجية بـ 2,700$ وتم استبعادها والاعتماد على تسعيرة الموزعين المعتمدين',
-        source: 'Consensus Gate (TechPowerUp + B&H + NVIDIA Official)',
-        confidence: 0.96,
-        hasDiscrepancy: true,
-        discrepancyNote: 'تم عزل وإقصاء عروض إعادة البيع غير الرسمية على eBay ومطابقة السعر المرجعي.',
-      },
-    },
-    {
-      id: 'step-4',
-      title: 'التحقق البصري من نوافذ سطح المكتب وتهيئة بيئة Excel',
-      agentId: 'agent-vision',
-      tool: 'vision.scan_screen',
-      toolArgs: '{"target_app": "Microsoft Excel / Calc"}',
-      dependsOn: ['step-3'],
-      riskLevel: 'SAFE',
-      requiresConfirmation: false,
-      verificationCheck: 'تأكيد موقع نافذة العمل واستعداد منطقة الكتابة',
-      status: 'completed',
-      evidence: {
-        claim: 'تم التعرف بصرياً على شبكة الجدول وموقع زر الحفظ بدقة 98.6%',
-        source: 'Semantic UI Screen Grounding Model',
-        confidence: 0.98,
-      },
-    },
-    {
-      id: 'step-5',
-      title: 'توليد جدول مقارنة تفاعلي وحفظه في ملف Excel (C:\\Users\\Workspace\\RTX5090_Comparison.xlsx)',
-      agentId: 'agent-data',
-      tool: 'file.write_table',
-      toolArgs: '{"filename": "RTX5090_Comparison.xlsx", "format": "xlsx", "records": 5}',
-      dependsOn: ['step-4'],
-      riskLevel: 'ASSISTED',
-      requiresConfirmation: true,
-      verificationCheck: 'التحقق من كتابة الملف والتحقق من صحة الحجم (Checksum & File Size > 0)',
-      status: 'completed',
-      evidence: {
-        claim: 'تم إنشاء الملف C:\\Users\\Workspace\\Documents\\RTX5090_Comparison.xlsx بحجم 42.8 KB',
-        source: 'NTFS Filesystem Verification & SHA256 Checksum',
-        confidence: 1.0,
-      },
-    },
-    {
-      id: 'step-6',
-      title: 'التركيز على نافذة الجدول وتقديم التقرير الصوتي النهائي للمستخدم',
-      agentId: 'agent-windows',
-      tool: 'windows.focus',
-      toolArgs: '{"title": "RTX5090_Comparison.xlsx"}',
-      dependsOn: ['step-5'],
-      riskLevel: 'SAFE',
-      requiresConfirmation: false,
-      verificationCheck: 'تأكيد ظهور الملف للمستخدم وإطلاق الإشعار الصوتي',
-      status: 'completed',
-      evidence: {
-        claim: 'تم جلب نافذة ملف الإكسل للمقدمة وتقديم النتيجة النهائية للمستخدم',
-        source: 'Win32 SetForegroundWindow API',
-        confidence: 0.99,
-      },
-    },
-  ].map((step) => demoStep(step as TaskStep)));
+  // Task Graph — لا خطة مبدئية: الخطة تُبنى على الخادم من سجل الأدوات عند أول طلب فعلي
+  const [taskGraph, setTaskGraph] = useState<TaskStep[]>([]);
+  // معرّف المهمة على الخادم (حالة المهمة هناك، لا في الواجهة)
+  const [taskId, setTaskId] = useState<string | null>(null);
+  // الحكم النهائي كما يقرره الخادم (نجاح مُتحقَّق / سبب فشل / لا أداة مطابقة)
+  const [verdict, setVerdict] = useState<string>('');
 
-  // Blackboard State
+  // Blackboard State — فارغة: كل ما يظهر هنا لاحقاً يأتي من أدلة تنفيذ حقيقي
   const [blackboard, setBlackboard] = useState<BlackboardState>(demoBlackboard({
-    facts: [
-      'نظام التشغيل: Windows 11 Pro 64-bit (Build 22631)',
-      'المتصفح النشط: Google Chrome / Playwright CDP Bridge v122',
-      'حالة الأمان: بوابات التحقق الصارمة مفعلة (Safe/Confirm/Block)',
-      'الذاكرة المرجعية: RTX 5090 تستخدم 32GB GDDR7 بعرض نطاق 512-bit',
-    ],
-    hypotheses: [
-      'التباين السعري بين المتاجر سببه احتساب ضريبة القيمة المضافة وتكاليف الشحن الدولية',
-      'تحديث جدول الإكسل آلياً يوفر 85% من الوقت المستغرق يدوياً دون خطأ إدخال بشري',
-    ],
-    claims: [
-      {
-        id: 'c-1',
-        claim: 'سعر كارت NVIDIA RTX 5090 Founders Edition الرسمي هو 1,999$ MSRP',
-        source: 'NVIDIA Official Hardware Portal',
-        confidence: 0.99,
-        agentId: 'agent-browser',
-        timestamp: '12:20 PM',
-        verified: false, // P0-1: عرض توضيحي — لا تحقق فعلي (يُعاد وسمه في demoBlackboard)
-      },
-      {
-        id: 'c-2',
-        claim: 'النسخ الاحترافية (ASUS ROG Strix, MSI Suprim) تتراوح بين 2,249$ و 2,399$',
-        source: 'Newegg Direct Merchant API & B&H Feeds',
-        confidence: 0.95,
-        agentId: 'agent-critic',
-        timestamp: '12:21 PM',
-        verified: false, // P0-1: عرض توضيحي — لا تحقق فعلي (يُعاد وسمه في demoBlackboard)
-        hasDiscrepancy: true,
-        resolvedDiscrepancy: 'تم استبعاد تسعيرات المضاربة على منصات المزادات غير الرسمية واعتماد السعر المعياري للموزعين.',
-      },
-      {
-        id: 'c-3',
-        claim: 'ملف RTX5090_Comparison.xlsx مكتوب بنجاح وجاهز للاستعراض والتصدير الفوري',
-        source: 'Windows NTFS File System Checksum',
-        confidence: 1.0,
-        agentId: 'agent-data',
-        timestamp: '12:22 PM',
-        verified: false, // P0-1: عرض توضيحي — لا تحقق فعلي (يُعاد وسمه في demoBlackboard)
-      },
-    ],
-    conflicts: [
-      {
-        id: 'conf-1',
-        topic: 'فارق السعر بين الإعلان الرسمي (1,999$) وعروض التجزئة الأولية (2,700$)',
-        agentA: {
-          name: 'Browser Extractor',
-          claim: 'بعض القوائم تطلب 2,700$ للشحن الفوري',
-          source: '3rd Party Reseller Marketplace',
-          confidence: 0.81,
-        },
-        agentB: {
-          name: 'Critic Agent',
-          claim: 'السعر المعتمد من نفيديا للموزعين هو 1,999$ - 2,399$',
-          source: 'NVIDIA Official & Authorized Tier 1 Distributors',
-          confidence: 0.98,
-        },
-        status: 'resolved',
-        resolution: {
-          rootCause: 'ظاهرة المضاربة وإعادة البيع (Scalping) في الأيام الأولى للإطلاق قبل استقرار مخزون التجزئة الرسمي.',
-          verifiedClaim: 'السعر الحقيقي المعتمد للشراء هو النطاق 1,999$ - 2,399$ مع التحذير من العروض المبالغ فيها.',
-          finalConfidence: 0.97,
-          recommendation: 'تثبيت السعرين في جدول المقارنة مع تمييز العروض الرسمية بلون أخضر وعروض السوق السوداء بلون أحمر.',
-        },
-      },
-    ],
+    facts: [],
+    hypotheses: [],
+    claims: [],
+    conflicts: [],
     activeTasksCount: 0,
   }));
 
-  // 5-Layer Cognitive Memory
+  // 5-Layer Cognitive Memory — بلا ادعاءات سابقة: لا مهمة نُفِّذت قبل طلبك
   const [memory, setMemory] = useState<MemorySystem>(demoMemory({
-    working: [
-      'الهدف الحالي: مراقبة وتحديث جدول مقارنة أسعار بطاقات RTX 5090',
-      'النافذة النشطة: Microsoft Excel (RTX5090_Comparison.xlsx)',
-      'سجل الأدلة: 3 ادعاءات مثبتة وخالية من التناقضات الحرجة',
-    ],
-    conversation: [
-      {
-        id: 'm-1',
-        role: 'user',
-        text: 'افتح Chrome وابحث عن أسعار كروت RTX 5090 ثم قارن النتائج في ملف Excel وتحقق من دقة المصادر',
-        timestamp: '12:18 PM',
-      },
-      {
-        id: 'm-2',
-        role: 'orchestrator',
-        text: 'علم. قمت بتوزيع المهام على سرب الوكلاء: فحص المتاجر، تصفية الأسعار، التحقق المستقل، وتوليد ملف الإكسل بنجاح 100%.',
-        timestamp: '12:22 PM',
-      },
-    ],
-    episodic: [
-      {
-        id: 'ep-1',
-        goal: 'مقارنة أسعار كروت RTX 5090 وتوليد جدول Excel',
-        date: 'اليوم 12:22 PM',
-        agentsInvolved: 6,
-        success: true,
-        duration: '3.4s',
-      },
-      {
-        id: 'ep-2',
-        goal: 'فحص سلامة النظام وسجلات الويندوز وتنظيف مجلد التنزيلات',
-        date: 'أمس 04:30 PM',
-        agentsInvolved: 4,
-        success: true,
-        duration: '2.1s',
-      },
-    ],
+    working: [],
+    conversation: [],
+    episodic: [],
     semantic: [
-      { key: 'المتصفح المفضل', value: 'Google Chrome / Playwright CDP', category: 'Browser' },
-      { key: 'مسار التخزين المعتمد', value: 'C:\\Users\\Workspace\\Documents', category: 'Windows OS' },
-      { key: 'العملة المعيارية للمقارنة', value: 'USD ($)', category: 'User Preference' },
-      { key: 'معمارية العتاد', value: 'NVIDIA Blackwell RTX 50 Series', category: 'Hardware' },
+      { key: 'نطاق السرب', value: 'بيانات ERP للقراءة فقط (تقارير، قيود، أطراف، مستندات، تدقيق)', category: 'User Preference' },
+      { key: 'هوية النظام', value: 'JWT/ERP وسجل تدقيق متسلسل — لا هوية ثانية', category: 'User Preference' },
     ],
     procedural: [
       {
-        name: 'مقارنة الأسعار وتوليد جداول الإكسل الموثقة',
-        trigger: 'مقارنة أسعار منتج في ملف Excel',
-        toolsChain: ['browser.search', 'browser.extract_table', 'evidence.cross_check', 'file.write_table', 'windows.focus'],
-        successRate: 0.98,
-        lastExecuted: 'اليوم 12:22 PM',
+        name: 'تحقق من سلسلة الأستاذ',
+        trigger: 'تحقق / سلسلة / تجزئة / سلامة',
+        toolsChain: ['ledger.verify-chain'],
+        successRate: 0,
+        lastExecuted: 'لم يُنفَّذ',
       },
       {
-        name: 'فحص الأمان والتحقق من سلامة الأقراص',
-        trigger: 'فحص النظام وسجلات الويندوز',
-        toolsChain: ['windows.powershell', 'evidence.verify_claim', 'vision.scan_screen'],
-        successRate: 1.0,
-        lastExecuted: 'أمس 04:30 PM',
+        name: 'ميزان مراجعة ثم تحقق',
+        trigger: 'ميزان / أرصدة / مراجعة',
+        toolsChain: ['report.trial-balance', 'ledger.verify-chain'],
+        successRate: 0,
+        lastExecuted: 'لم يُنفَّذ',
       },
     ],
   }));
 
-  // Desktop State
+  // Desktop State — لا ملفات ولا أسعار مبدئية: هذا السطح لا يكتب على جهازك ولا يقرأ شاشتك
   const [files, setFiles] = useState<DesktopFile[]>(INITIAL_FILES);
   const [products, setProducts] = useState<ProductPriceItem[]>(INITIAL_PRODUCTS);
-  const [browserUrl, setBrowserUrl] = useState<string>('https://www.google.com/search?q=RTX+5090+prices+specs+retailers');
+  const [browserUrl, setBrowserUrl] = useState<string>('');
   // P0-1: لا مخرجات Win32/PowerShell مختلَقة عند أول تحميل — لم يُنفَّذ أي أمر
   const [terminalLogs, setTerminalLogs] = useState<string[]>([
-    '[وضع العرض] AetherSwarm — الطرفية أدناه تعرض مخرجات محاكاة نصية فقط.',
-    '[وضع العرض] لم يُنفَّذ أي أمر على نظام التشغيل، ولم يُفتح متصفح أو ملف فعلياً.',
-    '[وضع العرض] تظهر هنا سجلات الخطوات عند تشغيلها، موسومة بمصدرها (محاكاة / تنفيذ).',
+    '[تنبيه] هذه الطرفية عرض توضيحي فقط: لا تُنفَّذ أوامر على نظام التشغيل، ولا تتحكم بجهازك.',
+    '[تنبيه] التنفيذ الحقيقي يتم عبر أدوات ERP للقراءة فقط (تقارير، قيود، أطراف، مستندات، تدقيق).',
+    '[تنبيه] تظهر هنا سجلات الخطوات عند تشغيلها، موسومة بمصدرها (أداة حقيقية / تعذّر التنفيذ).',
   ]);
 
-  // Audit Ledger
-  const [auditLogs, setAuditLogs] = useState<AuditLogEntry[]>([
-    {
-      id: 'a-1',
-      timestamp: '12:19:10',
-      agentId: 'agent-browser',
-      agentName: 'Browser Swarm',
-      tool: 'browser.open',
-      riskLevel: 'SAFE',
-      status: 'VERIFIED',
-      details: 'فتح متصفح Chrome والاتصال عبر Playwright CDP',
-      confidence: 0.99,
-    },
-    {
-      id: 'a-2',
-      timestamp: '12:20:05',
-      agentId: 'agent-browser',
-      agentName: 'Browser Swarm',
-      tool: 'browser.extract_table',
-      riskLevel: 'SAFE',
-      status: 'VERIFIED',
-      details: 'استخراج 5 عروض أسعار ومواصفات من NVIDIA, Newegg, B&H',
-      confidence: 0.95,
-    },
-    {
-      id: 'a-3',
-      timestamp: '12:20:45',
-      agentId: 'agent-critic',
-      agentName: 'Evidence & Critic',
-      tool: 'evidence.cross_check',
-      riskLevel: 'SAFE',
-      status: 'VERIFIED',
-      details: 'فحص الأدلة واستبعاد عروض المضاربة الوهمية واحتساب الثقة 96%',
-      confidence: 0.96,
-    },
-    {
-      id: 'a-4',
-      timestamp: '12:21:30',
-      agentId: 'agent-data',
-      agentName: 'File & Data Agent',
-      tool: 'file.write_table',
-      riskLevel: 'ASSISTED',
-      status: 'VERIFIED',
-      details: 'إنشاء ملف C:\\Users\\Workspace\\Documents\\RTX5090_Comparison.xlsx',
-      confidence: 1.0,
-    },
-    {
-      id: 'a-5',
-      timestamp: '12:22:00',
-      agentId: 'agent-windows',
-      agentName: 'Windows Operator',
-      tool: 'windows.focus',
-      riskLevel: 'SAFE',
-      status: 'VERIFIED',
-      details: 'جلب نافذة الإكسل للمقدمة وتأكيد انتهاء المهمة',
-      confidence: 0.99,
-    },
-  ].map((entry) => demoAudit(entry as AuditLogEntry)));
+  // Audit Ledger — لا سجلات مزروعة: كل إدخال يأتي من تنفيذ فعلي (أو يُعلن تعذّره)
+  const [auditLogs, setAuditLogs] = useState<AuditLogEntry[]>([]);
 
   // Auto-speak feedback on speech state
   const speakFeedback = (text: string) => {
@@ -589,7 +304,7 @@ export function AetherSwarmApp() {
     }));
 
     try {
-      // نداء الخادم إلى المنسّق الأعلى (يستخدم SWARM_AI_MODEL المطابق لـ AI_MODELS في الخادم)
+      // نداء الخادم إلى المنسّق الأعلى: الخطة تُبنى من سجل أدوات ERP (حتمية، بلا استدعاء نموذج)
       const res = await swarmFetch('/api/swarm/orchestrate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -603,6 +318,9 @@ export function AetherSwarmApp() {
       const data = await res.json();
       if (data.success && data.plan) {
         const plan = data.plan;
+        // حالة المهمة على الخادم: الواجهة لا تخترعها (العقد 1 في docs/AETHER_SWARM_HARDENING.md)
+        if (typeof data.taskId === 'string') setTaskId(data.taskId);
+        if (typeof data.verdict === 'string') setVerdict(data.verdict);
 
         setIntentSummary(plan.intentSummary || userPrompt);
         if (plan.intentEnglish) setIntentEnglish(plan.intentEnglish);
@@ -655,6 +373,7 @@ export function AetherSwarmApp() {
   // Run all steps sequentially with Permission checks
   const runAllStepsSequentially = async (steps: TaskStep[], currentAgents: AgentDNA[]) => {
     setIsExecuting(true);
+    let finalVerdict = '';
 
     for (let i = 0; i < steps.length; i++) {
       const step = steps[i];
@@ -672,18 +391,23 @@ export function AetherSwarmApp() {
         return; // Execution pauses until modal callback approves
       }
 
-      await executeStepInternal(step, i);
+      const stepVerdict = await executeStepInternal(step, i);
+      if (stepVerdict) finalVerdict = stepVerdict;
     }
 
     setIsExecuting(false);
-    setActiveStatusMessage('اكتملت جميع مهام السرب بنجاح وجرى التحقق من النتائج!');
-    speakFeedback('اكتملت جميع خطوات السرب بنجاح وتم التحقق المستقل من كافة البيانات والملفات.');
+    // لا «نجاح» افتراضي: رسالة الختام هي حكم الخادم المستند إلى الأدلة
+    const closing = finalVerdict || 'انتهت الخطوات بلا حكم نهائي من الخادم — راجع سجل التدقيق وحالة المهمة.';
+    if (finalVerdict) setVerdict(finalVerdict);
+    setActiveStatusMessage(closing);
+    speakFeedback(closing);
 
     if (currentUser) {
       saveSwarmSessionToFirestore(currentUser.uid, {
         goal: intentSummary,
         stepsCount: steps.length,
-        status: 'completed',
+        status: finalVerdict ? 'completed' : 'unknown',
+        verdict: finalVerdict || null,
         completedAt: new Date().toISOString(),
       });
     }
@@ -710,6 +434,8 @@ export function AetherSwarmApp() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
+          taskId,
+          stepId: step.id,
           step,
           agent: agents.find((a) => a.id === step.agentId),
           prompt: intentSummary,
@@ -718,6 +444,8 @@ export function AetherSwarmApp() {
 
       const data = await res.json();
       const result = data.result || {};
+      // الحكم يأتي من الخادم (أدلة فعلية) — لا «نجاح» تفرضه الواجهة
+      if (typeof data.verdict === 'string') setVerdict(data.verdict);
 
       // If desktop action
       if (result.desktopAction) {
@@ -821,8 +549,10 @@ export function AetherSwarmApp() {
             : a
         )
       );
+      return typeof data.verdict === 'string' ? data.verdict : '';
     } catch (e) {
       console.warn('Step execution error:', e);
+      return '';
     }
   };
 

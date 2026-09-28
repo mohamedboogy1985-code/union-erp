@@ -199,19 +199,29 @@ test('CustomAgentStudio.tsx: إفصاح صريح بأن الردود محاكا�
   );
 });
 
-test('aetherswarm.routes.ts: مسارات الاحتياطي تعلن المحاكاة ولا تخترع تحققاً', () => {
-  assertPresent(
-    '../server/routes/aetherswarm.routes.ts',
-    ['SIMULATION_NOTE', 'simulated: true', "provenance: 'SIMULATED'", 'verificationPassed: false'],
-    'نتائج المحاكاة يجب أن تُعلن كمحاكاة'
-  );
+test('aetherswarm.routes.ts: لا محاكاة بعد التصلّب — الخطة والتنفيذ من أدوات ERP حقيقية', () => {
+  // محرّك المحاكاة والخطة الجاهزة (RTX) حُذفا: لا نص مُعدّ مسبقاً يُعرض كانه تنفيذ
   assertAbsent(
     '../server/routes/aetherswarm.routes.ts',
-    ['Task verified successfully by Supreme Orchestrator'],
-    'نص يوحي بتنفيذ وتحقق حقيقيين'
+    [
+      'SIMULATION_NOTE',
+      'simulateCognitiveStep',
+      'generateCognitiveSwarmPlan',
+      "provenance: 'SIMULATED'",
+      'desktopAction:',
+      'RTX 5090',
+      'Playwright',
+      'Windows Operator',
+    ],
+    'محرّك المحاكاة أو خطة وهمية ما زال موجوداً'
   );
-  // التحكيم الاحتياطي (بلا نموذج) يجب ألا يدّعي حسم التعارض
-  assert.match(sourceCode('../server/routes/aetherswarm.routes.ts'), /resolved:\s*false,/, 'التحكيم الاحتياطي يجب ألا يدّعي حسم التعارض');
+  assertPresent(
+    '../server/routes/aetherswarm.routes.ts',
+    ['createAetherSession', 'executeAetherStep', 'resolveAetherConflict', 'READ_ONLY_ERP'],
+    'الخطة والتنفيذ يجب أن يمرّا عبر سجل أدوات ERP'
+  );
+  // التحكيم بلا أدلة (أو بلا مهمة) لا يدّعي حسم التعارض ولا يخترع نسبة ثقة
+  assert.match(sourceCode('../server/routes/aetherswarm.routes.ts'), /resolved:\s*false,/, 'التحكيم بلا أدلة يجب ألا يدّعي حسم التعارض');
   assert.match(sourceCode('../server/routes/aetherswarm.routes.ts'), /finalConfidence:\s*0,/, 'لا نسبة ثقة مختلَقة عند تعذّر التحكيم');
 });
 
@@ -221,10 +231,11 @@ test('AetherSwarmApp.tsx: لا ثقة مختلَقة ولا سجلات تدقي�
     [/\|\|\s*0\.9[56]\b/, /executionTimeMs:\s*420\b/, 'Return Code 0 - Verified by Critic', 'verified: true',],
     'قيم ثقة وحالات تحقق مختلَقة'
   );
+  // لا بيانات مزروعة: الخطة فارغة حتى يطلب المستخدم، والحالة تُقرأ من الخادم
   assertPresent(
     '../src/aetherswarm/AetherSwarmApp.tsx',
-    ['DEMO_TAG', 'demoAudit', 'demoBlackboard', 'demoMemory', 'شاشة عرض توضيحي'],
-    'وسم بيانات العرض كمحاكاة مفقود'
+    ['DEMO_TAG', 'demoBlackboard', 'demoMemory', 'taskId', "model: 'DETERMINISTIC'"],
+    'عقد السرب الحقيقي (حالة مهمة على الخادم + وكلاء حتميون) مفقود'
   );
 });
 
