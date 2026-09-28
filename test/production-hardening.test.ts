@@ -169,6 +169,8 @@ test('E2E and k6 scripts only hit endpoints the server registers', () => {
     assert.ok(server.includes(`'${p3}'`), `${p3} must be registered now that P3 is implemented`);
 
   // بوابة AI الموحدة لم تُنقل (تكرار لمسارات main الحالية) — لا يجوز اختبار مسارها
+  // سرب أدوات ERP (P4) — مُسجَّل فعلاً، وتحقّق من ذلك بحيث لا يُعاد إسقاطه بصمت
+  assert.ok(server.includes('registerSwarmToolsRoutes('), 'the swarm tools route module must stay registered');
   assert.equal([...endpoints].some((endpoint) => endpoint.startsWith('/api/ai/gateway')), false);
 
   const missing = [...endpoints].filter((endpoint) => !server.includes(`'${endpoint}'`) && !server.includes(`"${endpoint}"`) && !server.includes(`\`${endpoint}`));

@@ -53,6 +53,7 @@ import compression from 'compression';
 import { apiErrorHandler, notFoundHandler } from './server/middleware/error-handler.js';
 import { requestLoggerMiddleware, logger } from './server/middleware/logger.js';
 import { registerSystemRoutes } from './server/routes/system.routes.js';
+import { registerSwarmToolsRoutes } from './server/routes/swarm-tools.routes.js';
 import { maybeStartEmbeddedPostgres } from './server/db/pg-embedded.js';
 import { can, isReadOnlyUser, ROLE_DEFINITIONS } from './server/security/permissions.js';
 import { assertRuntimeSecurity, isSqlConsoleAllowed, isStrictAuth } from './server/security/runtime-config.js';
@@ -274,6 +275,14 @@ async function startServer() {
     persistAudit: (event) => { void postgresManager.persistAuditLog(event); },
   });
   registerAetherSwarmRoutes(app);
+
+  // ===== سرب أدوات ERP الحقيقية (يقرأ بيانات المتجر عبر الصلاحيات نفسها) =====
+  registerSwarmToolsRoutes(app, {
+    requirePermission,
+    permissionsOf: (user) => ROLE_DEFINITIONS[user.role]?.permissions === undefined
+      ? ['view:all', 'search:all', 'print:all']
+      : (ROLE_DEFINITIONS[user.role]!.permissions as string[]),
+  });
   // نظام المهارات الموحد (Skills Unified System) — استُعيد من PR #24/#26
   registerSkillsRoutes(app, { requirePermission });
 

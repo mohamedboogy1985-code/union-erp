@@ -109,6 +109,23 @@
 | POST | `/employee-advances/:id/payments` | سداد قسط `{amount, date, method?, notes?}` (يُقفل السلفة تلقائياً عند السداد الكامل) |
 | DELETE | `/employee-advances/:id` | حذف سلفة — يتطلب `hr:manage` |
 
+## سرب أدوات ERP (`/api/swarm`)
+
+سرب أدوات **قراءة فقط** على بيانات المتجر الحقيقية، بصلاحيات RBAC نفسها، وحالة مهمة محفوظة على الخادم.
+التفاصيل الكاملة: `docs/SWARM_ERP_TOOLS.md`.
+
+| المسار | الوصف |
+| --- | --- |
+| `GET /api/swarm/tools` | سجل الأدوات المتاحة للمستخدم الحالي (`readOnly`, `permission`, `available`) — بلا شيفرة تنفيذ |
+| `POST /api/swarm/tasks` | إنشاء مهمة `{ request, input? }` ⇒ خطة بخطوات لكل خطوة حالة نجاح متوقعة وبدائل معلنة |
+| `GET /api/swarm/tasks` · `GET /api/swarm/tasks/:id` | حالة المهام على الخادم (خطوات، ملاحظات، أدلة، فشل، ثقة، تحقق) |
+| `POST /api/swarm/tasks/:id/run` | تنفيذ خطوة واحدة `{ stepId?, input? }` |
+| `POST /api/swarm/tasks/:id/run-all` | تنفيذ الخطة كاملة (بحد 6 خطوات) حتى حالة نهائية |
+
+**حالات المهمة:** `PLANNED` · `RUNNING` · `VERIFIED` · `FAILED` · `BLOCKED`.
+لا يُعلن `VERIFIED` إلا بخطوة تحقق مستقلة (`ledger.verify-chain`) وأدلة فعلية غير فارغة؛ وكل خطوة ومهمة
+تُكتب في سجل التدقيق (`SWARM_TASK_PLANNED` / `SWARM_STEP_EXECUTED` / `SWARM_TASK_COMPLETED`).
+
 ## البحث الدلالي RAG (المرحلة P3)
 
 | Method | Endpoint | الوصف |
