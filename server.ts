@@ -38,10 +38,10 @@ import { cacheService, CACHE_KEYS } from './server/services/cache.service.js';
 import { paginationService } from './server/utils/pagination.js';
 import { integrationAPI } from './server/services/integration.service.js';
 import { notificationService } from './server/services/notification.service.js';
-import { csvImportService } from './server/services/csv-import.service.js';
+import { CSV_IMPORT_MODULE_DIR, csvImportService } from './server/services/csv-import.service.js';
 import { committeesService } from './server/services/committees.service.js';
 import { portalDataService } from './server/services/portal-data.service.js';
-import { modelsService } from './server/services/models.service.js';
+import { MODELS_MODULE_DIR, modelsService } from './server/services/models.service.js';
 import * as modelsCrypto from './server/services/models-crypto.service.js';
 import { regulationService } from './server/services/regulation.service.js';
 import { employeeAffairsService } from './server/services/employee-affairs.service.js';
@@ -55,6 +55,8 @@ import { requestLoggerMiddleware, logger } from './server/middleware/logger.js';
 import { registerSystemRoutes } from './server/routes/system.routes.js';
 import { registerSwarmToolsRoutes } from './server/routes/swarm-tools.routes.js';
 import { maybeStartEmbeddedPostgres } from './server/db/pg-embedded.js';
+import { ETA_MODULE_DIR } from './server/services/eta/eta-store.js';
+import { collectDataPaths } from './server/utils/data-paths.js';
 import { can, isReadOnlyUser, ROLE_DEFINITIONS } from './server/security/permissions.js';
 import { assertRuntimeSecurity, isSqlConsoleAllowed, isStrictAuth } from './server/security/runtime-config.js';
 import { installApiGuard } from './server/security/api-guard.js';
@@ -293,6 +295,14 @@ async function startServer() {
     databaseStatus: () => ({
       connected: postgresManager.isDbAvailable(),
       mode: postgresManager.isDbAvailable() ? 'PostgreSQL (مستمر)' : 'ذاكرة داخلية (عرض)',
+    }),
+    // المسارات تأتي من الوحدات الفعلية نفسها لتطابق تطوير ESM وحزمة CJS/Electron.
+    dataPaths: () => collectDataPaths({
+      moduleDirs: {
+        unionData: CSV_IMPORT_MODULE_DIR,
+        eta: ETA_MODULE_DIR,
+        models: MODELS_MODULE_DIR,
+      },
     }),
   });
 

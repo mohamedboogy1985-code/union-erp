@@ -1,6 +1,5 @@
 import fs from 'fs';
-import path from 'path';
-import { moduleDir } from '../../utils/runtime-paths.js';
+import { callerModuleDir, resolveEtaDataDir, resolveEtaDocumentsFile } from '../../utils/data-paths.js';
 
 /**
  * ===== تخزين محلي لمستندات ETA المُرسَلة/المهنّأة =====
@@ -29,13 +28,27 @@ export interface EtaDocumentRecord {
   responseRaw?: Record<string, any>;
 }
 
-const DATA_DIR = path.resolve(moduleDir(import.meta.url), '../../data');
-const FILE = path.join(DATA_DIR, 'eta-documents.json');
+/** مجلد الوحدة وقت الإقلاع — يُمرَّر للحلّ المشترك ليبقى مطابقاً لمنطق ETA الأصلي */
+export const ETA_MODULE_DIR = callerModuleDir(import.meta.url);
+
+/**
+ * مجلد سجل ETA وملفه — يُحلّان من `server/utils/data-paths.ts` (نفس الدالة التي
+ * يعرضها مؤشّر «مجلد البيانات»)، ويُعاد حلّهما **عند كل نداء** لا وقت الإقلاع،
+ * فالمؤشّر والخادم يقرآن المسار نفسه في اللحظة نفسها.
+ */
+export function etaDataDir(): string {
+  return resolveEtaDataDir(ETA_MODULE_DIR).path;
+}
+
+export function etaDocumentsFile(): string {
+  return resolveEtaDocumentsFile(ETA_MODULE_DIR).path;
+}
 
 function readAll(): Record<string, EtaDocumentRecord> {
+  const file = etaDocumentsFile();
   try {
-    if (fs.existsSync(FILE)) {
-      return JSON.parse(fs.readFileSync(FILE, 'utf-8'));
+    if (fs.existsSync(file)) {
+      return JSON.parse(fs.readFileSync(file, 'utf-8'));
     }
   } catch {
     /* تجاهل تلف الملف */
@@ -44,8 +57,9 @@ function readAll(): Record<string, EtaDocumentRecord> {
 }
 
 function writeAll(map: Record<string, EtaDocumentRecord>): void {
-  fs.mkdirSync(DATA_DIR, { recursive: true });
-  fs.writeFileSync(FILE, JSON.stringify(map, null, 2), 'utf-8');
+  const dir = etaDataDir();
+  fs.mkdirSync(dir, { recursive: true });
+  fs.writeFileSync(etaDocumentsFile(), JSON.stringify(map, null, 2), 'utf-8');
 }
 
 export const etaStore = {

@@ -3,7 +3,7 @@ import path from 'path';
 import { erpStore } from '../db/store.js';
 import { regulationService } from './regulation.service.js';
 import { parseCsv } from '../utils/csv.js';
-import { moduleDir, resolveFirst } from '../utils/runtime-paths.js';
+import { callerModuleDir, resolveUnionDataDir } from '../utils/data-paths.js';
 import type {
   Employee,
   EmployeeAffair,
@@ -21,17 +21,13 @@ import type {
  * - ملخص إحصائي: فجوة تحصيل حصة النقابة بين استمارة 2 والمستقطع الفعلي
  */
 
-const MODULE_DIR = moduleDir(typeof import.meta !== 'undefined' ? import.meta.url : undefined) || process.cwd();
+const MODULE_DIR = callerModuleDir(typeof import.meta !== 'undefined' ? import.meta.url : undefined);
 
-export const EMPLOYEE_DATA_DIR =
-  resolveFirst([
-    process.env.UNION_DATA_DIR,
-    path.join(process.cwd(), 'server', 'data'),
-    path.join(MODULE_DIR, '..', 'data'),
-    path.join(MODULE_DIR, 'server', 'data'),
-    path.join(MODULE_DIR, '..', 'server', 'data'),
-    path.join(MODULE_DIR, '..', '..', 'server', 'data'),
-  ]) || path.join(process.cwd(), 'server', 'data');
+/**
+ * مجلد بيانات العاملين: نفس حلّ `CSV_DATA_DIR` من `server/utils/data-paths.ts`
+ * حتى يقرأ المؤشّر والخدمتان المجلد نفسه حرفياً (`UNION_DATA_DIR` ← `cwd/server/data`).
+ */
+export const EMPLOYEE_DATA_DIR = resolveUnionDataDir(MODULE_DIR, { allowFileTarget: true }).path;
 
 const INSURANCE_FORM2_FILE = 'استمارة_2_تأمينات.csv';
 

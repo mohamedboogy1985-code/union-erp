@@ -1,7 +1,7 @@
 import fs from 'fs';
 import path from 'path';
 import { createHash } from 'crypto';
-import { moduleDir, resolveFirst } from '../utils/runtime-paths.js';
+import { callerModuleDir, resolveUnionDataDir } from '../utils/data-paths.js';
 import { erpStore, ERPStore } from '../db/store.js';
 import { normalizeArabicText } from '../utils/arabic.js';
 import { isVersionedLedgerHash, rebuildLedgerChain, resealLedgerChain } from './ledger-chain.service.js';
@@ -14,18 +14,15 @@ import type { Account, JournalEntry, JournalEntryLine, SubledgerParty, User } fr
  * - قيود_اليومية_2024.csv → شاشة قيود اليومية (قيود مرحّلة بأرصدتها وأستاذها المساعد)
  */
 
-const MODULE_DIR = moduleDir(typeof import.meta !== 'undefined' ? import.meta.url : undefined) || process.cwd();
+export const CSV_IMPORT_MODULE_DIR = callerModuleDir(typeof import.meta !== 'undefined' ? import.meta.url : undefined);
+const MODULE_DIR = CSV_IMPORT_MODULE_DIR;
 
-/** مجلد بيانات CSV: يدعم التطوير وحزمة الإنتاج وتطبيق Electron */
-export const CSV_DATA_DIR =
-  resolveFirst([
-    process.env.UNION_DATA_DIR,
-    path.join(process.cwd(), 'server', 'data'),
-    path.join(MODULE_DIR, '..', 'data'), // تطوير: server/services/../data
-    path.join(MODULE_DIR, 'server', 'data'), // حزمة: dist-server/server/data أو بجوارها
-    path.join(MODULE_DIR, '..', 'server', 'data'), // Electron asar: app.asar/server/data
-    path.join(MODULE_DIR, '..', '..', 'server', 'data'),
-  ]) || path.join(process.cwd(), 'server', 'data');
+/**
+ * مجلد بيانات CSV: يُحلّ من `server/utils/data-paths.ts` — نفس الدالة التي يقرأ منها
+ * مؤشّر «مجلد البيانات» (`GET /api/system/data-paths`)، فلا يمكن أن يعرض المؤشّر
+ * مجلداً غير الذي تقرأ منه هذه الخدمة فعلاً.
+ */
+export const CSV_DATA_DIR = resolveUnionDataDir(MODULE_DIR, { allowFileTarget: true }).path;
 
 const TYPE_MAP: Record<string, Account['type']> = {
   'أصول': 'ASSET',

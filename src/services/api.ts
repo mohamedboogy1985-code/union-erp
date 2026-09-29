@@ -128,6 +128,9 @@ export async function loginWithPassword(username: string, password: string, code
 }
 
 export const api = {
+  // حالة النظام ومجلدات البيانات (صلاحية system:admin)
+  getDataPaths: () => request<any>('/api/system/data-paths'),
+
   // Auth & Users
   getMe: () => request<User>('/api/auth/me'),
   getUsers: () => request<User[]>('/api/auth/users'),

@@ -12,6 +12,7 @@ import {
 import { api } from '../services/api.js';
 import { CostCenter, FiscalPeriod, Organization, User } from '../types/erp.js';
 import { CloudSqlStats } from '../components/CloudSqlStats.js';
+import { DataFoldersIndicator } from '../components/DataFoldersIndicator.js';
 
 interface SettingsProps {
   organizationId: string;
@@ -79,6 +80,11 @@ export const Settings: React.FC<SettingsProps> = ({
           </p>
         </div>
       </div>
+
+      {(currentUser?.permissions?.includes('system:admin') || currentUser?.permissions?.includes('*') ||
+        ['PROGRAM_MANAGER', 'SYSTEM_ADMIN', 'CHIEF_FINANCIAL_OFFICER'].includes(currentUser?.role || '')) && (
+        <DataFoldersIndicator />
+      )}
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Fiscal Periods Management */}

@@ -30,7 +30,7 @@ curl -H "Authorization: Bearer $TOKEN" http://localhost:3000/api/system/openapi.
 
 | المجموعة | النقاط |
 |---|---|
-| System | `/api/health`، `/api/system/health-detailed`، `/api/system/metrics`، `/api/system/openapi.json` |
+| System | `/api/health`، `/api/system/health-detailed`، `/api/system/data-paths`، `/api/system/metrics`، `/api/system/openapi.json` |
 | Accounting | `/api/accounts`، `/api/journal-entries` |
 | Reports | `/api/reports/trial-balance`، `/api/reports/general-ledger`، `/api/reports/income-expense`، `/api/reports/receipts-payments` |
 | Skills | `/api/skills`، `/api/skills/summary`، `/api/employee-skills`، `/api/training-programs`، `/api/training-enrollments`، `/api/ai-agent-skills`، `/api/accounting-procedures` |
@@ -41,7 +41,7 @@ curl -H "Authorization: Bearer $TOKEN" http://localhost:3000/api/system/openapi.
 
 | النقطة | الصلاحية المطلوبة |
 |---|---|
-| `/api/system/metrics` و`/api/system/health-detailed` | `system:admin` |
+| `/api/system/metrics` و`/api/system/health-detailed` و`/api/system/data-paths` | `system:admin` |
 | `/api/system/openapi.json` | أي مستخدم موثّق |
 | `/api/health` | عامة (بلا هوية) |
 
