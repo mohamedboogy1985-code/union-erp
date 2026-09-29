@@ -1,5 +1,6 @@
 import fs from 'fs';
 import path from 'path';
+import { resolvePgDataDir } from '../utils/data-paths.js';
 
 /**
  * ===== PostgreSQL المضمّن (Embedded PostgreSQL) =====
@@ -14,8 +15,6 @@ import path from 'path';
  *   إبقاء المصادقة بالكلمة السرية إلزامية؛ للتقييد: SQL_LISTEN_ADDRESSES=127.0.0.1
  * - لتعطيله: DISABLE_EMBEDDED_PG=true — ولقاعدة خارجية: اضبط SQL_HOST
  */
-
-const DEFAULT_DATA_DIR = path.join(process.cwd(), 'pgdata');
 
 interface EmbeddedPgHandle {
   initialise(): Promise<void>;
@@ -127,7 +126,8 @@ export async function maybeStartEmbeddedPostgres(): Promise<boolean> {
   if (process.env.SQL_HOST) return false; // قاعدة خارجية مضبوطة يدوياً
 
   try {
-    const dataDir = process.env.PG_DATA_DIR || DEFAULT_DATA_DIR;
+    // يُحلّ وقت الإقلاع من نفس دالة مؤشّر «مجلد البيانات» (PG_DATA_DIR ← cwd/pgdata)
+    const dataDir = resolvePgDataDir().path;
     const port = Number(process.env.SQL_PORT || 5432);
     const user = process.env.SQL_USER || 'postgres';
     const password = process.env.SQL_PASSWORD || 'postgres';

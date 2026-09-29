@@ -6,6 +6,7 @@ import { erpStore } from '../db/store.js';
 import { accountingService } from './accounting.service.js';
 import { normalizeArabicText } from '../utils/arabic.js';
 import { can } from '../security/permissions.js';
+import { resolvePayrollImportsFile } from '../utils/data-paths.js';
 import type { PayrollLine, User } from '../../src/types/erp.js';
 
 /**
@@ -297,7 +298,10 @@ function extractReportType(fileName: string): string {
 }
 
 export class PayrollImportService {
-  private importsFile = path.join(process.cwd(), 'data', 'payroll-imports.json');
+  private get importsFile(): string {
+    // المسار نفسه الذي يعرضه مؤشّر data-paths — cwd/data/payroll-imports.json.
+    return resolvePayrollImportsFile().path;
+  }
 
   /** تحميل الكشوف المعتمدة سابقاً عند إقلاع الخادم */
   public loadPersistedImports(): number {

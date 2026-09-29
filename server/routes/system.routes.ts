@@ -16,6 +16,7 @@ import { renderPrometheusMetrics, getMetricsSnapshot } from '../services/metrics
 import { cacheService } from '../services/cache.service.js';
 import { embeddingService } from '../services/embedding.service.js';
 import type { User } from '../../src/types/erp.js';
+import type { DataPathsSnapshot } from '../utils/data-paths.js';
 
 interface SystemRouteDeps {
   requirePermission: (req: Request, res: Response, permission: string) => User | null;
@@ -23,6 +24,8 @@ interface SystemRouteDeps {
   databaseStatus: () => { connected: boolean; mode: string };
   /** الهوية الفعّالة للطلب — وثيقة OpenAPI متاحة لأي مستخدم موثّق (لا لزوّار) */
   getActiveUser: (req: Request) => User | null;
+  /** فحص حيّ للمسارات — لا يُخزَّن، ويُعيد القياس من القرص عند كل طلب */
+  dataPaths: () => DataPathsSnapshot;
 }
 
 /**
@@ -31,7 +34,8 @@ interface SystemRouteDeps {
  */
 export const OPENAPI_PATHS: Record<string, { method: 'get' | 'post' | 'put' | 'delete'; summary: string; tags: string[] }> = {
   '/api/health': { method: 'get', summary: 'صحة النظام العامة', tags: ['System'] },
-  '/api/system/health-detailed': { method: 'get', summary: 'صحة مفصّلة مع أحجام المتجر والكاش', tags: ['System'] },
+  '/api/system/health-detailed': { method: 'get', summary: 'صحة مفصّلة مع أحجام المتجر والكاش ومجلدات البيانات', tags: ['System'] },
+  '/api/system/data-paths': { method: 'get', summary: 'مسارات مجلدات البيانات وحالتها وقياسها الفعلي', tags: ['System'] },
   '/api/system/metrics': { method: 'get', summary: 'عدادات Prometheus', tags: ['System'] },
   '/api/system/openapi.json': { method: 'get', summary: 'وثيقة OpenAPI', tags: ['System'] },
   '/api/accounts': { method: 'get', summary: 'دليل الحسابات', tags: ['Accounting'] },
@@ -108,6 +112,13 @@ export function registerSystemRoutes(app: any, deps: SystemRouteDeps): void {
     res.send(renderPrometheusMetrics(gauges));
   });
 
+  // ===== مؤشّر مجلد البيانات (تحتاج system:admin — يحتوي مسارات داخلية للخادم) =====
+  app.get('/api/system/data-paths', (req: Request, res: Response) => {
+    const user = deps.requirePermission(req, res, 'system:admin');
+    if (!user) return;
+    res.json(deps.dataPaths());
+  });
+
   // ===== صحة مفصّلة =====
   app.get('/api/system/health-detailed', (req: Request, res: Response) => {
     const user = deps.requirePermission(req, res, 'system:admin');
@@ -119,6 +130,7 @@ export function registerSystemRoutes(app: any, deps: SystemRouteDeps): void {
       uptimeSeconds: snapshot.uptimeSeconds,
       // حالة القاعدة من نفس دالة /api/health — لا تخمين ولا قيمة ثابتة
       database: { ...deps.databaseStatus(), persistentAuditChain: Boolean((erpStore as any).auditPersistHook) },
+      dataPaths: deps.dataPaths(),
       cache: cacheService.stats(),
       store: {
         accounts: erpStore.accounts.length,
