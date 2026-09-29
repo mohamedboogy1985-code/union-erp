@@ -15,7 +15,8 @@ import {
 } from 'lucide-react';
 import { User } from 'firebase/auth';
 import {
-  auth,
+  firebaseConfigured,
+  firebaseConfigNote,
   signInWithGoogle,
   logOut,
   testFirestoreConnection,
@@ -51,6 +52,11 @@ export const AuthProfileModal: React.FC<AuthProfileModalProps> = ({
   }, [isOpen, currentUser]);
 
   const checkConnection = async () => {
+    if (!firebaseConfigured) {
+      // لا فحص ولا ادعاء اتصال: الإعداد نفسه غائب عن هذه البيئة
+      setFirestoreStatus('offline');
+      return;
+    }
     setFirestoreStatus('checking');
     const ok = await testFirestoreConnection();
     setFirestoreStatus(ok ? 'connected' : 'offline');
@@ -64,6 +70,11 @@ export const AuthProfileModal: React.FC<AuthProfileModalProps> = ({
   };
 
   const handleSignIn = async () => {
+    if (!firebaseConfigured) {
+      // لا نافذة ولا خطأ مربك: نعلن السبب الحقيقي
+      setAuthError(firebaseConfigNote);
+      return;
+    }
     setIsConnecting(true);
     setAuthError(null);
     try {
@@ -109,7 +120,7 @@ export const AuthProfileModal: React.FC<AuthProfileModalProps> = ({
                 حساب المستخدم وقاعدة بيانات Firebase
               </h3>
               <p className="text-[11px] text-slate-400">
-                تسجيل الدخول عبر Google ومزامنة الجلسات والملفات مع Firestore
+                تسجيل الدخول عبر Google ومزامنة الجلسات والملفات مع Firestore (اختياري — هوية النظام هي JWT/ERP)
               </p>
             </div>
           </div>
@@ -120,6 +131,15 @@ export const AuthProfileModal: React.FC<AuthProfileModalProps> = ({
             <X className="w-4 h-4" />
           </button>
         </div>
+
+        {!firebaseConfigured && (
+          <div className="p-3 rounded-xl bg-amber-950/50 border border-amber-800 text-amber-200 text-[11px] leading-relaxed">
+            المزامنة السحابية معطّلة: {firebaseConfigNote}
+            <div className="mt-1 text-amber-300/80">
+              سطح السرب يعمل كاملاً ببيانات ERP وهوية JWT/سجل التدقيق؛ ولا يُحفظ أي شيء خارج النظام.
+            </div>
+          </div>
+        )}
 
         {/* User Card / Login Section */}
         {currentUser ? (
@@ -178,7 +198,9 @@ export const AuthProfileModal: React.FC<AuthProfileModalProps> = ({
                   ? '✓ متصل ومتزامن'
                   : firestoreStatus === 'checking'
                   ? 'جاري الفحص...'
-                  : 'جاهز للاستخدام'}
+                  : firebaseConfigured
+                  ? 'غير متصل'
+                  : 'غير مضبوط في هذه البيئة'}
               </span>
             </div>
           </div>
@@ -263,7 +285,9 @@ export const AuthProfileModal: React.FC<AuthProfileModalProps> = ({
                       </span>
                     </div>
                     <span className="font-mono text-emerald-400 text-[10px]">
-                      ثقة {(session.overallConfidence * 100 || 96).toFixed(0)}%
+                      {typeof session.overallConfidence === 'number'
+                        ? `ثقة ${(session.overallConfidence * 100).toFixed(0)}%`
+                        : 'ثقة غير مسجّلة'}
                     </span>
                   </div>
                 ))

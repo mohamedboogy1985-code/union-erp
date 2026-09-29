@@ -92,7 +92,10 @@ test('the swarm UI exposes the same models as the server (and no invented label)
   assert.deepEqual(swarmModels, [...AI_MODELS], 'the UI model list must equal the server AI_MODELS');
 
   const app = fs.readFileSync(path.join(ROOT, 'src', 'aetherswarm', 'AetherSwarmApp.tsx'), 'utf-8');
-  assert.match(app, /model: SWARM_AI_MODEL/, 'agent cards must show the declared model');
+  // بعد التصلّب: خطوات السرب حتمية عبر أدوات ERP — لا استدعاء نموذج لكل وكيل.
+  // لذلك بطاقة الوكيل تُعلن `DETERMINISTIC`، وأسماء النماذج تبقى في أسطح المحادثة/الصوت فقط.
+  assert.match(app, /model: 'DETERMINISTIC'/, 'agent cards must not claim a model call they never make');
+  assert.equal(/model: SWARM_AI_MODEL/.test(app), false, 'لا بطاقة وكيل تدّعي استدعاء نموذج');
   assert.equal(app.includes('gemini-3.8'), false);
 
   const chatbot = fs.readFileSync(path.join(ROOT, 'src', 'aetherswarm', 'components', 'GeminiChatbotView.tsx'), 'utf-8');
