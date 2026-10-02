@@ -990,13 +990,17 @@ ${accountsListStr}
     const pendingEntries = ctx.pendingEntries;
     const availableAccounts = ctx.availableAccounts;
     const regStatus = ctx.regulationSummary;
-    const giftsCeiling = regulationService.getRule('GIFTS_CEILING_REGULAR')?.value;
-    const giftsCeilingText =
-      giftsCeiling === null || giftsCeiling === undefined || giftsCeiling === ''
-        ? 'غير محدد'
-        : typeof giftsCeiling === 'number'
-          ? giftsCeiling.toLocaleString()
-          : String(giftsCeiling);
+    const regulationValueText = (ruleId: string): string => {
+      const rule = regulationService.getRule(ruleId);
+      if (!rule?.enabled || rule.value === null || rule.value === '') return 'غير محدد';
+      return typeof rule.value === 'number' ? rule.value.toLocaleString('en-US') : String(rule.value);
+    };
+    const giftsCeilingText = regulationValueText('GIFTS_CEILING_REGULAR');
+    const giftsExceptionalCeilingText = regulationValueText('GIFTS_CEILING_EXCEPTIONAL');
+    const membershipDistributionRule = erpStore.distributionRules.find((rule) => rule.ruleCode === 'DIST-MEMB-V1');
+    const membershipDistributionText = membershipDistributionRule
+      ? membershipDistributionRule.lines.map((line) => `${line.beneficiaryOrgName}: ${line.percentage}%`).join('؛ ')
+      : 'غير محدد';
 
     const regRulesStr = regStatus.activeRules.length
       ? regStatus.activeRules
@@ -1020,7 +1024,15 @@ ${accountsListStr}
 
 اللائحة المالية النافذة (${regStatus.articlesCount} مادة، ${regStatus.activeRules.length} قاعدة مسجلة في دفتر اللائحة):
 ${regRulesStr}
-تذكّر دائماً الحدود المعمول بها: الصرف النقدي فوق 20,000 ج.م محظور نقداً (م9)، الهدايا حتى ${giftsCeilingText} ج.م للهدية (م50/51)، المشتريات بدون مستند تُرفض فوق 20,000 ج.م (م61)، وتحديد بدلات الانتقال/السفر/الأعباء بالمواد 37 و39 و40.
+مرجع الأحكام أدناه هو نسخة اللائحة المالية المرفقة بالنظام؛ لم نتحقق استقلالاً من مطابقتها لنسخة أولية من الوقائع المصرية.
+- م6: سقف السلفة المستديمة ${regulationValueText('PETTY_CASH_CEILING')} ج.م للنقابة العامة و${regulationValueText('PETTY_CASH_CEILING_BRANCH')} ج.م للجنة، مع استثناءات المادة واعتماد الرئيس.
+- م9: الصرف النقدي للغرض الواحد حتى ${regulationValueText('CASH_PAYMENT_CEILING')} ج.م للنقابة العامة و${regulationValueText('CASH_PAYMENT_CEILING_BRANCH')} ج.م للجنة؛ يجوز للرئيس الموافقة على زيادة مسببة، فلا تصفه بأنه محظور مطلقاً.
+- م37: بدل السفر الأدنى عن الليلة ${regulationValueText('TRAVEL_ALLOWANCE_DAILY_CAP')} ج.م للنقابة العامة و${regulationValueText('TRAVEL_ALLOWANCE_DAILY_CAP_BRANCH')} ج.م للجنة؛ الحد يتعلق بالليلة، والزيادة حتى 100% بقرار ومذكرة أسباب.
+- م39–40: بدل الانتقال الثابت حتى ${regulationValueText('MONTHLY_TRANSPORT_ALLOWANCE_CAP')} ج.م شهرياً؛ بدل الأعباء حتى ${regulationValueText('MONTHLY_BURDEN_ALLOWANCE_CAP')} ج.م مع حكم الزيادة لأعضاء هيئة المكتب.
+- م50–51: الهدايا الرمزية حتى ${giftsCeilingText} ج.م للوفد؛ استثناء م50 يصل إلى ${giftsExceptionalCeilingText} ج.م في الحالات المحددة وبقرار رئيس المنظمة. صيغ الأرقام في م51 ملتبسة ولا تُفسر كحد آلي.
+- م61: الشراء المباشر/الممارسة/المناقصة المحدودة للنقابة العامة: ${regulationValueText('PROC_DIRECT_ORDER_CEILING')} / ${regulationValueText('PROC_TENDER_CEILING')} / ${regulationValueText('PROC_LIMITED_TENDER_CEILING')} ج.م؛ وللجنة: ${regulationValueText('PROC_DIRECT_ORDER_CEILING_BRANCH')} / ${regulationValueText('PROC_TENDER_CEILING_BRANCH')} / ${regulationValueText('PROC_LIMITED_TENDER_CEILING_BRANCH')} ج.م، مع استثناءات المصدر. لا تقل إن م61 تشترط مستنداً فوق 20,000 ج.م؛ فحص سطر اليومية مجرد تحذير ولا يعادل قيمة العملية التقديرية.
+- م72–73: الدفعة المقدمة حتى ${regulationValueText('CONTRACT_ADVANCE_PCT')}%؛ التشوينات حتى ${regulationValueText('CONTRACT_MATERIALS_SUPPLY_PCT')}%، ووردت 5% ثم «5% الباقية» لا 95%. غرامة التأخير بحد ${regulationValueText('PENALTY_CAP_PCT')}% للمقاولات و${regulationValueText('PENALTY_CAP_SUPPLY_PCT')}% للتوريد، مع شهادات المقاول المطلوبة. قواعد العقود مسجلة مرجعياً، لكن لا يوجد في هذا المسار فحص تعاقدي آلي للمستخلصات.
+- م2: النص يقول 10% للاتحاد إن وجد، و60% للجنة، و30% للنقابة العامة. قاعدة إيصالات العضوية التشغيلية الحالية: ${membershipDistributionText}؛ هذه تختلف عن نص المادة ولا تثبت تعديلاً رسمياً، فلا تنسب نسبها إلى اللائحة ولا توصي بتغييرها دون مراجعة معتمدة.
 
 دليل الحسابات النشط (المتاح للقيود):
 ${accountsListStr}
@@ -1046,7 +1058,8 @@ ${accountsListStr}
           answer: `أهلاً بك، أنا الخبير المحاسبي في نظام Union Financial ERP. أستطيع مساعدتك في:
 - تلخيص الموقف المالي والإيرادات والمصروفات وصافي الفائض الآن.
 - شرح ومراجعة القيود المحاسبية وضمان توازنها (المدين = الدائن).
-- حدود اللائحة المالية النافذة (${regStatus.articlesCount} مادة) مثل سقف الصرف النقدي 20,000 ج.م (م9) والهدايا ${giftsCeilingText} ج.م (م50/51) والمشتريات 20,000 ج.م (م61).
+- حدود اللائحة المالية المرفقة (${regStatus.articlesCount} مادة): الصرف النقدي حتى ${regulationValueText('CASH_PAYMENT_CEILING')} ج.م للنقابة العامة و${regulationValueText('CASH_PAYMENT_CEILING_BRANCH')} ج.م للجنة، وهدايا الوفود عادةً حتى ${giftsCeilingText} ج.م للوفد مع استثناء مشروط بقرار الرئيس (م9، م50).
+- للمشتريات درجات مختلفة حسب الجهة (م61)، كما أن نسب المادة 2 تختلف عن نموذج إيصالات العضوية الحالي؛ لا تنسب النموذج التشغيلي إلى نص اللائحة.
 - مديونيات حساب 1301 وأكبر المدينين.
 جرّب أحد الأسئلة المقترحة أدناه.`,
         };
