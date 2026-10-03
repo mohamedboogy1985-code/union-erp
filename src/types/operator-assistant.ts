@@ -1,4 +1,4 @@
-import type { PortalId } from '../config/portals.js';
+import type { PortalId } from "../config/portals.js";
 
 export const ASSISTANT_LIMITS = {
   text: 6000,
@@ -23,18 +23,24 @@ export interface FieldChange {
   value: string;
 }
 export type AssistantIntent =
-  | { kind: 'answer' }
-  | { kind: 'navigate'; screenId: string }
-  | { kind: 'fill'; changes: FieldChange[] }
-  | { kind: 'report'; reportId: string; startDate?: string; endDate?: string; keyword?: string };
+  | { kind: "answer" }
+  | { kind: "navigate"; screenId: string }
+  | { kind: "fill"; changes: FieldChange[] }
+  | {
+      kind: "report";
+      reportId: string;
+      startDate?: string;
+      endDate?: string;
+      keyword?: string;
+    };
 export interface AssistantTurnInput {
   organizationId: string;
   screenId: string;
   consent: true;
   text?: string;
-  audio?: { mimeType: 'audio/wav'; data: string };
+  audio?: { mimeType: "audio/wav"; data: string };
   fields: AssistantField[];
-  history: { role: 'user' | 'assistant'; text: string }[];
+  history: { role: "user" | "assistant"; text: string }[];
 }
 export interface AssistantTurnResult {
   id: string;
@@ -74,37 +80,85 @@ export interface AvatarConnection {
 
 /** These are capabilities, not URLs or arbitrary API/shell instructions. */
 export const ASSISTANT_REPORTS = [
-  { id: 'trial_balance', label: 'ميزان المراجعة' },
-  { id: 'income_expense', label: 'الإيرادات والمصروفات' },
-  { id: 'general_ledger', label: 'الأستاذ العام' },
-  { id: 'receipts_payments', label: 'المقبوضات والمدفوعات' },
-  { id: 'receipts', label: 'سجل التحصيل' },
-  { id: 'journal_entries', label: 'القيود المحاسبية' },
-  { id: 'debtors', label: 'الجهات والأستاذ المساعد' },
-  { id: 'members', label: 'دليل الأعضاء' },
-  { id: 'employees', label: 'دليل العاملين' },
+  { id: "trial_balance", label: "ميزان المراجعة" },
+  { id: "income_expense", label: "الإيرادات والمصروفات" },
+  { id: "general_ledger", label: "الأستاذ العام" },
+  { id: "receipts_payments", label: "المقبوضات والمدفوعات" },
+  { id: "receipts", label: "سجل التحصيل" },
+  { id: "journal_entries", label: "القيود المحاسبية" },
+  { id: "debtors", label: "الجهات والأستاذ المساعد" },
+  { id: "members", label: "دليل الأعضاء" },
+  { id: "employees", label: "دليل العاملين" },
 ] as const;
 
 export const SCREEN_WRITE_PERMISSIONS: Record<string, string> = {
-  journals: 'journal:create',
-  accounting: 'journal:create',
-  receipts: 'receipts:issue',
-  members: 'members:manage',
-  membership: 'members:manage',
-  accounts: 'accounts:manage',
-  subledgers: 'subledger:manage',
-  employees: 'hr:manage',
-  hrs: 'hr:manage',
-  payroll: 'hr:manage',
-  advances: 'hr:manage',
-  attendance: 'attendance:manage',
-  models: 'documents:manage',
-  banking: 'accounts:manage',
-  procurement: 'accounts:manage',
-  budgets: 'accounts:manage',
-  assets: 'accounts:manage',
-  einvoicing: 'accounts:manage',
-  settings: 'system:admin',
-  committees: 'members:manage',
-  actuarial: 'accounts:manage',
+  journals: "journal:create",
+  accounting: "journal:create",
+  receipts: "receipts:issue",
+  members: "members:manage",
+  membership: "members:manage",
+  accounts: "accounts:manage",
+  subledgers: "subledger:manage",
+  employees: "hr:manage",
+  hrs: "hr:manage",
+  payroll: "hr:manage",
+  advances: "hr:manage",
+  attendance: "attendance:manage",
+  models: "documents:manage",
+  banking: "accounts:manage",
+  procurement: "accounts:manage",
+  budgets: "accounts:manage",
+  assets: "accounts:manage",
+  einvoicing: "accounts:manage",
+  settings: "system:admin",
+  committees: "members:manage",
+  actuarial: "accounts:manage",
 };
+
+/** ===== المساعد العام (GA) — أنواع ردّ المساعد العام ===== */
+export interface AssistantRunStep {
+  labelAr: string;
+  status: "done" | "pending" | "failed";
+  detailAr?: string;
+}
+
+export interface AssistantRunPayload {
+  kind: "table" | "metrics" | "text";
+  columns?: string[];
+  rows?: { cells: string[] }[];
+  metrics?: {
+    labelAr: string;
+    valueAr: string;
+    tone?: "slate" | "emerald" | "amber" | "sky";
+  }[];
+  textAr?: string;
+  csvAr?: { fileNameAr: string; content: string; rowsCount: number };
+  /** معرّف مسودة قيد الوكيل الصوتي/الإملاء النصي (لزر الاعتماد والترحيل) */
+  voiceDraftId?: string;
+}
+
+export interface AssistantIntentJson {
+  action: string;
+  parameters: Record<string, string | number | boolean | null>;
+  function: string;
+  execution: "direct" | "draft";
+}
+
+export interface AssistantRunResult {
+  id: string;
+  heardAr: string;
+  replyAr: string;
+  steps: AssistantRunStep[];
+  payload?: AssistantRunPayload;
+  navigateTo?: string;
+  navigateLabelAr?: string;
+  needsConfirm: boolean;
+  pendingActionId?: string;
+  canPost?: boolean;
+  intent?: AssistantIntentJson & {
+    confidence?: number;
+    descriptionAr?: string;
+  };
+  intentJson?: string;
+  intentJsonFull?: string;
+}

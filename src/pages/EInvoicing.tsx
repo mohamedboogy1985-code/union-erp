@@ -16,7 +16,7 @@ import {
   Trash2,
   Receipt as ReceiptIcon,
 } from 'lucide-react';
-import { api } from '../services/api.js';
+import { api, downloadAuthenticatedFile } from '../services/api.js';
 import {
   EtaStatus,
   EtaDocumentRecord,
@@ -578,13 +578,14 @@ export const EInvoicing: React.FC<EInvoicingProps> = ({
                       >
                         <RefreshCw className="w-3.5 h-3.5" />
                       </button>
-                      <a
-                        href={api.etaDownloadUrl(d.uuid)}
+                      <button
+                        type="button"
+                        onClick={() => void downloadAuthenticatedFile(api.etaDownloadUrl(d.uuid)).catch((err: any) => onShowToast('error', err?.message || 'تعذّر تنزيل المستند.'))}
                         title="تنزيل المستند"
                         className="p-1.5 text-emerald-400 hover:text-emerald-300 hover:bg-emerald-950/40 rounded-lg"
                       >
                         <Download className="w-3.5 h-3.5" />
-                      </a>
+                      </button>
                       <button
                         onClick={() => handleCancel(d.uuid)}
                         disabled={d.status === 'CANCELLED'}

@@ -10,6 +10,8 @@ import { Dashboard } from './pages/Dashboard.js';
 import { AccountingHub, AccountingTabId } from './pages/AccountingHub.js';
 import { HrsHub, HrsTabId } from './pages/HrsHub.js';
 import { MembershipHub, MembershipTabId } from './pages/MembershipHub.js';
+import type { TaxesTabId } from './pages/TaxesHub.js';
+import type { ModelsTabId } from './pages/ModelsViewer.js';
 import { AiHub, AiTabId } from './pages/AiHub.js';
 import { Gateways } from './pages/Gateways.js';
 import { ErrorBoundary } from './components/ErrorBoundary.js';
@@ -19,10 +21,13 @@ import type { AssistantScreen } from './types/operator-assistant.js';
 import { hasPerm } from './utils/permissions.js';
 import { GATEWAYS, getGatewayMeta, PortalId } from './config/portals.js';
 import type { RegulationBudgetsTabId } from './pages/RegulationBudgetsHub.js';
+import type { StatutoryTabId } from './pages/StatutoryHub.js';
 import type { AuditSettingsTabId } from './pages/AuditSettingsHub.js';
 import type { InsuredActuarialTabId } from './pages/InsuredActuarialHub.js';
 
 const RegulationBudgetsHub = lazy(() => import('./pages/RegulationBudgetsHub.js').then((m) => ({ default: m.RegulationBudgetsHub })));
+const StatutoryHub = lazy(() => import('./pages/StatutoryHub.js').then((m) => ({ default: m.StatutoryHub })));
+const TaxesHub = lazy(() => import('./pages/TaxesHub.js').then((m) => ({ default: m.TaxesHub })));
 const AuditSettingsHub = lazy(() => import('./pages/AuditSettingsHub.js').then((m) => ({ default: m.AuditSettingsHub })));
 const InsuredActuarialHub = lazy(() => import('./pages/InsuredActuarialHub.js').then((m) => ({ default: m.InsuredActuarialHub })));
 
@@ -32,10 +37,8 @@ const InsuredActuarialHub = lazy(() => import('./pages/InsuredActuarialHub.js').
 // باتت تُستورَد داخل المحاور الموحّدة (ModuleTabs) فلم تعد هنا.
 const PromoShowcase = lazy(() => import('./pages/PromoShowcase.js').then((m) => ({ default: m.PromoShowcase })));
 const FixedAssets = lazy(() => import('./pages/FixedAssets.js').then((m) => ({ default: m.FixedAssets })));
-const EInvoicing = lazy(() => import('./pages/EInvoicing.js').then((m) => ({ default: m.EInvoicing })));
 const JulesDashboard = lazy(() => import('./pages/JulesDashboard.js').then((m) => ({ default: m.JulesDashboard })));
 const UnionCommittees = lazy(() => import('./pages/UnionCommittees.js').then((m) => ({ default: m.UnionCommittees })));
-const CommitteeDataViewer = lazy(() => import('./pages/CommitteeDataViewer.js').then((m) => ({ default: m.CommitteeDataViewer })));
 const ModelsViewer = lazy(() => import('./pages/ModelsViewer.js').then((m) => ({ default: m.ModelsViewer })));
 const TrainingAccounting2024 = lazy(() => import('./pages/TrainingAccounting2024.js').then((m) => ({ default: m.TrainingAccounting2024 })));
 const FinalAccounts2024 = lazy(() => import('./pages/FinalAccounts2024.js').then((m) => ({ default: m.FinalAccounts2024 })));
@@ -60,7 +63,24 @@ const HRS_HUB_ALIASES: Record<string, HrsTabId> = {
   employees: 'employees',
   payroll: 'payroll',
   attendance: 'attendance',
+  biometric: 'biometric',
+  'biometric-attendance': 'biometric',
   advances: 'advances',
+};
+
+const TAXES_HUB_ALIASES: Record<string, TaxesTabId> = {
+  taxes: 'payroll',
+  'payroll-tax': 'payroll',
+  'business-tax': 'business',
+  'income-tax': 'income-law',
+  'income-tax-law': 'income-law',
+  einvoicing: 'einvoicing',
+  'e-invoicing': 'einvoicing',
+};
+
+const MODELS_HUB_ALIASES: Record<string, ModelsTabId> = {
+  models: 'library',
+  'committee-data': 'committees',
 };
 
 const MEMBERSHIP_HUB_ALIASES: Record<string, MembershipTabId> = {
@@ -73,7 +93,17 @@ const MEMBERSHIP_HUB_ALIASES: Record<string, MembershipTabId> = {
 const REGULATION_BUDGETS_HUB_ALIASES: Record<string, RegulationBudgetsTabId> = {
   'regulation-budgets': 'regulation',
   regulation: 'regulation',
+  statute: 'statute',
+  'regulations-library': 'regulations-library',
+  'regulation-assistant': 'regulation-assistant',
   budgets: 'budgets',
+};
+
+const STATUTORY_HUB_ALIASES: Record<string, StatutoryTabId> = {
+  statutory: 'statute',
+  'financial-core': 'financial',
+  'accounting-core': 'accounting',
+  'statutory-check': 'check',
 };
 
 const AUDIT_SETTINGS_HUB_ALIASES: Record<string, AuditSettingsTabId> = {
@@ -97,13 +127,34 @@ const AI_HUB_ALIASES: Record<string, AiTabId> = {
 
 function loadStoredPortal(): PortalId {
   const saved = localStorage.getItem('union_active_portal');
+  const requestedTab = new URLSearchParams(window.location.search).get('tab');
+  const hrTabs = ['hrs', 'employees', 'payroll', 'attendance', 'biometric', 'biometric-attendance', 'advances'];
+  const taxTabs = ['taxes', 'payroll-tax', 'business-tax', 'income-tax', 'income-tax-law', 'einvoicing', 'e-invoicing'];
+  if (hrTabs.includes(requestedTab ?? '')) return 'training';
+  if (taxTabs.includes(requestedTab ?? '') && saved === 'committees') return 'syndicate';
+  // The original models deep link was syndicate-only; keep opening the forms library there.
+  if (requestedTab === 'models') return 'syndicate';
+  // Committee data belongs to the syndicate/committee portals, never the training portal.
+  if (requestedTab === 'committee-data' && saved === 'training') return 'committees';
   return saved === 'training' || saved === 'committees' ? saved : 'syndicate';
+}
+
+const INITIAL_DEEP_LINK_TABS = new Set([
+  'statutory', 'financial-core', 'accounting-core', 'statutory-check',
+  'taxes', 'payroll-tax', 'business-tax', 'income-tax', 'income-tax-law', 'einvoicing', 'e-invoicing',
+  'committee-data', 'models',
+  'hrs', 'employees', 'payroll', 'attendance', 'biometric', 'biometric-attendance', 'advances',
+]);
+
+function initialTabFromSearch(search: string): string {
+  const requested = new URLSearchParams(search).get('tab');
+  return requested && INITIAL_DEEP_LINK_TABS.has(requested) ? requested : 'portals';
 }
 
 export function App() {
   const [selectedGateway, setSelectedGateway] = useState<PortalId>(loadStoredPortal);
   const portalMeta = getGatewayMeta(selectedGateway);
-  const [currentTab, setCurrentTab] = useState('portals');
+  const [currentTab, setCurrentTab] = useState(() => initialTabFromSearch(window.location.search));
   const [selectedOrgId, setSelectedOrgId] = useState(portalMeta?.organizationId || 'org-general');
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
@@ -161,14 +212,20 @@ export function App() {
 
   const handleAssistantNavigate = (target: AssistantScreen) => {
     const portal = GATEWAYS.find(item => item.id === target.portalId);
-    const screen = OPERATOR_NAVIGATION.find(item => item.id === target.id);
+    const legacyScreenAliases: Record<string, string> = {
+      'committee-data': 'models',
+      einvoicing: 'taxes',
+      'e-invoicing': 'taxes',
+    };
+    const screenId = legacyScreenAliases[target.id] ?? target.id;
+    const screen = OPERATOR_NAVIGATION.find(item => item.id === screenId);
     const allowed = currentUser?.isActive && !currentUser.isDemo &&
       (hasPerm(currentUser, 'system:admin') || currentUser.organizationId === target.organizationId || currentUser.allowedOrgIds.includes(target.organizationId));
     if (!allowed || !portal || !screen || !screen.portals.includes(portal.id) || (portal.organizationId !== target.organizationId && target.organizationId !== selectedOrgId) ||
       (['settings', 'jules'].includes(target.id) && !hasPerm(currentUser, 'system:admin'))) {
       showToast('error', 'هذه الشاشة أو الجهة ليست ضمن الصلاحيات المتاحة.'); return;
     }
-    setSelectedGateway(portal.id); setSelectedOrgId(target.organizationId); setCurrentTab(screen.id);
+    setSelectedGateway(portal.id); setSelectedOrgId(target.organizationId); setCurrentTab(target.id);
     localStorage.setItem('union_active_portal', portal.id);
   };
 
@@ -253,6 +310,8 @@ currentTab === 'membership' ||
         currentTab === 'advances' ||
         currentTab === 'payroll' ||
         currentTab === 'attendance' ||
+        currentTab === 'biometric' ||
+        currentTab === 'biometric-attendance' ||
         currentTab === 'hrs' ? (
           <ErrorBoundary label="الموارد البشرية والعاملين" onNavigate={setCurrentTab}>
             <HrsHub
@@ -262,6 +321,26 @@ currentTab === 'membership' ||
               onShowToast={showToast}
               initialTab={HRS_HUB_ALIASES[currentTab]}
             />
+          </ErrorBoundary>
+        ) : null}
+
+        {currentTab === 'taxes' ||
+        currentTab === 'payroll-tax' ||
+        currentTab === 'business-tax' ||
+        currentTab === 'income-tax' ||
+        currentTab === 'income-tax-law' ||
+        currentTab === 'einvoicing' ||
+        currentTab === 'e-invoicing' ? (
+          <ErrorBoundary label="الضرائب وكسب العمل" onNavigate={setCurrentTab}>
+            <Suspense fallback={lazyFallback('وحدة الضرائب وكسب العمل')}>
+              <TaxesHub
+                key={currentTab}
+                organizationId={selectedOrgId}
+                currentUser={currentUser}
+                onShowToast={showToast}
+                initialTab={TAXES_HUB_ALIASES[currentTab] ?? 'payroll'}
+              />
+            </Suspense>
           </ErrorBoundary>
         ) : null}
 
@@ -292,6 +371,9 @@ currentTab === 'membership' ||
 
         {currentTab === 'budgets' ||
         currentTab === 'regulation' ||
+        currentTab === 'statute' ||
+        currentTab === 'regulations-library' ||
+        currentTab === 'regulation-assistant' ||
         currentTab === 'regulation-budgets' ? (
           <ErrorBoundary label="الرقابة المالية والموازنات" onNavigate={setCurrentTab}>
             <Suspense fallback={lazyFallback('الرقابة المالية والموازنات')}>
@@ -306,22 +388,27 @@ currentTab === 'membership' ||
           </ErrorBoundary>
         ) : null}
 
+        {currentTab === 'statutory' ||
+        currentTab === 'financial-core' ||
+        currentTab === 'accounting-core' ||
+        currentTab === 'statutory-check' ? (
+          <ErrorBoundary label="النظام الأساسي والوحدات" onNavigate={setCurrentTab}>
+            <Suspense fallback={lazyFallback('النظام الأساسي والوحدات')}>
+              <StatutoryHub
+                key={currentTab}
+                organizationId={selectedOrgId}
+                currentUser={currentUser}
+                onShowToast={showToast}
+                initialTab={STATUTORY_HUB_ALIASES[currentTab]}
+              />
+            </Suspense>
+          </ErrorBoundary>
+        ) : null}
+
         {currentTab === 'assets' && (
           <ErrorBoundary label="الأصول الثابتة والإهلاك" onNavigate={setCurrentTab}>
             <Suspense fallback={lazyFallback('الأصول الثابتة')}>
             <FixedAssets
-              organizationId={selectedOrgId}
-              currentUser={currentUser}
-              onShowToast={showToast}
-            />
-            </Suspense>
-          </ErrorBoundary>
-        )}
-
-        {currentTab === 'einvoicing' && (
-          <ErrorBoundary label="الفاتورة الإلكترونية" onNavigate={setCurrentTab}>
-            <Suspense fallback={lazyFallback('الفاتورة الإلكترونية')}>
-            <EInvoicing
               organizationId={selectedOrgId}
               currentUser={currentUser}
               onShowToast={showToast}
@@ -370,18 +457,6 @@ currentTab === 'membership' ||
           </ErrorBoundary>
         )}
 
-        {currentTab === 'committee-data' && (
-          <ErrorBoundary label="بيانات اللجان والمكاتب (بوابات)" onNavigate={setCurrentTab}>
-            <Suspense fallback={lazyFallback('بيانات اللجان')}>
-            <CommitteeDataViewer
-              organizationId={selectedOrgId}
-              currentUser={currentUser}
-              onShowToast={showToast}
-            />
-            </Suspense>
-          </ErrorBoundary>
-        )}
-
         {currentTab === 'insured-list' ||
         currentTab === 'actuarial' ||
         currentTab === 'insured-actuarial' ? (
@@ -398,14 +473,17 @@ currentTab === 'membership' ||
           </ErrorBoundary>
         ) : null}
 
-        {currentTab === 'models' && (
-          <ErrorBoundary label="مكتبة النماذج والمستندات" onNavigate={setCurrentTab}>
-            <Suspense fallback={lazyFallback('مكتبة النماذج')}>
-            <ModelsViewer
-              organizationId={selectedOrgId}
-              currentUser={currentUser}
-              onShowToast={showToast}
-            />
+        {(currentTab === 'models' || currentTab === 'committee-data') && (
+          <ErrorBoundary label="بيانات اللجان والمكاتب والنماذج" onNavigate={setCurrentTab}>
+            <Suspense fallback={lazyFallback('بيانات اللجان والنماذج')}>
+              <ModelsViewer
+                key={currentTab}
+                organizationId={selectedOrgId}
+                currentUser={currentUser}
+                onShowToast={showToast}
+                initialTab={MODELS_HUB_ALIASES[currentTab]}
+                showModelsLibrary={selectedGateway === 'syndicate'}
+              />
             </Suspense>
           </ErrorBoundary>
         )}

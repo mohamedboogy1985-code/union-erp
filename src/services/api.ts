@@ -51,6 +51,19 @@ import {
   AiAgentSkill,
   AccountingProcedure,
 } from '../types/erp.js';
+import type {
+  BusinessTaxResult,
+  PayrollTaxResult,
+  WithholdingResult,
+  TaxEntryDraft,
+  TaxOverview,
+  TaxRegister,
+  VoiceDraftRecord,
+} from '../types/erp.tax.js';
+import type { BiometricEnrollment, BiometricOverview, PayrollLinkState } from '../types/erp.biometric.js';
+import type { RegulationAskResult, RegulationDocumentRecord, RegulationLibraryView } from '../types/erp.regulations.js';
+import type { AssistantRunResult } from '../types/operator-assistant.js';
+import type { DistributionDocumentView } from '../types/erp.distribution.js';
 
 // المستخدم الافتراضي: مدير البرنامج محمد عبد الله أحمد (جميع الصلاحيات)
 // مع حفظ اختيار المستخدم في المتصفح لتذكره بين الجلسات
@@ -103,6 +116,46 @@ export async function request<T>(url: string, options: RequestInit = {}): Promis
       data.code, data.retryAfterSeconds, data.outcomeUnknown === true);
   }
   return data as T;
+}
+
+async function fetchAuthenticatedResponse(url: string, options: RequestInit = {}): Promise<Response> {
+  const headers = new Headers(options.headers);
+  headers.set('x-user-id', currentUserId);
+  if (sessionToken) headers.set('Authorization', `Bearer ${sessionToken}`);
+
+  const response = await fetch(url, { ...options, headers });
+  if (!response.ok) {
+    const data = await response.json().catch(() => ({}));
+    throw new ApiError(data.error || data.message || 'تعذّر تحميل الملف.', response.status, data.code);
+  }
+  return response;
+}
+
+/** Fetch a binary API resource with the same explicit identity as JSON API requests. */
+export async function fetchAuthenticatedBlob(url: string, options: RequestInit = {}): Promise<Blob> {
+  const response = await fetchAuthenticatedResponse(url, options);
+  return response.blob();
+}
+
+/** Download a protected API resource without putting identity or bearer tokens in the URL. */
+export async function downloadAuthenticatedFile(url: string, filename?: string): Promise<void> {
+  const response = await fetchAuthenticatedResponse(url);
+  const blob = await response.blob();
+  const contentDisposition = response.headers.get('content-disposition') || '';
+  const encodedFilename = contentDisposition.match(/filename\*=UTF-8''([^;]+)/i)?.[1];
+  const plainFilename = contentDisposition.match(/filename=["']?([^"';]+)["']?/i)?.[1];
+  const responseFilename = encodedFilename
+    ? decodeURIComponent(encodedFilename)
+    : plainFilename;
+  const objectUrl = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = objectUrl;
+  link.download = filename || responseFilename || 'download';
+  link.rel = 'noopener';
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  window.setTimeout(() => URL.revokeObjectURL(objectUrl), 60_000);
 }
 
 export interface AuthLoginResult {
@@ -253,6 +306,8 @@ export const api = {
       body: JSON.stringify(data),
     }),
   getDistributionRules: () => request<RevenueDistributionRule[]>('/api/revenue-distribution-rules'),
+  getRevenueDistributionFinal: () =>
+    request<DistributionDocumentView>('/api/revenue-distribution/final'),
   createDistributionRule: (data: any) =>
     request<RevenueDistributionRule>('/api/revenue-distribution-rules', {
       method: 'POST',
@@ -336,8 +391,11 @@ export const api = {
   parseVoiceDictationAI: (spokenText: string) =>
     request<any>('/api/ai/voice-dictation', { method: 'POST', body: JSON.stringify({ spokenText }) }),
   // تحويل صوت مسجل (dataUrl) إلى نص عبر Gemini — بديل موثوق لـ Web Speech API
-  transcribeVoiceAI: (dataUrl: string) =>
-    request<{ text: string }>('/api/ai/stt', { method: 'POST', body: JSON.stringify({ dataUrl }) }),
+  transcribeVoiceAI: (dataUrl: string, mimeType?: string) =>
+    request<{ text: string }>('/api/ai/stt', {
+      method: 'POST',
+      body: JSON.stringify({ dataUrl, ...(mimeType ? { mimeType } : {}) }),
+    }),
   getFinancialForecastAI: (horizon: number = 12) =>
     request<any>(`/api/ai/financial-forecast?horizon=${horizon}`),
 
@@ -613,6 +671,80 @@ export const api = {
       `/api/accounting-procedures/${id}/execute`,
       { method: 'POST' }
     ),
+
+  // ─── النظام الأساسي واللائحة المالية والنواة المحاسبية ───
+  // التفاصيل النظامية تستخدم statutoryApi في src/services/statutory-api.ts.
+
+  // ─── مكتبة اللوائح ومساعدها ───
+  getRegulationsOverview: () => request<RegulationLibraryView>('/api/regulations/overview'),
+  searchRegulations: (query = '', sourceId: string | null = null, limit = 40) => {
+    const qs = new URLSearchParams();
+    if (query) qs.set('q', query);
+    if (sourceId) qs.set('sourceId', sourceId);
+    qs.set('limit', String(limit));
+    return request<{ count: number; documents: RegulationDocumentRecord[] }>(`/api/regulations/search?${qs.toString()}`);
+  },
+  getRegulationLibraryDocument: (id: string) =>
+    request<RegulationDocumentRecord>(`/api/regulations/documents/${encodeURIComponent(id)}`),
+  askRegulations: (question: string) =>
+    request<RegulationAskResult>('/api/regulations/chat', { method: 'POST', body: JSON.stringify({ question }) }),
+
+  // ─── الضرائب المصرية ───
+  getTaxOverview: () => request<TaxOverview>('/api/tax/overview'),
+  getTaxRegister: (year: number, month?: number) => {
+    const qs = new URLSearchParams({ year: String(year) });
+    if (month !== undefined) qs.set('month', String(month));
+    return request<TaxRegister>(`/api/tax/register?${qs.toString()}`);
+  },
+  getTaxEntryDraft: (kind: string, amount: number, description?: string) => {
+    const qs = new URLSearchParams({ kind, amount: String(amount) });
+    if (description) qs.set('description', description.slice(0, 300));
+    return request<TaxEntryDraft>(`/api/tax/entry-draft?${qs.toString()}`);
+  },
+  calculatePayrollTax: (input: { annualGross?: number; monthlyGross?: number; annualInsurance?: number; monthlyInsurance?: number; otherExemptions?: number }) =>
+    request<PayrollTaxResult>('/api/tax/payroll/calculate', { method: 'POST', body: JSON.stringify(input) }),
+  calculateBusinessTax: (input: { netProfit: number; entityType?: 'NATURAL' | 'CORPORATE'; personalExemption?: boolean; adjustments?: number }) =>
+    request<BusinessTaxResult>('/api/tax/business/calculate', { method: 'POST', body: JSON.stringify(input) }),
+  calculateWithholding: (input: { amount: number; kind: string }) =>
+    request<WithholdingResult>('/api/tax/withholding/calculate', { method: 'POST', body: JSON.stringify(input) }),
+  recordTaxEntry: (input: { kind: 'PAYROLL_TAX' | 'BUSINESS_TAX' | 'WITHHOLDING' | 'VAT'; amount: number; description?: string; organizationId: string; date?: string; debitAccountId?: string; creditAccountId?: string; post?: boolean }) =>
+    request<any>('/api/tax/entries', { method: 'POST', body: JSON.stringify(input) }),
+
+  // ─── البصمة والحضور ───
+  getBiometricOverview: (year?: number, month?: number) => {
+    const qs = new URLSearchParams();
+    if (year !== undefined) qs.set('year', String(year));
+    if (month !== undefined) qs.set('month', String(month));
+    return request<BiometricOverview>(`/api/biometric/overview${qs.size ? `?${qs.toString()}` : ''}`);
+  },
+  enrollBiometric: (input: { employeeId: string; methods: ('FINGERPRINT' | 'FACE')[] }) =>
+    request<BiometricEnrollment>('/api/biometric/enroll', { method: 'POST', body: JSON.stringify(input) }),
+  punchBiometric: (input: { employeeId: string; method: 'FINGERPRINT' | 'FACE' }) =>
+    request<any>('/api/biometric/punch', { method: 'POST', body: JSON.stringify(input) }),
+  requestBiometricPayrollLink: (input: { noteAr?: string; appliedMonth?: string } = {}) =>
+    request<PayrollLinkState>('/api/biometric/payroll-link/request', { method: 'POST', body: JSON.stringify(input) }),
+  decideBiometricPayrollLink: (approved: boolean, noteAr?: string) =>
+    request<PayrollLinkState>('/api/biometric/payroll-link/decide', { method: 'POST', body: JSON.stringify({ approved, noteAr }) }),
+
+  // ─── وكيل القيود الصوتية ───
+  getVoiceStatus: () => request<{ ready: boolean; demoMode: boolean }>('/api/voice-journal/status'),
+  listVoiceDrafts: () => request<{ drafts: VoiceDraftRecord[]; counts: { pending: number; approved: number; posted: number; rejected: number } }>('/api/voice-journal/drafts'),
+  parseVoiceDraft: (input: { transcript: string; organizationId?: string }) =>
+    request<VoiceDraftRecord>('/api/voice-journal/parse', { method: 'POST', body: JSON.stringify(input) }),
+  saveVoiceDraft: (input: Partial<VoiceDraftRecord> & { transcript?: string; organizationId?: string }) =>
+    request<VoiceDraftRecord>('/api/voice-journal/drafts', { method: 'POST', body: JSON.stringify(input) }),
+  updateVoiceDraft: (id: string, input: Partial<Pick<VoiceDraftRecord, 'date' | 'description' | 'lines' | 'type'>>) =>
+    request<VoiceDraftRecord>(`/api/voice-journal/drafts/${encodeURIComponent(id)}`, { method: 'PATCH', body: JSON.stringify(input) }),
+  approveVoiceDraft: (id: string, organizationId: string) =>
+    request<{ draft: VoiceDraftRecord; entry: JournalEntry; warnings: string[]; steps: string[]; posted: boolean }>(`/api/voice-journal/drafts/${encodeURIComponent(id)}/approve`, { method: 'POST', body: JSON.stringify({ organizationId }) }),
+  rejectVoiceDraft: (id: string, note?: string) =>
+    request<VoiceDraftRecord>(`/api/voice-journal/drafts/${encodeURIComponent(id)}/reject`, { method: 'POST', body: JSON.stringify({ note }) }),
+
+  // ─── المساعد العام (النص والصوت والنبرة) ───
+  runGeneralAssistant: (input: { text: string; organizationId?: string; screenId?: string }) =>
+    request<AssistantRunResult>('/api/assistant/run', { method: 'POST', body: JSON.stringify(input) }),
+  confirmGeneralAssistant: (actionId: string) =>
+    request<AssistantRunResult>('/api/assistant/confirm', { method: 'POST', body: JSON.stringify({ actionId }) }),
 
   // ─── مكتبة النماذج والمستندات (مجلد «نماذج») ───
   getModels: () => request<{ directory: string; files: any[]; locked: boolean }>('/api/models'),

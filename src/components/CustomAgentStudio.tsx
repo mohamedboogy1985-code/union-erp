@@ -275,15 +275,15 @@ export const CustomAgentStudio: React.FC<CustomAgentStudioProps> = ({
       // لا استدعاء نموذج، ولا قراءة لدفاتر المؤسسة، ولا تحقق ضريبي. تُوسم بالمحاكاة صراحةً.
       const SIM_PREFIX = '[محاكاة نصية — ليست نتيجة نموذج، ولم تُقرأ دفاتر المؤسسة]\n\n';
       if (queryLower.includes('مرحبا') || queryLower.includes('سلام') || queryLower.includes('من انت')) {
-        responseText = SIM_PREFIX + `أهلاً بك! أنا **${activeAgent.name}** (${activeAgent.role}).\n\nتخصصي: ${activeAgent.description}\nالمهارات الأساسية:\n` +
+        responseText = SIM_PREFIX + `معاك **${activeAgent.name}** (${activeAgent.role}).\n\nتخصصي: ${activeAgent.description}\nالمهارات الأساسية:\n` +
           activeAgent.capabilities.map((c) => `• ${c}`).join('\n') +
-          '\n\nكيف يمكنني مساعدتك في أعمالك المحاسبية اليوم؟';
+          '\n\nابدأ بسؤالك أو بالمهمة اللي عايز تراجعها.';
       } else if (queryLower.includes('قيد') || queryLower.includes('توازن') || queryLower.includes('ميزان')) {
-        responseText = SIM_PREFIX + `بصفتي **${activeAgent.name}**، هذه قائمة فحص عامة للقيود (لم أطّلع على أي قيد في دفاترك):\n\n1. يجب التأكد من تساوي طرفي المدين والدائن.\n2. التحقق من توجيه الحساب الرئيسي والفرعي بشكل صحيح.\n3. التأكد من وجود المستند المؤيد للصرف أو القَبض.\n\nلمراجعة قيد فعلي استخدم صفحة القيود أو المساعد العالمي المتصل بالخادم.`;
+        responseText = SIM_PREFIX + `دي قائمة مراجعة عامة للقيود؛ ما اطلعتش على قيد من دفاترك:\n\n1. تأكد من تساوي المدين والدائن.\n2. راجع الحساب الرئيسي والفرعي.\n3. تأكد من وجود مستند مؤيد للصرف أو القبض.\n\nلمراجعة قيد فعلي، افتح صفحة القيود أو المساعد المتصل بالخادم.`;
       } else if (queryLower.includes('ضريب') || queryLower.includes('إقرار') || queryLower.includes('فاتورة')) {
         responseText = SIM_PREFIX + `معلومات مرجعية عامة من **${activeAgent.name}** (غير موثّقة من مصدر تشريعي داخل النظام):\n\n• نسبة ضريبة القيمة المضافة الأساسية في مصر 14% على السلع والخدمات العادية — تحقق من التشريع الساري قبل الاعتماد.\n• الخصم والإضافة يختلفان حسب نوع المعاملة وبطاقة المورد الضريبية.\n• راجع الفواتير الإلكترونية المعتمدة قبل تقديم أي إقرار نهائي.`;
       } else {
-        responseText = SIM_PREFIX + `بصفتي **${activeAgent.name}** (${activeAgent.role}):\n\nاستلمت طلبك: "${userText}".\n\nلا يوجد في هذا الاستوديو محرك تحليل فعلي بعد، لذلك لم تُنفَّذ أي معالجة على بيانات المؤسسة (ID: ${organizationId}).\nللحصول على تحليل حقيقي مرتبط بالدفاتر استخدم المساعد العالمي أو وكيل المشغّل المتصلين بالخادم.`;
+        responseText = SIM_PREFIX + `طلبك: "${userText}".\n\nالاستوديو ده لسه ما فيهش محرك تحليل فعلي، وما نفّذش أي معالجة على بيانات المؤسسة (${organizationId}).\nللتحليل المرتبط بالدفاتر، استخدم المساعد العام أو وكيل المشغّل المتصل بالخادم.`;
       }
 
       const agentMsg: ChatMessage = {

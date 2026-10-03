@@ -336,7 +336,7 @@ export const FINANCIAL_REGULATION_SOURCE_ISSUES: FinancialRegulationSourceIssue[
     status: 'CONFLICT_UNRESOLVED',
     descriptionAr: 'قاعدة إيصالات اشتراكات العضوية الحالية DIST-MEMB-V1 في مخزن التطبيق توزع 50% للنقابة العامة و30% للجنة و20% لصندوق التكافل؛ وهذا يختلف عن نص المادة 2 وعن نموذج التحصيل المرفق. لم يُغيّر مسار الإيصالات أو يُربط بفحص اللائحة قبل حسم نوع الاشتراكات والجهة القانونية المختصة.',
     sourcePath: 'server/db/store.ts',
-    sourceSha256: 'ad1e29a82cea7c196da345458782ec15f386b71703173582de8516d4cf352086',
+    sourceSha256: '17d0c7028399a6b8c0a5d559c2180edf20b9586be6424f5b0a67f26aacba6eb1',
   },
   {
     id: 'FR-SOURCE-AMBIGUITY-ARTICLE-51',

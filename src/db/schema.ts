@@ -241,6 +241,51 @@ export const regulationRules = pgTable('regulation_rules', {
   updatedAt: timestamp('updated_at').notNull().defaultNow(),
 });
 
+// 15. Statutory source registry and searchable document corpus.
+export const regulationSources = pgTable('regulation_sources', {
+  id: text('id').primaryKey(),
+  code: text('code').notNull().unique(),
+  titleAr: text('title_ar').notNull(),
+  subtitleAr: text('subtitle_ar').notNull().default(''),
+  kindAr: text('kind_ar').notNull().default(''),
+  authorityAr: text('authority_ar').notNull().default(''),
+  issueRefAr: text('issue_ref_ar').notNull().default(''),
+  issuedAt: text('issued_at'),
+  pagesCount: integer('pages_count').notNull().default(0),
+  fileName: text('file_name').notNull().default(''),
+  sha256: text('sha256'),
+  hasTextLayer: boolean('has_text_layer').notNull().default(true),
+  extractionAr: text('extraction_ar').notNull().default(''),
+  docsCount: integer('docs_count').notNull().default(0),
+  unitLabelAr: text('unit_label_ar').notNull().default('مادة'),
+  statusAr: text('status_ar').notNull().default(''),
+  notesAr: text('notes_ar').notNull().default(''),
+  createdAt: timestamp('created_at').defaultNow(),
+});
+
+export const regulationDocuments = pgTable('regulation_documents', {
+  id: text('id').primaryKey(),
+  sourceId: text('source_id').notNull(),
+  sourceTitleAr: text('source_title_ar').notNull().default(''),
+  refCode: text('ref_code').notNull().default(''),
+  articleNumber: text('article_number'),
+  kindAr: text('kind_ar').notNull().default('مادة'),
+  orderIndex: integer('order_index').notNull().default(0),
+  pageNumber: integer('page_number'),
+  chapterAr: text('chapter_ar'),
+  titleAr: text('title_ar').notNull().default(''),
+  textAr: text('text_ar').notNull(),
+  tagsAr: jsonb('tags_ar').notNull(),
+  enforcementRuleIdsAr: jsonb('enforcement_rule_ids_ar').notNull(),
+  ocrDerived: boolean('ocr_derived').notNull().default(false),
+  searchAr: text('search_ar').notNull().default(''),
+  createdAt: timestamp('created_at').defaultNow(),
+}, (table) => [
+  index('regulation_documents_source_idx').on(table.sourceId),
+  index('regulation_documents_article_idx').on(table.sourceId, table.articleNumber),
+  index('regulation_documents_page_idx').on(table.sourceId, table.pageNumber),
+]);
+
 // 15. Immutable Audit Logs & Anti-Fraud Trace
 export const auditLogs = pgTable('audit_logs', {
   id: text('id').primaryKey(),

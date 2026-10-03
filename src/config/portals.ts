@@ -26,10 +26,10 @@ import {
   Globe,
   Network,
   Landmark,
-  FileSpreadsheet,
   Scale,
   FolderOpen,
   Award,
+  BadgePercent,
 } from 'lucide-react';
 
 /**
@@ -72,6 +72,15 @@ export const SCREENS: ScreenDef[] = [
   { id: 'dashboard', label: 'الرئيسية والمؤشرات', icon: LayoutDashboard, group: 'الرئيسية والرقابة', portals: ['syndicate'] },
   { id: 'audit', label: 'سجل التدقيق والرقابة', icon: ShieldCheck, group: 'الرئيسية والرقابة', portals: ['syndicate'] },
   { id: 'regulation', label: 'اللائحة المالية والرقابة', icon: ScrollText, group: 'الرئيسية والرقابة', portals: ['syndicate'] },
+  // الوحدات الفرعية للمحور المالي القديم — مسجلة للشريط الجانبي والتنقل المساعد وتُفتح داخل المحور.
+  { id: 'statute', label: 'لائحة النظام الأساسي', icon: ScrollText, group: 'الرئيسية والرقابة', portals: ['syndicate'] },
+  { id: 'regulations-library', label: 'مكتبة اللوائح والمرفقات', icon: FileText, group: 'الرئيسية والرقابة', portals: ['syndicate'] },
+  { id: 'regulation-assistant', label: 'مساعد اللوائح', icon: Bot, group: 'الرئيسية والرقابة', portals: ['syndicate'] },
+  // النظام الأساسي والمالية والمحاسبة — المحور النظامي الموحد.
+  { id: 'statutory', label: 'النظام الأساسي والوحدات', icon: Scale, group: 'النظام الأساسي والوحدات', portals: ALL },
+  { id: 'financial-core', label: 'اللائحة المالية الموحدة', icon: ScrollText, group: 'النظام الأساسي والوحدات', portals: ALL },
+  { id: 'accounting-core', label: 'النواة المحاسبية', icon: BookOpen, group: 'النظام الأساسي والوحدات', portals: ALL },
+  { id: 'statutory-check', label: 'الفحص والحكامة', icon: ShieldCheck, group: 'النظام الأساسي والوحدات', portals: ALL },
   // المحاسبة والمالية (النقابة العامة)
   { id: 'journals', label: 'القيود والحسابات', icon: BookOpen, group: 'المحاسبة والمالية', portals: ['syndicate'] },
   { id: 'reports', label: 'التقارير المحاسبية', icon: FileText, group: 'المحاسبة والمالية', portals: ['syndicate'] },
@@ -83,24 +92,26 @@ export const SCREENS: ScreenDef[] = [
   // العضوية والتحصيل (النقابة العامة)
   { id: 'members', label: 'الأعضاء والشهادات', icon: UserCheck, group: 'العضوية والتحصيل', portals: ['syndicate'] },
   { id: 'receipts', label: 'التحصيل وتوزيع الإيرادات', icon: ReceiptText, group: 'العضوية والتحصيل', portals: ['syndicate'] },
-  // الموارد البشرية والعاملين (مركز التدريب)
+  // الموارد البشرية والعاملين (مركز التدريب — مع الحفاظ على فصل البوابات)
   { id: 'employees', label: 'شئون العاملين والتأمينات', icon: UsersRound, group: 'الموارد البشرية', portals: ['training'] },
   { id: 'payroll', label: 'المرتبات (مسير الرواتب)', icon: Banknote, group: 'الموارد البشرية', portals: ['training'] },
   { id: 'attendance', label: 'الحضور والانصراف (البصمة)', icon: Fingerprint, group: 'الموارد البشرية', portals: ['training'] },
+  { id: 'biometric', label: 'البصمة البيومترية وربطها بالمرتبات', icon: Fingerprint, group: 'الموارد البشرية', portals: ['training'] },
   { id: 'advances', label: 'سلف العاملين', icon: Wallet, group: 'الموارد البشرية', portals: ['training'] },
+  // الضرائب والالتزام — وحدة موحدة تشمل كسب العمل والفاتورة الإلكترونية
+  { id: 'taxes', label: 'الضرائب وكسب العمل', icon: BadgePercent, group: 'الضرائب والالتزام', portals: ['syndicate', 'training'] },
   // الصناديق الإكتوارية (النقابة العامة)
   { id: 'actuarial', label: 'الدراسات الإكتوارية والصناديق', icon: Calculator, group: 'الصناديق الإكتوارية', portals: ['syndicate'] },
   // التمويل والأصول (النقابة العامة)
   { id: 'budgets', label: 'الموازنة التقديرية', icon: PieChart, group: 'التمويل والأصول', portals: ['syndicate'] },
   { id: 'assets', label: 'الأصول الثابتة والإهلاك', icon: Boxes, group: 'التمويل والأصول', portals: ['syndicate'] },
-  { id: 'einvoicing', label: 'الفاتورة الإلكترونية', icon: FileCode2, group: 'التمويل والأصول', portals: ['syndicate'] },
   // اللجان (بوابة اللجان)
   { id: 'committees', label: 'اللجان النقابية', icon: Network, group: 'اللجان', portals: ['committees'] },
+  // مدخل موحد للبيانات ومكتبة النماذج؛ تبقى المكتبة نفسها خاصة ببوابة النقابة العامة.
+  { id: 'models', label: 'بيانات اللجان والمكاتب والنماذج', icon: FolderOpen, group: 'بيانات اللجان والنماذج', portals: ['syndicate', 'committees'] },
   // بيانات البوابات والملفات المستوردة
-  { id: 'committee-data', label: 'بيانات اللجان والمكاتب (بيانات.xlsx)', icon: FileSpreadsheet, group: 'بيانات البوابات والملفات المستوردة', portals: ['syndicate', 'committees'] },
   { id: 'insured-list', label: 'المؤمَّن عليهم — الصندوق الاكتواري', icon: ShieldCheck, group: 'بيانات البوابات والملفات المستوردة', portals: ['syndicate'] },
   { id: 'journal-2024', label: 'قيود يومية 2024', icon: BookOpen, group: 'بيانات البوابات والملفات المستوردة', portals: ['syndicate'] },
-  { id: 'models', label: 'النماذج وبيان اللجان', icon: FolderOpen, group: 'مكتبة النماذج', portals: ['syndicate'] },
   { id: 'training-accounting-2024', label: 'برنامج المحاسبة 2024 (مركز التدريب)', icon: Calculator, group: 'بيانات البوابات والملفات المستوردة', portals: ['training'] },
   { id: 'final-accounts-2024', label: 'الميزانية العمومية والحسابات الختامية 2024 (مركز التدريب)', icon: Scale, group: 'بيانات البوابات والملفات المستوردة', portals: ['training'] },
   // نظام المهارات الموحد — متاح في كل البوابات (استُعيد من PR #24/#26)

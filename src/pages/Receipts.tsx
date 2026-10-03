@@ -15,6 +15,8 @@ import { api } from '../services/api.js';
 import { PrintHeader } from '../components/PrintHeader.js';
 import { hasPerm } from '../utils/permissions.js';
 import { Receipt, RevenueDistributionRule, User } from '../types/erp.js';
+import type { DistributionDocumentView } from '../types/erp.distribution.js';
+import { DistributionFinalPanel } from '../components/DistributionFinalPanel.js';
 import { Modal } from '../components/Modal.js';
 import { Combobox } from '../components/Combobox.js';
 import { QRCodeModal } from '../components/QRCodeModal.js';
@@ -37,6 +39,7 @@ export const Receipts: React.FC<ReceiptsProps> = ({
 }) => {
   const [receipts, setReceipts] = useState<Receipt[]>([]);
   const [rules, setRules] = useState<RevenueDistributionRule[]>([]);
+  const [finalDoc, setFinalDoc] = useState<DistributionDocumentView | null>(null);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
 
@@ -72,12 +75,14 @@ export const Receipts: React.FC<ReceiptsProps> = ({
   const loadData = async () => {
     setLoading(true);
     try {
-      const [receiptsData, rulesData] = await Promise.all([
+      const [receiptsData, rulesData, finalData] = await Promise.all([
         api.getReceipts(),
         api.getDistributionRules(),
+        api.getRevenueDistributionFinal(),
       ]);
       setReceipts(receiptsData);
       setRules(rulesData);
+      setFinalDoc(finalData);
       if (rulesData.length > 0 && !revenueTypeId) {
         setRevenueTypeId(rulesData[0].id);
       }
@@ -190,39 +195,8 @@ export const Receipts: React.FC<ReceiptsProps> = ({
         </div>
       </div>
 
-      {/* Distribution Rules Summary Banner */}
-      <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-md space-y-3">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <Percent className="w-4 h-4 text-teal-400" />
-            <h3 className="text-xs font-bold text-slate-200">قواعد توزيع الإيرادات والنسب المفعلة بالنظام:</h3>
-          </div>
-          <span className="text-[10px] text-teal-400 font-bold bg-teal-950/60 px-2 py-0.5 rounded border border-teal-800/40">
-            توزيع محاسبي فوري للقيد
-          </span>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {rules.map((rule) => (
-            <div key={rule.id} className="p-3.5 bg-slate-950 rounded-xl border border-slate-800 space-y-2 text-xs">
-              <div className="flex items-center justify-between">
-                <strong className="text-slate-100">{rule.revenueTypeName}</strong>
-                <span className="font-mono text-[10px] text-slate-500">{rule.ruleCode}</span>
-              </div>
-              <div className="flex flex-wrap gap-2 pt-1 border-t border-slate-800/60">
-                {rule.lines.map((l) => (
-                  <span
-                    key={l.id}
-                    className="text-[11px] font-bold px-2 py-0.5 rounded-md bg-slate-900 text-emerald-300 border border-slate-800"
-                  >
-                    {l.beneficiaryOrgName}: <strong>%{l.percentage}</strong>
-                  </span>
-                ))}
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
+      {/* نموذج نسب التوزيع النهائي — ملفا المستخدم الرسميان (حلّ مكان بيانات العرض السابقة) */}
+      <DistributionFinalPanel data={finalDoc} />
 
       {/* Search & Receipts Table */}
       <div className="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden shadow-xl space-y-4 p-5">

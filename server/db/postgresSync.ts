@@ -41,20 +41,198 @@ export class PostgresStorageManager {
     const check = await getPool().query(
       "SELECT EXISTS (SELECT FROM information_schema.tables WHERE table_schema='public' AND table_name='accounts') as exists"
     );
-    if (check.rows[0]?.exists) return;
-
-    const MODULE_DIR = moduleDir(typeof import.meta !== 'undefined' ? import.meta.url : undefined);
-    const ddlPath = resolveFirst([
-      path.join(process.cwd(), 'server', 'db', 'pg-schema.sql'),
-      path.join(MODULE_DIR, 'pg-schema.sql'),
-      path.join(MODULE_DIR, '..', 'server', 'db', 'pg-schema.sql'),
-    ]);
-    if (!ddlPath) {
-      throw new Error('ملف مخطط قاعدة البيانات (pg-schema.sql) غير موجود');
+    if (!check.rows[0]?.exists) {
+      const MODULE_DIR = moduleDir(typeof import.meta !== 'undefined' ? import.meta.url : undefined);
+      const ddlPath = resolveFirst([
+        path.join(process.cwd(), 'server', 'db', 'pg-schema.sql'),
+        path.join(MODULE_DIR, 'pg-schema.sql'),
+        path.join(MODULE_DIR, '..', 'server', 'db', 'pg-schema.sql'),
+      ]);
+      if (!ddlPath) {
+        throw new Error('ملف مخطط قاعدة البيانات (pg-schema.sql) غير موجود');
+      }
+      const ddl = fs.readFileSync(ddlPath, 'utf-8');
+      await getPool().query(ddl);
+      console.log('🗃️ تم إنشاء جداول قاعدة البيانات من المخطط المرجعي.');
     }
-    const ddl = fs.readFileSync(ddlPath, 'utf-8');
-    await getPool().query(ddl);
-    console.log('🗃️ تم إنشاء جداول قاعدة البيانات (16 جدولاً) من المخطط المرجعي.');
+
+    // قواعد قائمة قديمة لا تُعاد عليها كل جمل CREATE من المخطط؛ أنشئ جدولَي المكتبة
+    // عند الترقية، ثم يضيف repairSchema الأعمدة/الفهارس الناقصة من المرجع.
+    await getPool().query(`CREATE TABLE IF NOT EXISTS regulation_sources (
+      id text PRIMARY KEY NOT NULL,
+      code text NOT NULL UNIQUE,
+      title_ar text NOT NULL,
+      subtitle_ar text DEFAULT '' NOT NULL,
+      kind_ar text DEFAULT '' NOT NULL,
+      authority_ar text DEFAULT '' NOT NULL,
+      issue_ref_ar text DEFAULT '' NOT NULL,
+      issued_at text,
+      pages_count integer DEFAULT 0 NOT NULL,
+      file_name text DEFAULT '' NOT NULL,
+      sha256 text,
+      has_text_layer boolean DEFAULT true NOT NULL,
+      extraction_ar text DEFAULT '' NOT NULL,
+      docs_count integer DEFAULT 0 NOT NULL,
+      unit_label_ar text DEFAULT 'مادة' NOT NULL,
+      status_ar text DEFAULT '' NOT NULL,
+      notes_ar text DEFAULT '' NOT NULL,
+      created_at timestamp DEFAULT now()
+    )`);
+    await getPool().query(`CREATE TABLE IF NOT EXISTS regulation_documents (
+      id text PRIMARY KEY NOT NULL,
+      source_id text NOT NULL,
+      source_title_ar text DEFAULT '' NOT NULL,
+      ref_code text DEFAULT '' NOT NULL,
+      article_number text,
+      kind_ar text DEFAULT 'مادة' NOT NULL,
+      order_index integer DEFAULT 0 NOT NULL,
+      page_number integer,
+      chapter_ar text,
+      title_ar text DEFAULT '' NOT NULL,
+      text_ar text NOT NULL,
+      tags_ar jsonb DEFAULT '[]'::jsonb NOT NULL,
+      enforcement_rule_ids_ar jsonb DEFAULT '[]'::jsonb NOT NULL,
+      ocr_derived boolean DEFAULT false NOT NULL,
+      search_ar text DEFAULT '' NOT NULL,
+      created_at timestamp DEFAULT now()
+    )`);
+  }
+
+  private async ensureRegulationIndexes(): Promise<void> {
+    await getPool().query('CREATE INDEX IF NOT EXISTS regulation_documents_source_idx ON regulation_documents (source_id)');
+    await getPool().query('CREATE INDEX IF NOT EXISTS regulation_documents_article_idx ON regulation_documents (source_id, article_number)');
+    await getPool().query('CREATE INDEX IF NOT EXISTS regulation_documents_page_idx ON regulation_documents (source_id, page_number)');
+  }
+
+  /** Insert/update canonical source rows, then read the complete corpus back from PostgreSQL. */
+  private async seedRegulations(store: ERPStore): Promise<void> {
+    if (!this.dbAvailable) return;
+    try {
+      for (const source of store.regulationSources) {
+        await db.insert(schema.regulationSources).values({
+          id: source.id,
+          code: source.code,
+          titleAr: source.titleAr,
+          subtitleAr: source.subtitleAr,
+          kindAr: source.kindAr,
+          authorityAr: source.authorityAr,
+          issueRefAr: source.issueRefAr,
+          issuedAt: source.issuedAt,
+          pagesCount: source.pagesCount,
+          fileName: source.fileName,
+          sha256: source.sha256,
+          hasTextLayer: source.hasTextLayer,
+          extractionAr: source.extractionAr,
+          docsCount: source.docsCount,
+          unitLabelAr: source.unitLabelAr,
+          statusAr: source.statusAr,
+          notesAr: source.notesAr,
+        }).onConflictDoUpdate({
+          target: schema.regulationSources.id,
+          set: {
+            code: source.code,
+            titleAr: source.titleAr,
+            subtitleAr: source.subtitleAr,
+            kindAr: source.kindAr,
+            authorityAr: source.authorityAr,
+            issueRefAr: source.issueRefAr,
+            issuedAt: source.issuedAt,
+            pagesCount: source.pagesCount,
+            fileName: source.fileName,
+            sha256: source.sha256,
+            hasTextLayer: source.hasTextLayer,
+            extractionAr: source.extractionAr,
+            docsCount: source.docsCount,
+            unitLabelAr: source.unitLabelAr,
+            statusAr: source.statusAr,
+            notesAr: source.notesAr,
+          },
+        });
+      }
+
+      for (const document of store.regulationDocuments) {
+        await db.insert(schema.regulationDocuments).values({
+          id: document.id,
+          sourceId: document.sourceId,
+          sourceTitleAr: document.sourceTitleAr,
+          refCode: document.refCode,
+          articleNumber: document.articleNumber,
+          kindAr: document.kindAr,
+          orderIndex: document.orderIndex,
+          pageNumber: document.pageNumber ?? null,
+          chapterAr: document.chapterAr,
+          titleAr: document.titleAr,
+          textAr: document.textAr,
+          tagsAr: document.tagsAr,
+          enforcementRuleIdsAr: document.enforcementRuleIdsAr ?? [],
+          ocrDerived: Boolean(document.ocrDerived),
+          searchAr: document.searchAr,
+        }).onConflictDoUpdate({
+          target: schema.regulationDocuments.id,
+          set: {
+            sourceId: document.sourceId,
+            sourceTitleAr: document.sourceTitleAr,
+            refCode: document.refCode,
+            articleNumber: document.articleNumber,
+            kindAr: document.kindAr,
+            orderIndex: document.orderIndex,
+            pageNumber: document.pageNumber ?? null,
+            chapterAr: document.chapterAr,
+            titleAr: document.titleAr,
+            textAr: document.textAr,
+            tagsAr: document.tagsAr,
+            enforcementRuleIdsAr: document.enforcementRuleIdsAr ?? [],
+            ocrDerived: Boolean(document.ocrDerived),
+            searchAr: document.searchAr,
+          },
+        });
+      }
+
+      const sourceRows = await db.select().from(schema.regulationSources);
+      const documentRows = await db.select().from(schema.regulationDocuments);
+      const toStringArray = (value: unknown): string[] => Array.isArray(value) ? value.map(String) : [];
+      store.regulationSources = sourceRows.map((source) => ({
+        id: source.id,
+        code: source.code,
+        titleAr: source.titleAr,
+        subtitleAr: source.subtitleAr,
+        kindAr: source.kindAr,
+        authorityAr: source.authorityAr,
+        issueRefAr: source.issueRefAr,
+        issuedAt: source.issuedAt,
+        pagesCount: source.pagesCount,
+        fileName: source.fileName,
+        sha256: source.sha256,
+        hasTextLayer: source.hasTextLayer,
+        extractionAr: source.extractionAr,
+        docsCount: source.docsCount,
+        unitLabelAr: source.unitLabelAr,
+        statusAr: source.statusAr,
+        notesAr: source.notesAr,
+      }));
+      store.regulationDocuments = documentRows.map((document) => ({
+        id: document.id,
+        sourceId: document.sourceId,
+        sourceTitleAr: document.sourceTitleAr,
+        refCode: document.refCode,
+        articleNumber: document.articleNumber,
+        kindAr: document.kindAr,
+        orderIndex: document.orderIndex,
+        pageNumber: document.pageNumber,
+        chapterAr: document.chapterAr,
+        titleAr: document.titleAr,
+        textAr: document.textAr,
+        tagsAr: toStringArray(document.tagsAr),
+        enforcementRuleIdsAr: toStringArray(document.enforcementRuleIdsAr),
+        ocrDerived: document.ocrDerived,
+        searchAr: document.searchAr,
+      })).sort((a, b) => a.sourceId.localeCompare(b.sourceId) || a.orderIndex - b.orderIndex || a.id.localeCompare(b.id));
+      store.regulationStorageBackend = 'postgres';
+      console.log(`📚 مزامنة مكتبة اللوائح: ${store.regulationSources.length} مصادر و${store.regulationDocuments.length} بنداً.`);
+    } catch (error: any) {
+      // عدم توافر قاعدة/جدول لا يمنع تشغيل وضع الذاكرة ولا يكتب فوق مصادر غير قابلة للقراءة.
+      console.warn(`⚠️ تعذّرت مزامنة مكتبة اللوائح مع PostgreSQL: ${error?.message || error}`);
+    }
   }
 
   /**
@@ -105,10 +283,12 @@ export class PostgresStorageManager {
       // 0.b مصالحة المخطط (P0-4): إصلاح انحراف الأعمدة في قاعدة قائمة بالفعل
       // (أعمدة ناقصة + أعمدة أموال ما زالت double precision بدل numeric(18,2))
       await this.repairSchema();
+      await this.ensureRegulationIndexes();
 
       // القاعدة متاحة فعلاً (الجداول جاهزة) — تُفعَّل قبل الدمج حتى تكتب
       // persistJournalEntry/persistAccount أثناء مزامنة التحميل أيضاً.
       this.dbAvailable = true;
+      await this.seedRegulations(store);
 
       // طرف سلسلة سجل التدقيق الدائمة (P0-3): تُقرأ قبل أي كتابة تدقيق
       await this.loadAuditChainState();

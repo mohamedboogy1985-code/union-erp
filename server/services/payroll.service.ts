@@ -1,4 +1,5 @@
 import { erpStore } from '../db/store.js';
+import { biometricService } from './biometric.service.js';
 import { accountingService } from './accounting.service.js';
 import { attendanceService } from './attendance.service.js';
 import { findExpenseAccount, findTreasuryAccount, findAccountByCodeOrName } from '../utils/account-lookup.js';
@@ -60,7 +61,9 @@ export class PayrollService {
 
     // الربط التلقائي بالحضور: يُفعَّل إن وُجدت حركات بصمة للشهر ولم يُستبعد صراحةً
     const monthHasAttendance = erpStore.attendanceRecords.some((r) => r.date.startsWith(monthPrefix));
-    const basedOnAttendance = data.useAttendance !== false && monthHasAttendance;
+    // بوابة الاعتماد: ربط البصمة بالمراتب لا يُطبَّق إلا باعتماد المستخدم المصرَّح له (محمد عبد الله أحمد)
+    const attendanceLinkApproved = biometricService.isPayrollLinkApproved();
+    const basedOnAttendance = attendanceLinkApproved && data.useAttendance !== false && monthHasAttendance;
 
     let attendanceDeductionSum = 0;
     let overtimePaySum = 0;

@@ -5,23 +5,49 @@ import { Payroll } from './Payroll.js';
 import { Attendance } from './Attendance.js';
 import { EmployeeAdvances } from './EmployeeAdvances.js';
 import { ModuleTabs, ModuleTabDef } from '../components/ModuleTabs.js';
+import { BiometricAttendance } from './BiometricAttendance.js';
 import { User } from '../types/erp.js';
 
-export type HrsTabId = 'employees' | 'payroll' | 'attendance' | 'advances';
+export type HrsTabId =
+  'employees' | 'payroll' | 'attendance' | 'advances' | 'biometric';
 
 interface HrsHubProps {
   organizationId: string;
   currentUser: User | null;
-  onShowToast: (type: 'success' | 'error' | 'warning' | 'info', msg: string) => void;
+  onShowToast: (
+    type: 'success' | 'error' | 'warning' | 'info',
+    msg: string,
+  ) => void;
   /** الوحدة الفرعية المفتوحة عند الوصول */
   initialTab?: HrsTabId;
 }
 
 const SUB_TABS: ModuleTabDef<HrsTabId>[] = [
-  { id: 'employees', label: 'شئون العاملين والتأمينات', icon: UsersRound, badge: 'استمارة 2' },
-  { id: 'payroll', label: 'المرتبات (مسير الرواتب)', icon: Banknote, badge: 'شهري' },
-  { id: 'attendance', label: 'الحضور والانصراف (البصمة)', icon: Fingerprint, badge: 'وجه/إصبع' },
+  {
+    id: 'employees',
+    label: 'شئون العاملين والتأمينات',
+    icon: UsersRound,
+    badge: 'استمارة 2',
+  },
+  {
+    id: 'payroll',
+    label: 'المرتبات (مسير الرواتب)',
+    icon: Banknote,
+    badge: 'شهري',
+  },
+  {
+    id: 'attendance',
+    label: 'الحضور والانصراف (البصمة)',
+    icon: Fingerprint,
+    badge: 'وجه/إصبع',
+  },
   { id: 'advances', label: 'سلف العاملين', icon: Wallet },
+  {
+    id: 'biometric',
+    label: 'بصمة اليد والوجه وربطها بالمراتب',
+    icon: Fingerprint,
+    badge: 'اعتماد محمد عبد الله',
+  },
 ];
 
 export const HrsHub: React.FC<HrsHubProps> = ({
@@ -44,16 +70,39 @@ export const HrsHub: React.FC<HrsHubProps> = ({
 
       <div>
         {activeTab === 'employees' && (
-          <EmployeeAffairs organizationId={organizationId} currentUser={currentUser} onShowToast={onShowToast} />
+          <EmployeeAffairs
+            organizationId={organizationId}
+            currentUser={currentUser}
+            onShowToast={onShowToast}
+          />
         )}
         {activeTab === 'payroll' && (
-          <Payroll organizationId={organizationId} currentUser={currentUser} onShowToast={onShowToast} />
+          <Payroll
+            organizationId={organizationId}
+            currentUser={currentUser}
+            onShowToast={onShowToast}
+          />
         )}
         {activeTab === 'attendance' && (
-          <Attendance organizationId={organizationId} currentUser={currentUser} onShowToast={onShowToast} />
+          <Attendance
+            organizationId={organizationId}
+            currentUser={currentUser}
+            onShowToast={onShowToast}
+          />
         )}
         {activeTab === 'advances' && (
-          <EmployeeAdvances organizationId={organizationId} currentUser={currentUser} onShowToast={onShowToast} />
+          <EmployeeAdvances
+            organizationId={organizationId}
+            currentUser={currentUser}
+            onShowToast={onShowToast}
+          />
+        )}
+        {activeTab === 'biometric' && (
+          <BiometricAttendance
+            organizationId={organizationId}
+            currentUser={currentUser}
+            onShowToast={onShowToast}
+          />
         )}
       </div>
     </div>

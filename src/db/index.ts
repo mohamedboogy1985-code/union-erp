@@ -13,11 +13,18 @@ declare global {
  */
 export const createPool = () => {
   if (!global._postgresPool) {
+    const connectionString = process.env.DATABASE_URL?.trim();
+    const connectionConfig = connectionString
+      ? { connectionString }
+      : {
+          host: process.env.SQL_HOST || process.env.PGHOST,
+          user: process.env.SQL_USER || process.env.PGUSER,
+          password: process.env.SQL_PASSWORD || process.env.PGPASSWORD,
+          database: process.env.SQL_DB_NAME || process.env.PGDATABASE,
+        };
+
     global._postgresPool = new Pool({
-      host: process.env.SQL_HOST || process.env.PGHOST,
-      user: process.env.SQL_USER || process.env.PGUSER,
-      password: process.env.SQL_PASSWORD || process.env.PGPASSWORD,
-      database: process.env.SQL_DB_NAME || process.env.PGDATABASE,
+      ...connectionConfig,
       max: 10,
       connectionTimeoutMillis: 3000,
     });

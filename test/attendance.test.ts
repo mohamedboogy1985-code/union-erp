@@ -2,6 +2,7 @@ import assert from 'assert';
 import { erpStore } from '../server/db/store.js';
 import { employeeAffairsService } from '../server/services/employee-affairs.service.js';
 import { attendanceService } from '../server/services/attendance.service.js';
+import { biometricService } from '../server/services/biometric.service.js';
 import { payrollService } from '../server/services/payroll.service.js';
 
 /**
@@ -197,8 +198,12 @@ function runTests() {
   assert.ok(['FACE', 'FINGERPRINT'].includes(seedRec.checkInMethod || ''), 'طريقة بصمة: وجه أو إصبع');
   assert.ok((seedRec.verificationScore || 0) >= 0.9, 'درجة تحقق ≥ 90%');
 
+  // محاكاة موافقة الربط الصريحة في الاختبار دون كتابة حالة دائمة على الجهاز.
+  const originalPayrollLinkApproval = biometricService.isPayrollLinkApproved;
+  biometricService.isPayrollLinkApproved = () => true;
   const run = payrollService.generateRun(admin!, { year: 2099, month: 1, useAttendance: true });
-  assert.strictEqual(run.basedOnAttendance, true, 'المسير مُعلَّم كمبني على الحضور والبصمة');
+  biometricService.isPayrollLinkApproved = originalPayrollLinkApproval;
+  assert.strictEqual(run.basedOnAttendance, true, 'المسير مُعلَّم كمبني على الحضور بعد اعتماد الربط');
   assert.ok(run.totals.totalAttendanceDeduction! > 0, 'خصومات الغياب النمطية نشأت من الغيابات الدورية');
   assert.ok(
     run.lines.some((l) => (l.attendanceDeduction || 0) > 0 && (l.absentDays || 0) > 0),

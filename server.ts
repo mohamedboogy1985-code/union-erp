@@ -60,10 +60,32 @@ import { collectDataPaths } from './server/utils/data-paths.js';
 import { can, isReadOnlyUser, ROLE_DEFINITIONS } from './server/security/permissions.js';
 import { assertRuntimeSecurity, isSqlConsoleAllowed, isStrictAuth } from './server/security/runtime-config.js';
 import { installApiGuard } from './server/security/api-guard.js';
+import { createAccountingRouter } from './server/routes/accounting.routes.js';
+import { createFinancialRouter } from './server/routes/financial.routes.js';
+import { createStatuteRouter } from './server/routes/statute.routes.js';
+import { createStatutoryUiRouter } from './server/routes/statutory-ui.routes.js';
+import { createRegulationsRouter } from './server/routes/regulations.routes.js';
+import { createTaxRouter } from './server/routes/tax.routes.js';
+import { createBiometricRouter } from './server/routes/biometric.routes.js';
+import { createVoiceJournalRouter } from './server/routes/voice-journal.routes.js';
+import { createGeneralAssistantRouter } from './server/routes/assistant.routes.js';
+import { createDistributionRouter } from './server/routes/distribution.routes.js';
+import { checkFinancialAction, normalizeFinancialPayload } from './server/services/financial.service.js';
+import type { StatuteEnforcementStage } from './src/types/erp.statute.js';
 import { withRequestContext } from './server/security/request-context.js';
 import { createSensitiveRateLimiter } from './server/security/sensitive-rate-limit.js';
 import { debtorsAccountId, findAccountByCodeOrName, findExpenseAccount, findRevenueAccount, findTreasuryAccount } from './server/utils/account-lookup.js';
 import type { User } from './src/types/erp.js';
+
+const ENFORCEMENT_STAGES: StatuteEnforcementStage[] = ['SHADOW', 'AUDIT', 'WARN', 'ENFORCE'];
+const requestedEnforcementStage = String(
+  process.env.STATUTE_ENFORCEMENT_STAGE || process.env.FINANCIAL_ENFORCEMENT_STAGE || 'SHADOW',
+).trim().toUpperCase();
+const enforcementStage: StatuteEnforcementStage = ENFORCEMENT_STAGES.includes(
+  requestedEnforcementStage as StatuteEnforcementStage,
+)
+  ? (requestedEnforcementStage as StatuteEnforcementStage)
+  : 'SHADOW';
 
 /** هل مكتبة النماذج مقفلة بكلمة مرور حالياً؟ (كلمة المرور تعيش في ذاكرة الخادم فقط) */
 function isModelsLocked(): boolean {
@@ -87,6 +109,9 @@ async function startServer() {
 
   const app = express();
   const PORT = Number(process.env.PORT || 3000);
+  // Create the HTTP server before Vite so HMR can share this server and avoid
+  // an orphaned secondary WebSocket listener when tsx watch restarts.
+  const httpServer = http.createServer(app);
 
   // ===== IMPROVEMENTS 5.1/5.2: طبقة الأمان قبل أي معالجة =====
   app.use(securityHeadersMiddleware);
@@ -187,6 +212,48 @@ async function startServer() {
     return user;
   }
 
+  /** Write route audit metadata only; never persist transcripts, questions, request bodies, or payload values. */
+  function writeRouteAudit(entry: Record<string, unknown>): void {
+    const actorId = String(entry.actorId ?? entry.userId ?? 'system').slice(0, 100);
+    const actor = erpStore.users.find((candidate) => candidate.id === actorId);
+    const action = String(entry.action ?? 'API_ROUTE_ACTION').slice(0, 100);
+    const entityType = String(entry.entityType ?? entry.entity ?? 'HTTP_API').slice(0, 100);
+    const entityId = String(entry.entityId ?? entry.entryId ?? entry.reference ?? entry.draftId ?? '').slice(0, 160);
+    const safeFields = new Set([
+      'kind', 'posted', 'status', 'reference', 'issueCodes', 'blockedRuleIds',
+      'warningRuleIds', 'undeterminedCount', 'completenessPercent', 'enforcementStage',
+      'intentAction', 'intentFunction', 'textLength', 'navigateTo', 'needsConfirm',
+      'actionId', 'resultStepCount', 'hasPayload', 'draftId', 'entryId', 'lines',
+      'simulated', 'basedOnAttendance', 'hasMonth', 'methodsCount', 'created', 'ok',
+      'verdict', 'confidence', 'parameterKeys', 'sourceLength', 'execution',
+    ]);
+    const metadata: Record<string, unknown> = {};
+    for (const [key, value] of Object.entries(entry)) {
+      if (!safeFields.has(key)) continue;
+      if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') {
+        metadata[key] = typeof value === 'string' ? value.slice(0, 160) : value;
+      } else if (Array.isArray(value)) {
+        metadata[key] = value.slice(0, 30).map((item) =>
+          typeof item === 'string' ? item.slice(0, 100) : item,
+        );
+      }
+    }
+    const failed = entry.ok === false || action.endsWith('_REJECTED') || action.endsWith('_FAILED');
+    erpStore.recordAudit(
+      actor?.id ?? actorId,
+      actor?.fullName ?? 'مستخدم غير معروف',
+      actor?.role ?? 'UNKNOWN',
+      actor?.organizationId ?? 'org-general',
+      action,
+      entityType,
+      entityId,
+      JSON.stringify(metadata).slice(0, 2000),
+      undefined,
+      undefined,
+      failed ? 'FAILURE' : 'SUCCESS',
+    );
+  }
+
   /**
    * ===== حارس الصلاحيات (RBAC) =====
    * يتحقق من صلاحية المستخدم الفعّال قبل تنفيذ أي عملية كتابة،
@@ -265,6 +332,49 @@ async function startServer() {
   const healthRateLimiter = createSensitiveRateLimiter();
   const chainVerifyRateLimiter = createSensitiveRateLimiter();
   const auditReadRateLimiter = createSensitiveRateLimiter();
+
+  // وحدات النظام الأساسي/المالية/المحاسبة والمساعد — مسجلة بعد حارس الهوية الشامل.
+  app.use('/api/statute', createStatuteRouter({
+    authenticate: getActiveUser,
+    enforcementStage,
+    auditWrite: async (entry) => { writeRouteAudit(entry); },
+    checkFinancialRegulation: async (payload) => checkFinancialAction(
+      normalizeFinancialPayload(payload),
+      { stage: enforcementStage },
+    ),
+  }));
+  app.use('/api/financial', createFinancialRouter({
+    authenticate: getActiveUser,
+    auditWrite: writeRouteAudit,
+    enforcementStage,
+  }));
+  app.use('/api/accounting', createAccountingRouter({
+    requirePermission,
+    auditWrite: writeRouteAudit,
+    enforcementStage,
+  }));
+  app.use('/api/statutory', createStatutoryUiRouter({ authenticate: getActiveUser, enforcementStage }));
+  // رابط عميق للوحدة المدمجة في SPA؛ يُستخدم عميل API نفسه كي تبقى المصادقة الحالية فعّالة.
+  // لا نقدّم ملف HTML تجريبياً مستقلاً قد يتجاوز تدفق جلسة البرنامج أو يفقد رمز JWT في الذاكرة.
+  app.get('/statutory', (_req: Request, res: Response) => {
+    res.redirect(302, '/?tab=statutory');
+  });
+  // روابط عميقة للضرائب وكسب العمل والموارد البشرية — كلها تعود إلى SPA والجلسة نفسها.
+  app.get('/taxes', (_req: Request, res: Response) => res.redirect(302, '/?tab=taxes'));
+  app.get('/payroll-tax', (_req: Request, res: Response) => res.redirect(302, '/?tab=payroll-tax'));
+  // روابط قديمة تعود إلى الشاشات الموحّدة وتفتح التبويب المقصود داخل SPA.
+  app.get('/committee-data', (_req: Request, res: Response) => res.redirect(302, '/?tab=committee-data'));
+  app.get('/models', (_req: Request, res: Response) => res.redirect(302, '/?tab=models'));
+  app.get('/einvoicing', (_req: Request, res: Response) => res.redirect(302, '/?tab=einvoicing'));
+  app.get('/e-invoicing', (_req: Request, res: Response) => res.redirect(302, '/?tab=e-invoicing'));
+  app.get('/hr', (_req: Request, res: Response) => res.redirect(302, '/?tab=hrs'));
+  app.get('/hr/biometric', (_req: Request, res: Response) => res.redirect(302, '/?tab=biometric'));
+  app.use('/api/regulations', createRegulationsRouter({ authenticate: getActiveUser }));
+  app.use('/api/tax', createTaxRouter({ authenticate: getActiveUser, auditWrite: writeRouteAudit }));
+  app.use('/api/biometric', createBiometricRouter({ authenticate: getActiveUser, auditWrite: writeRouteAudit }));
+  app.use('/api/voice-journal', createVoiceJournalRouter({ authenticate: getActiveUser, auditWrite: writeRouteAudit }));
+  app.use('/api/assistant', createGeneralAssistantRouter({ authenticate: getActiveUser, auditWrite: writeRouteAudit }));
+  app.use('/api/revenue-distribution', createDistributionRouter({ authenticate: getActiveUser }));
 
   registerAIRoutes(app);
   registerAICoreRoutes(app, { requirePermission });
@@ -2925,8 +3035,20 @@ async function startServer() {
   if (process.env.NODE_ENV !== 'production') {
     // استيراد Vite مؤجل: لا يُحمَّل إطلاقاً في الإنتاج (خاصة داخل حزمة Electron)
     const { createServer: createViteServer } = await import('vite');
+    const hmrClientPort = Number(process.env.VITE_HMR_CLIENT_PORT);
+    const viteHmr =
+      process.env.DISABLE_HMR === 'true'
+        ? false
+        : {
+            // Use the public app's HTTP server for HMR instead of opening Vite's
+            // separate 24678 listener. Behind HTTPS proxies, set client port 443.
+            server: httpServer,
+            ...(Number.isInteger(hmrClientPort) && hmrClientPort > 0 && hmrClientPort <= 65535
+              ? { clientPort: hmrClientPort }
+              : {}),
+          };
     const vite = await createViteServer({
-      server: { middlewareMode: true },
+      server: { middlewareMode: true, hmr: viteHmr },
       appType: 'spa',
     });
     app.use(vite.middlewares);
@@ -2951,7 +3073,6 @@ async function startServer() {
 
   app.use(apiErrorHandler);
 
-  const httpServer = http.createServer(app);
   attachLiveAgentWebSocketServer(httpServer);
   attachAetherSwarmLiveSocket(httpServer);
 
