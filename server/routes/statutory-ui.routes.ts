@@ -27,6 +27,8 @@ import { emptyGovernancePayload, emptyMembershipPayload } from '../../src/featur
 import { CHART_DOCUMENT, CHART_OPEN_ITEMS } from '../data/chart-of-accounts.js';
 import { can } from '../security/permissions.js';
 import type { User } from '../../src/types/erp.js';
+import type { StatutoryDistributionModelsResponse } from '../../src/types/erp.distribution.js';
+import { STATUTORY_DISTRIBUTION_MODELS } from '../data/statutory-distribution-models.js';
 
 /**
  * ===== مسار دعم واجهة الوحدة النظامية (صفحة /statutory) =====
@@ -36,6 +38,7 @@ import type { User } from '../../src/types/erp.js';
 export interface StatutoryUiRouterDeps {
   authenticate: (req: Request) => User | null;
   enforcementStage?: string;
+  getDistributionModels?: () => Promise<StatutoryDistributionModelsResponse>;
 }
 
 interface UiAuditRow {
@@ -64,6 +67,17 @@ export const createStatutoryUiRouter = (deps: StatutoryUiRouterDeps): Router => 
   });
 
   const user = (res: Response) => (res.locals.user as User | undefined) ?? null;
+
+  router.get('/distribution-models', async (_req: Request, res: Response, next: NextFunction) => {
+    try {
+      const result = deps.getDistributionModels
+        ? await deps.getDistributionModels()
+        : { storageBackend: 'memory' as const, models: structuredClone(STATUTORY_DISTRIBUTION_MODELS) };
+      res.json(result);
+    } catch (error) {
+      next(error);
+    }
+  });
 
   router.get('/state', (req: Request, res: Response) => {
     const document = getStatuteDocument({ includeArticles: true, includeChapters: true, includeRules: true });

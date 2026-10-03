@@ -278,7 +278,7 @@ test('regulation library is served from the structured store and retains page me
 
   const ddl = readFileSync(new URL('../server/db/pg-schema.sql', import.meta.url), 'utf8');
   const schemaTables = parseSchemaDdl(ddl);
-  assert.equal(schemaTables.size, 18, 'the DDL parser must retain every PostgreSQL table across blank statement-breakpoint lines');
+  assert.equal(schemaTables.size, 20, 'the DDL parser must retain every PostgreSQL table across blank statement-breakpoint lines');
   assert.ok(schemaTables.get('users')?.some((column) => column.name === 'uid'));
   assert.equal(schemaTables.get('users')?.some((column) => column.name === 'code'), false, 'regulation columns must not be misattributed to users');
   assert.ok(schemaTables.get('regulation_sources')?.some((column) => column.name === 'code'));

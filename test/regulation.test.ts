@@ -46,6 +46,13 @@ function runTests() {
   const runtimeDistributionIssue = FINANCIAL_REGULATION_SOURCE_ISSUES.find((issue) => issue.id === 'FR-RUNTIME-DISTRIBUTION-MISMATCH');
   assert.ok(runtimeDistributionIssue, 'يُسجل اختلاف قاعدة الإيصالات الحية عن نص المادة');
   assert.strictEqual(sha256(runtimeDistributionIssue!.sourcePath), runtimeDistributionIssue!.sourceSha256, 'بصمة قاعدة التوزيع التشغيلية الحالية');
+  const printingBasisIssue = FINANCIAL_REGULATION_SOURCE_ISSUES.find((issue) => issue.id === 'FR-ARTICLE-2-PROFESSIONAL-PRINTING-BASIS');
+  assert.ok(printingBasisIssue, 'يبقى أساس نسبة المطبوعات المضافة في ملف اللجان المهنية معلّقاً');
+  assert.strictEqual(sha256(printingBasisIssue!.sourcePath), printingBasisIssue!.sourceSha256, 'بصمة ملف اللجان المهنية المحدث');
+  const article2Note = FINANCIAL_REGULATION_ARTICLES.find((article) => article.articleNo === '2')?.sourceCitation?.noteAr || '';
+  assert.match(article2Note, /CSV النهائي 30\/10\/10\/50/);
+  assert.match(article2Note, /50\/30\/20/);
+  assert.match(article2Note, /المطبوعات 10% بلا قيم أو معادلات/);
   const activeMembershipRule = erpStore.distributionRules.find((rule) => rule.ruleCode === 'DIST-MEMB-V1');
   assert.deepStrictEqual(activeMembershipRule?.lines.map((line) => line.percentage), [50, 30, 20], 'يحافظ الاختبار على النموذج التشغيلي الحالي ولا يدّعي مطابقته للمادة 2');
   const liveReceiptMismatch = regulationService.checkDistributionPercentages(

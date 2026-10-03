@@ -16,6 +16,10 @@ import {
   verifyAuditLogChain,
   type AuditChainVerificationResult,
 } from '../services/audit-chain.service.js';
+import {
+  ensureStatutoryDistributionTables,
+  seedStatutoryDistributionModels,
+} from '../services/statutory-distribution-models.service.js';
 
 export class PostgresStorageManager {
   private isInitialized = false;
@@ -96,6 +100,7 @@ export class PostgresStorageManager {
       search_ar text DEFAULT '' NOT NULL,
       created_at timestamp DEFAULT now()
     )`);
+    await ensureStatutoryDistributionTables();
   }
 
   private async ensureRegulationIndexes(): Promise<void> {
@@ -288,6 +293,12 @@ export class PostgresStorageManager {
       // القاعدة متاحة فعلاً (الجداول جاهزة) — تُفعَّل قبل الدمج حتى تكتب
       // persistJournalEntry/persistAccount أثناء مزامنة التحميل أيضاً.
       this.dbAvailable = true;
+      try {
+        const distributionSeed = await seedStatutoryDistributionModels();
+        console.log(`📊 تم تفعيل نموذجَي التوزيع النظامي في PostgreSQL مع ${distributionSeed.rows} صفاً مرجعياً.`);
+      } catch (error: any) {
+        console.warn(`⚠️ تعذّر حفظ نماذج التوزيع النظامي في PostgreSQL: ${error?.message || error}`);
+      }
       await this.seedRegulations(store);
 
       // طرف سلسلة سجل التدقيق الدائمة (P0-3): تُقرأ قبل أي كتابة تدقيق

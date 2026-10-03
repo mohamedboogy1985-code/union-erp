@@ -1,13 +1,14 @@
 import React, { useState } from 'react';
-import { ScrollText, Scale, BookOpenCheck, ClipboardCheck, Landmark } from 'lucide-react';
+import { ScrollText, Scale, BookOpenCheck, ClipboardCheck, Landmark, PieChart } from 'lucide-react';
 import { ModuleTabs, ModuleTabDef } from '../components/ModuleTabs.js';
 import { User } from '../types/erp.js';
 import { StatuteBoard } from '../features/statutory/StatuteBoard.js';
 import { FinancialRulesBoard } from '../features/statutory/FinancialRulesBoard.js';
 import { AccountingCoreBoard } from '../features/statutory/AccountingCoreBoard.js';
 import { StatutoryCheckBoard } from '../features/statutory/StatutoryCheckBoard.js';
+import { StatutoryDistributionModelsBoard } from '../features/statutory/StatutoryDistributionModelsBoard.js';
 
-export type StatutoryTabId = 'statute' | 'financial' | 'accounting' | 'check';
+export type StatutoryTabId = 'statute' | 'financial' | 'accounting' | 'check' | 'distribution';
 
 interface StatutoryHubProps {
   organizationId: string;
@@ -22,13 +23,14 @@ const SUB_TABS: ModuleTabDef<StatutoryTabId>[] = [
   { id: 'financial', label: 'اللائحة المالية', icon: Scale, badge: '90 قاعدة' },
   { id: 'accounting', label: 'النواة المحاسبية', icon: BookOpenCheck, badge: '118 حساباً' },
   { id: 'check', label: 'الفحص والحكامة', icon: ClipboardCheck, badge: 'بوابة' },
+  { id: 'distribution', label: 'نماذج التوزيع (م2)', icon: PieChart, badge: '58 + 54 صفاً' },
 ];
 
 /**
  * ===== الوحدة النظامية الموحّدة =====
- * تجمع: النظام الأساسي (69 مادة/113 قاعدة) + اللائحة المالية (90 قاعدة/53 عتبة)
- *        + النواة المحاسبية الموحّدة (118 حساباً) + بوابة الفحص الموحّد.
- * كل البيانات من مسارات الخادم المضافة: /api/statute • /api/financial • /api/accounting
+ * تجمع: النظام الأساسي + اللائحة المالية (53 عتبة) + النواة المحاسبية + بوابة الفحص
+ *        ونماذج توزيع المادة (2) المستخرجة من ملفي Excel.
+ * مصادر البيانات: /api/statute • /api/financial • /api/accounting • /api/statutory/distribution-models
  */
 export const StatutoryHub: React.FC<StatutoryHubProps> = ({
   organizationId,
@@ -60,6 +62,9 @@ export const StatutoryHub: React.FC<StatutoryHubProps> = ({
         )}
         {activeTab === 'check' && (
           <StatutoryCheckBoard organizationId={organizationId} currentUser={currentUser} onShowToast={onShowToast} />
+        )}
+        {activeTab === 'distribution' && (
+          <StatutoryDistributionModelsBoard organizationId={organizationId} onShowToast={onShowToast} />
         )}
       </div>
     </div>

@@ -64,7 +64,7 @@
     "test:intent": "tsx --test test/intent.test.ts",
     "test:tone": "tsx --test test/tone.test.ts",
     "test:speech-text": "tsx --test test/speech-text.test.ts",
-    "test:statutory": "tsx --test test/statutory-modules.test.ts",
+    "test:statutory": "tsx --test test/statutory-modules.test.ts test/statutory-distribution.test.ts",
     "test:tax-hr": "tsx --test test/tax-hr-integration.test.ts",
     "test:embedded-postgres": "tsx --test test/embedded-postgres.test.ts",
     "test:preview": "tsx --test test/vite-preview.test.ts"

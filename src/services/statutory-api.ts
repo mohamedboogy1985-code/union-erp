@@ -1,5 +1,6 @@
 import { request } from "./api.js";
 import type { UserRole } from "../types/erp.statute.js";
+import type { StatutoryDistributionModelsResponse } from "../types/erp.distribution.js";
 
 /** ===== عميل الوحدة النظامية: النظام الأساسي + اللائحة المالية + النواة المحاسبية ===== */
 
@@ -491,6 +492,7 @@ const q = (params: Record<string, string | number | undefined>) => {
 
 export const statutoryApi = {
   getStatute: () => request<StatuteBundle>("/api/statute"),
+  getDistributionModels: () => request<StatutoryDistributionModelsResponse>("/api/statutory/distribution-models"),
   searchStatute: (term: string) =>
     request<{ hits: Array<{ article: StatuteArticleView; score: number }> }>(
       `/api/statute/articles${q({ q: term })}`,

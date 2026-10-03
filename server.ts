@@ -44,6 +44,7 @@ import { portalDataService } from './server/services/portal-data.service.js';
 import { MODELS_MODULE_DIR, modelsService } from './server/services/models.service.js';
 import * as modelsCrypto from './server/services/models-crypto.service.js';
 import { regulationService } from './server/services/regulation.service.js';
+import { loadStatutoryDistributionModels } from './server/services/statutory-distribution-models.service.js';
 import { employeeAffairsService } from './server/services/employee-affairs.service.js';
 import { attendanceService } from './server/services/attendance.service.js';
 import { payrollService } from './server/services/payroll.service.js';
@@ -353,7 +354,11 @@ async function startServer() {
     auditWrite: writeRouteAudit,
     enforcementStage,
   }));
-  app.use('/api/statutory', createStatutoryUiRouter({ authenticate: getActiveUser, enforcementStage }));
+  app.use('/api/statutory', createStatutoryUiRouter({
+    authenticate: getActiveUser,
+    enforcementStage,
+    getDistributionModels: () => loadStatutoryDistributionModels(postgresManager.isDbAvailable()),
+  }));
   // رابط عميق للوحدة المدمجة في SPA؛ يُستخدم عميل API نفسه كي تبقى المصادقة الحالية فعّالة.
   // لا نقدّم ملف HTML تجريبياً مستقلاً قد يتجاوز تدفق جلسة البرنامج أو يفقد رمز JWT في الذاكرة.
   app.get('/statutory', (_req: Request, res: Response) => {
