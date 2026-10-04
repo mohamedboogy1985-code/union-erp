@@ -3,7 +3,7 @@ import rateLimit from 'express-rate-limit';
 import { resolveClientIp } from '../security/request-context.js';
 import fs from 'node:fs';
 import path from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { moduleDir, resolveFirst } from '../utils/runtime-paths.js';
 import type { Request, Response, NextFunction } from 'express';
 import { createRegulationLibraryView } from '../data/regulations-library.js';
 import { erpStore } from '../db/store.js';
@@ -29,8 +29,11 @@ export const createRegulationsRouter = (deps: RegulationsRouterDeps): Router => 
     keyGenerator: (req) => resolveClientIp(req) || 'unknown',
     validate: { keyGeneratorIpFallback: false, trustProxy: false, xForwardedForHeader: false },
   }));
-  const moduleDir = path.dirname(fileURLToPath(import.meta.url));
-  const law35Dir = path.resolve(moduleDir, '../data/laws/law35-2018');
+  const runtimeDir = moduleDir();
+  const law35Dir = resolveFirst([
+    path.resolve(runtimeDir, 'server/data/laws/law35-2018'),
+    path.resolve(runtimeDir, '../server/data/laws/law35-2018'),
+  ]) ?? path.resolve(runtimeDir, 'server/data/laws/law35-2018');
 
   router.use((req: Request, res: Response, next: NextFunction) => {
     const user = deps.authenticate(req);
