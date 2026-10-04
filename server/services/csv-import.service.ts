@@ -80,8 +80,12 @@ export class CsvImportService {
       return '';
     };
 
+    // قواعد التوزيع التشغيلية (50/30/20 و70/30) سياسة مستقلة عن ملف CSV.
+    // لا نمسحها أو نعيد تعيين حساباتها تلقائياً: بعض مطابقات دليل الحسابات ما زالت
+    // مفتوحة صراحةً في COA-OPEN-003، وأي ربط بالاسم/الكود دون اعتماد قد يحرّف القيود.
+
     // 1) تنظيف البيانات التجريبية المحاسبية (القيود/الإيصالات/الأستاذ المساعد/الموازنات)
-    //    مع الإبقاء على المستخدمين والجهات وسجل التدقيق
+    //    مع الإبقاء على المستخدمين والجهات وسجل التدقيق وقواعد توزيع الإيصالات.
     erpStore.accounts = [];
     erpStore.journalEntries = [];
     erpStore.receipts = [];
@@ -89,7 +93,6 @@ export class CsvImportService {
     erpStore.subledgerAliases = [];
     erpStore.fiscalPeriods = [];
     erpStore.budgets = [];
-    erpStore.distributionRules = [];
     erpStore.accountingHistory = [];
 
     // 2) بناء الأقسام (المجموعات) من (كود القسم + اسم القسم)

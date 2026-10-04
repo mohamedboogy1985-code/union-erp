@@ -1,3 +1,5 @@
+import { USER_PROVIDED_GAZETTE_REFERENCE } from './gazette-reference.js';
+
 /**
  * ===== اللائحة المالية المرفقة =====
  * تمت مراجعة الملخصات والعتبات أدناه على ملف اللائحة ذي الطبقة النصية،
@@ -32,6 +34,7 @@ export const FINANCIAL_REGULATION_SOURCE = {
   sha256: '2a5a27b0cd38798f9a9022fea1d5fec852cb1ea2fddf1329d5b6f4844f461e94',
   pages: 9,
   verificationStatus: 'ATTACHED_COPY_NOT_AUTHENTICATED',
+  gazetteReference: USER_PROVIDED_GAZETTE_REFERENCE,
 } as const;
 
 /** النسخة النصية المرافقة التي استُخرجت منها مقتطفات المواد حرفياً. */
@@ -86,7 +89,7 @@ export const FINANCIAL_REGULATION_ARTICLES: FinancialRegulationArticle[] = [
       sourceSha256: FINANCIAL_REGULATION_TEXT_SOURCE.sha256,
       articleNo: '2',
       quoteAr: '10% من مجمل ما تحصله من اشتراكات الأعضاء إلى الاتحاد النقابي إن وجد، ويكون توزيع نسبة الـ 90% على النحو التالي: 60% للجنة النقابية ... 30% للنقابة العامة.',
-      noteAr: 'نموذج اللجان المهنية المرفق يعرض نسباً مختلفة (30/10/10/50)؛ يُعامل كمصدر تشغيلي منفصل ولا يغيّر نص اللائحة دون تعديل رسمي مرفق.',
+      noteAr: 'الملفان المحدثان للجان الشركات واللجان المهنية يعرضان 30/60/10 وفق أساس كل ورقة؛ وملف اللجان المهنية يضيف دعم تثقيف 5 جنيهات للإيصال للنقابة العامة قبل توزيع الباقي، بينما عمود المطبوعات 10% بلا قيم أو معادلات. مرجع CSV النهائي 30/10/10/50 وسياسة الإيصالات 50/30/20 يظلان مستقلين ولا يعد أي منهما تعديلاً للمادة (2).',
     },
   },
   {
@@ -251,7 +254,7 @@ export const FINANCIAL_REGULATION_ARTICLES: FinancialRegulationArticle[] = [
   {
     articleNo: '72',
     title: 'الدفعة المقدمة والمستخلصات والتعديلات التعاقدية',
-    text: 'الدفعة المقدمة لا تزيد على 25% من قيمة التعاقد مقابل خطاب ضمان. ويجوز خصم المستخلصات أو التشوينات بما لا يجاوز 75% من قيمتها. حدود تعديل العقود: 15% للتوريد و25% للأعمال. ويورد النص كذلك 5% للأعمال و«5% الباقية»؛ لم يُستنتج منها حد 95% لأن العبارة كما وردت تحتاج مراجعة.',
+    text: 'الدفعة المقدمة لا تزيد على 25% من قيمة التعاقد مقابل خطاب ضمان. ويجوز خصم المستخلصات أو التشوينات بما لا يجاوز 75% من قيمتها. حدود تعديل العقود: 15% للتوريد و25% للأعمال. تعرض نسخة الوقائع المرفوعة في الصفحة المطبوعة 41 حداً أقصى 95% للأعمال المنفذة المطابقة ثم 5% الباقية مقابل خطاب ضمان. وباختيار المستخدم، يعتمد النموذج التشغيلي هذه القراءة (95% و5%)؛ ويظل ملف الوقائع موسوماً كصورة إلكترونية لا يعتد بها عند التداول، ولا يُدّعى أنه أصل أو نسخة معتمدة.',
     category: 'المخازن والمشتريات والعقود',
     keywords: ['مقاول', 'دفعة مقدمة', 'تحت الحساب', 'خطاب ضمان', 'أعمال', 'تشوينات'],
     enforcementRuleIds: ['CONTRACT_ADVANCE_PCT', 'CONTRACT_MATERIALS_SUPPLY_PCT', 'CONTRACT_WORKS_PROGRESS_PCT', 'CONTRACT_WORKS_GUARANTEED_REMAINDER_PCT', 'CONTRACT_SUPPLY_VARIATION_PCT', 'CONTRACT_WORKS_VARIATION_PCT'],
@@ -261,7 +264,7 @@ export const FINANCIAL_REGULATION_ARTICLES: FinancialRegulationArticle[] = [
       sourceSha256: FINANCIAL_REGULATION_TEXT_SOURCE.sha256,
       articleNo: '72',
       quoteAr: 'دفعة مقدمة ... لا تزيد على (25%) ... بما لا يجاوز (75%) من قيمتها. تعديل كميات أو حجم عقودها ... (15%) من عقود التوريد (25%) من عقود الأعمال ... (5%) من القيمة المقررة للأعمال ... كما يجوز صرف الـ(5%) الباقية.',
-      noteAr: 'لم يظهر رقم 95% في النص المستخرج؛ وردت عبارتا 5% و5% الباقية، لذلك لا تُفعّل عتبة 95%.',
+      noteAr: 'النص المصاحب السابق يسجل 5% للأعمال و5% الباقية، بينما نسخة الوقائع المرفوعة تعرض في الصفحة المطبوعة 41 حد 95% للأعمال المنفذة ثم 5% الباقية بخطاب ضمان. اختار المستخدم اعتماد قراءة الوقائع تشغيلياً (95% و5%)؛ والنسخة الإلكترونية نفسها موسومة بأنها لا يعتد بها عند التداول، فلا يثبت هذا القرار أصالة المصدر أو اعتماده الرسمي.',
     },
   },
   {
@@ -314,7 +317,7 @@ export const FINANCIAL_REGULATION_ARTICLES: FinancialRegulationArticle[] = [
 export interface FinancialRegulationSourceIssue {
   id: string;
   articleNo: string;
-  status: 'CONFLICT_UNRESOLVED' | 'LEGAL_REVIEW_REQUIRED';
+  status: 'CONFLICT_UNRESOLVED' | 'LEGAL_REVIEW_REQUIRED' | 'INTERPRETATION_SELECTED_NOT_AUTHENTICATED';
   descriptionAr: string;
   sourcePath: string;
   sourceSha256: string;
@@ -331,12 +334,20 @@ export const FINANCIAL_REGULATION_SOURCE_ISSUES: FinancialRegulationSourceIssue[
     sourceSha256: '6fff4a2d2c42ce514d7723d57490c7c5ca3783524b26ebea3654a008ee1273db',
   },
   {
+    id: 'FR-ARTICLE-2-PROFESSIONAL-PRINTING-BASIS',
+    articleNo: '2',
+    status: 'LEGAL_REVIEW_REQUIRED',
+    descriptionAr: 'ملف اللجان المهنية المحدث يعرض عمود مطبوعات بنسبة 10% دون قيم أو معادلات أو أساس احتساب. لا يدخل هذا العمود في توزيع المادة (2) ولا يُحسب حتى يرد توضيح موثق.',
+    sourcePath: 'server/data/source-workbooks/لجان مهنية اخر تحديث.xlsx',
+    sourceSha256: '22327166c6c5624969d4c3f521eafb05f93ea2070de7fccc2e4e62f054381f76',
+  },
+  {
     id: 'FR-RUNTIME-DISTRIBUTION-MISMATCH',
     articleNo: '2',
     status: 'CONFLICT_UNRESOLVED',
     descriptionAr: 'قاعدة إيصالات اشتراكات العضوية الحالية DIST-MEMB-V1 في مخزن التطبيق توزع 50% للنقابة العامة و30% للجنة و20% لصندوق التكافل؛ وهذا يختلف عن نص المادة 2 وعن نموذج التحصيل المرفق. لم يُغيّر مسار الإيصالات أو يُربط بفحص اللائحة قبل حسم نوع الاشتراكات والجهة القانونية المختصة.',
     sourcePath: 'server/db/store.ts',
-    sourceSha256: 'ad1e29a82cea7c196da345458782ec15f386b71703173582de8516d4cf352086',
+    sourceSha256: '17d0c7028399a6b8c0a5d559c2180edf20b9586be6424f5b0a67f26aacba6eb1',
   },
   {
     id: 'FR-SOURCE-AMBIGUITY-ARTICLE-51',
@@ -349,10 +360,18 @@ export const FINANCIAL_REGULATION_SOURCE_ISSUES: FinancialRegulationSourceIssue[
   {
     id: 'FR-SOURCE-AMBIGUITY-ARTICLE-72',
     articleNo: '72',
-    status: 'LEGAL_REVIEW_REQUIRED',
-    descriptionAr: 'وردت دفعتان تحت الحساب بواقع 5% للأعمال المنفذة و«5% الباقية» بخطاب ضمان. لا يذكر النص 95%؛ يجب عدم افتراضها.',
+    status: 'INTERPRETATION_SELECTED_NOT_AUTHENTICATED',
+    descriptionAr: 'يسجل النص المصاحب 5% للأعمال و«5% الباقية»، بينما نسخة الوقائع المرفوعة تعرض 95% ثم 5% الباقية. اختار المستخدم القراءة الثانية للتشغيل (95% و5%)؛ لا تزال أصالة النسخة المرفوعة واعتمادها غير مثبتين.',
     sourcePath: FINANCIAL_REGULATION_TEXT_SOURCE.filePath,
     sourceSha256: FINANCIAL_REGULATION_TEXT_SOURCE.sha256,
+  },
+  {
+    id: 'FR-GAZETTE-CROSSCHECK-ARTICLE-72',
+    articleNo: '72',
+    status: 'INTERPRETATION_SELECTED_NOT_AUTHENTICATED',
+    descriptionAr: 'نسخة الوقائع الإلكترونية المرفوعة (الصفحة المطبوعة 41) تعرض 95% للأعمال المنفذة المطابقة ثم 5% الباقية بخطاب ضمان. اختيرت هذه القراءة تشغيلياً بناء على قرار المستخدم، مع إبقاء قيد أن الملف صورة إلكترونية لا يعتد بها عند التداول وليست نسخة موثقة.',
+    sourcePath: USER_PROVIDED_GAZETTE_REFERENCE.sourceFilePath,
+    sourceSha256: USER_PROVIDED_GAZETTE_REFERENCE.sourceFileSha256,
   },
 ];
 
@@ -543,21 +562,21 @@ export const REGULATION_THRESHOLDS_SEED: RegulationThresholdSeed[] = [
   },
   {
     ruleId: 'CONTRACT_PROGRESS_PAYMENT_PCT',
-    descriptionAr: 'لم يثبت حد إجمالي موحد للدفعات تحت الحساب؛ لا تستخدم 95% لأن المادة 72 تسرد بنوداً منفصلة ولا تذكر هذه النسبة.',
+    descriptionAr: 'لا تُفعّل هذه القاعدة الإجمالية المنفصلة: حد الأعمال 95% واحتجاز 5% ممثلان في قاعدتين تخصصيتين، ويجب عدم جمعهما مع حد التشوينات 75% في نسبة واحدة.',
     scope: 'JOURNAL_ENTRY',
     unit: 'PERCENT',
     extractionHint: 'مادة الدفعات تحت الحساب للمقاولات؛ يلزم تفسير قانوني قبل تجميع البنود',
   },
   {
     ruleId: 'CONTRACT_WORKS_PROGRESS_PCT',
-    descriptionAr: 'دفعة تحت الحساب للأعمال المنفذة المطابقة: 5% من قيمتها (مادة 72، البند أ).',
+    descriptionAr: 'حد الدفعات تحت الحساب للأعمال المنفذة المطابقة: 95% من قيمتها وفق القراءة التي اختارها المستخدم من نسخة الوقائع (المادة 72، البند أ، الصفحة المطبوعة 41). الملف غير موثق كنسخة صالحة للتداول.',
     scope: 'JOURNAL_ENTRY',
     unit: 'PERCENT',
     extractionHint: 'مادة الدفعات تحت الحساب، البند أ',
   },
   {
     ruleId: 'CONTRACT_WORKS_GUARANTEED_REMAINDER_PCT',
-    descriptionAr: 'يجوز صرف 5% الباقية مقابل خطاب ضمان بنكي غير مشروط (مادة 72، البند أ).',
+    descriptionAr: 'تظل 5% الباقية منفصلة عن حد الأعمال 95%، ولا تصرف إلا مقابل خطاب ضمان بنكي غير مشروط (مادة 72، البند أ).',
     scope: 'JOURNAL_ENTRY',
     unit: 'PERCENT',
     extractionHint: 'مادة الدفعات تحت الحساب، البند أ، مبلغ الضمان',
@@ -669,7 +688,7 @@ export const REGULATION_ACTIVATED_RULES: ActivatedRuleConfig[] = [
   { ruleId: 'PROC_LIMITED_TENDER_CEILING', value: 500_000, articleNo: '61' },
   { ruleId: 'PROC_LIMITED_TENDER_CEILING_BRANCH', value: 250_000, articleNo: '61' },
   { ruleId: 'CONTRACT_ADVANCE_PCT', value: 25, articleNo: '72' },
-  { ruleId: 'CONTRACT_WORKS_PROGRESS_PCT', value: 5, articleNo: '72' },
+  { ruleId: 'CONTRACT_WORKS_PROGRESS_PCT', value: 95, articleNo: '72' }, // قراءة اختارها المستخدم من نسخة الوقائع، دون ادعاء اعتماد النسخة
   { ruleId: 'CONTRACT_WORKS_GUARANTEED_REMAINDER_PCT', value: 5, articleNo: '72' },
   { ruleId: 'CONTRACT_MATERIALS_SUPPLY_PCT', value: 75, articleNo: '72' },
   { ruleId: 'CONTRACT_SUPPLY_VARIATION_PCT', value: 15, articleNo: '72' },

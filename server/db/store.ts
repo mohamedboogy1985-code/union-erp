@@ -45,6 +45,8 @@ import { getRequestContext } from '../security/request-context.js';
 import { hashAuditLog } from '../services/audit-chain.service.js';
 import { generateVerificationToken, hashNationalId, maskIban, maskNationalId, sha256 } from '../utils/crypto.js';
 import { rebuildLedgerChain } from '../services/ledger-chain.service.js';
+import type { RegulationDocumentRecord, RegulationSourceRecord } from '../../src/types/erp.regulations.js';
+import { REGULATION_DOCUMENTS, REGULATION_SOURCES } from '../data/regulations-library.js';
 
 export class ERPStore {
   public organizations: Organization[] = [];
@@ -96,6 +98,15 @@ export class ERPStore {
   public trainingEnrollments: TrainingEnrollment[] = [];
   public aiAgentSkills: AiAgentSkill[] = [];
   public accountingProcedures: AccountingProcedure[] = [];
+
+  // ===== مكتبة اللوائح — بيانات قانونية منظمة في الذاكرة وتُزامَن إلى PostgreSQL =====
+  public regulationStorageBackend: 'memory' | 'postgres' = 'memory';
+  public regulationSources: RegulationSourceRecord[] = REGULATION_SOURCES.map((source) => ({ ...source }));
+  public regulationDocuments: RegulationDocumentRecord[] = REGULATION_DOCUMENTS.map((document) => ({
+    ...document,
+    tagsAr: [...document.tagsAr],
+    enforcementRuleIdsAr: [...(document.enforcementRuleIdsAr ?? [])],
+  }));
 
   public attendanceRecords: AttendanceRecord[] = [];
   public attendanceDevices: AttendanceDevice[] = [];

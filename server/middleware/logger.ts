@@ -48,7 +48,8 @@ export function requestLoggerMiddleware(req: Request, res: Response, next: NextF
     const durationMs = Date.now() - startedAt;
     const logData = {
       method: req.method,
-      path: req.originalUrl,
+      // لا نكتب معاملات URL في السجل؛ قد تحمل بحثاً أو بيانات مالية/شخصية.
+      path: req.path,
       status: res.statusCode,
       durationMs,
       ip: clientIp(req),

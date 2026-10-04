@@ -90,6 +90,7 @@ test('migrations are present, ordered and safe to re-run', () => {
     '002_performance_indexes.sql',
     '003_rls_and_materialized_views.sql',
     '004_pgvector_embeddings.sql',
+    '005_article72_works_progress_95.sql',
   ]);
   for (const file of files) assert.ok(fs.statSync(path.join(dir, file)).size > 500, `${file} looks empty`);
 
@@ -113,6 +114,14 @@ test('migrations are present, ordered and safe to re-run', () => {
   assert.match(m004, /CREATE EXTENSION IF NOT EXISTS vector/);
   assert.match(m004, /embedding vector\(768\)/);
   assert.match(m004, /CREATE TABLE IF NOT EXISTS rag_search_logs/);
+
+  const m005 = read('server', 'db', 'migrations', '005_article72_works_progress_95.sql');
+  assert.match(m005, /UPDATE "regulation_rules"/);
+  assert.match(m005, /"value" = '95'/);
+  assert.match(m005, /"rule_id" = 'CONTRACT_WORKS_PROGRESS_PCT'/);
+  assert.match(m005, /"value" = '5'/, 'only the prior active default is migrated');
+  assert.match(m005, /"enabled" = true/);
+  assert.match(m005, /The separate 5% remainder and 75% materials rule are untouched/);
 
   const readme = read('server', 'db', 'migrations', 'README.md');
   assert.match(readme, /pg-schema\.sql/, 'the README must record the conflict analysis with main');

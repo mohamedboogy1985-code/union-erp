@@ -156,7 +156,7 @@ export class SmartAgentEnhancer {
 
     // عدد مواد اللائحة عند السؤال مباشرة
     if (/عدد|كم مادة|عدد المواد|كم عدد|عدد مواد/.test(question)) {
-      parts.push(`عدد مواد اللائحة المالية النافذة: ${FINANCIAL_REGULATION_ARTICLES.length} مادة.`);
+      parts.push(`اللائحة المالية النافذة عندك ${FINANCIAL_REGULATION_ARTICLES.length} مادة مسجّلة في النظام، وأي مادة تحتاجها أقدر أجيب لك نصها.`);
       sources.push({ type: 'FINANCIAL_REGULATION_ARTICLE', reference: 'فهرس مواد اللائحة المالية', excerpt: `${FINANCIAL_REGULATION_ARTICLES.length} مادة نافذة` });
       confidence = Math.max(confidence, 0.85);
     }
@@ -170,10 +170,10 @@ export class SmartAgentEnhancer {
         const info = accountQueryService.getAccount1301Balance(organizationId);
         dataContext = { account1301: info };
         parts.push(
-          `رصيد حساب [1301 - ${info.accountName}] الحالي: ${info.currentBalance.toLocaleString()} ج.م عبر ${info.partiesCount} حساب أستاذ مساعد. أكبر المدينين: ${info.topDebtors
+          `رصيد حساب [1301 - ${info.accountName}] دلوقتي ${info.currentBalance.toLocaleString()} ج.م موزّع على ${info.partiesCount} حساب أستاذ مساعد، وأكبر المدينين: ${info.topDebtors
             .slice(0, 3)
             .map((d) => `${d.name} (${d.currentBalance.toLocaleString()} ج.م)`)
-            .join('، ')}`
+            .join('، ')}.`
         );
         sources.push({ type: 'DATABASE', reference: 'حساب 1301 - الأستاذ المساعد', excerpt: `الرصيد الجاري: ${info.currentBalance}` });
         confidence = Math.max(confidence, 0.9);
@@ -196,7 +196,7 @@ export class SmartAgentEnhancer {
     if (/اعتماد|معتمد|معلق|انتظار/.test(question)) {
       const pending = accountQueryService.getPendingEntries(organizationId);
       dataContext = { ...(dataContext || {}), pendingEntries: pending };
-      parts.push(`القيود بانتظار الاعتماد حالياً: ${pending.count} قيداً بإجمالي ${pending.totalValue.toLocaleString()} ج.م.`);
+      parts.push(`عندك ${pending.count} قيد مستني الاعتماد بإجمالي ${pending.totalValue.toLocaleString()} ج.م — تحب أراجعهم معاك واحد واحد؟`);
       sources.push({ type: 'DATABASE', reference: 'قيود بانتظار الاعتماد' });
     }
 
@@ -205,7 +205,7 @@ export class SmartAgentEnhancer {
       const receipts = accountQueryService.getLatestReceipts(organizationId, 5);
       if (receipts.length > 0) {
         parts.push(
-          `آخر الإيصالات: ${receipts.map((r) => `${r.receiptNumber} بقيمة ${r.amount.toLocaleString()} ج.م من ${r.payerName}`).join('؛ ')}`
+          `آخر الإيصالات المسجّلة: ${receipts.map((r) => `${r.receiptNumber} بقيمة ${r.amount.toLocaleString()} ج.م من ${r.payerName}`).join('؛ ')}`
         );
         dataContext = { ...(dataContext || {}), latestReceipts: receipts };
       }
@@ -216,7 +216,7 @@ export class SmartAgentEnhancer {
       const template = this.matchJournalTemplate(question);
       if (template) {
         parts.push(
-          `قالب مقترح: [${template.nameAr}] — مدين: ${template.debitAccountCode} / دائن: ${template.creditAccountCode} (${template.description})`
+          `القيد ده أسهل طريقة له قالب جاهز عندنا: [${template.nameAr}] — مدين: ${template.debitAccountCode} / دائن: ${template.creditAccountCode} (${template.description}). لو مناسبك اضغط إنشاء قيد من القالب وأنا أكمّل معاك.`
         );
         suggestedActions.push({ label: `إنشاء قيد من قالب ${template.nameAr}`, action: 'CREATE_ENTRY_FROM_TEMPLATE', params: { templateId: template.id } });
       }
@@ -225,7 +225,7 @@ export class SmartAgentEnhancer {
     const answer =
       parts.length > 0
         ? parts.join('\n\n')
-        : 'لم يتم العثور على إجابة مباشرة. يمكنك إعادة صياغة السؤال أو التواصل مع الدعم الفني.';
+        : 'معلش، مش لاقي إجابة مباشرة على السؤال ده في بيانات النظام. جرّب تعيد صياغته بجملة تانية، أو حدد الشاشة أو الحساب المقصود وأنا أدور عليه.';
 
     if (subQuestions.length > 1) {
       confidence = Math.max(0.5, confidence - 0.05 * (subQuestions.length - 1)); // أسئلة مركبة تقلل الثقة قليلاً

@@ -75,6 +75,20 @@ test('ملف قيود مطابق تماماً لملف آخر يُستورد م�
   assert.equal(new Set(imported.map((e) => e.entryNumber)).size, 2, 'لا نمرة قيد مكررة');
 });
 
+test('استيراد CSV للدليل لا يمسح قواعد الإيصالات التشغيلية ولا يعيد تعيين COA المفتوح', () => {
+  const rules = erpStore.distributionRules
+    .map((rule) => ({
+      ruleCode: rule.ruleCode,
+      percentages: rule.lines.map((line) => line.percentage),
+      accountIds: rule.lines.map((line) => line.accountId),
+    }))
+    .sort((a, b) => a.ruleCode.localeCompare(b.ruleCode));
+  assert.deepEqual(rules, [
+    { ruleCode: 'DIST-CERT-V1', percentages: [70, 30], accountIds: ['acc-4102', 'acc-2102'] },
+    { ruleCode: 'DIST-MEMB-V1', percentages: [50, 30, 20], accountIds: ['acc-4101', 'acc-2102', 'acc-2102'] },
+  ]);
+});
+
 test('نفس السنة والمسلسل في شهرين مختلفين ⇒ نمرة ثانية بلاحقة حتمية', () => {
   const numbers = imported2024()
     .map((e) => e.entryNumber)

@@ -29,6 +29,7 @@ import {
   HeartHandshake,
 } from 'lucide-react';
 import { api } from '../services/api.js';
+import { hasPerm } from '../utils/permissions.js';
 import {
   ActuarialFund,
   ActuarialSimulationParams,
@@ -79,7 +80,7 @@ export const ActuarialStudio: React.FC<ActuarialStudioProps> = ({
   const loadFunds = async () => {
     setLoading(true);
     try {
-      const data = await api.getActuarialFunds();
+      const data = await api.getActuarialFunds(organizationId);
       setFunds(data);
       if (data.length > 0 && !selectedFundId) {
         setSelectedFundId(data[0].id);
@@ -103,7 +104,7 @@ export const ActuarialStudio: React.FC<ActuarialStudioProps> = ({
         fundId,
         ...(customParams || {}),
       };
-      const result = await api.simulateActuarialProjections(paramsToRun);
+      const result = await api.simulateActuarialProjections(organizationId, paramsToRun);
       setSimulationResult(result);
     } catch (err: any) {
       console.error(err);
@@ -154,10 +155,10 @@ export const ActuarialStudio: React.FC<ActuarialStudioProps> = ({
     setSubmitting(true);
     try {
       if (editingFund.id) {
-        await api.updateActuarialFund(editingFund.id, editingFund);
+        await api.updateActuarialFund(editingFund.id, organizationId, editingFund);
         onShowToast('success', 'تم تحديث التقييم والبيانات الإكتوارية للصندوق بنجاح.');
       } else {
-        await api.createActuarialFund(editingFund);
+        await api.createActuarialFund(organizationId, editingFund);
         onShowToast('success', 'تم تأسيس وإضافة الصندوق الإكتواري بنجاح في PostgreSQL.');
       }
       setIsModalOpen(false);
@@ -181,6 +182,7 @@ export const ActuarialStudio: React.FC<ActuarialStudioProps> = ({
   const overallSolvency = totalTargetReserve > 0 ? (totalReserve / totalTargetReserve) * 100 : 100;
 
   const selectedFund = funds.find((f) => f.id === selectedFundId) || funds[0];
+  const canManageFunds = hasPerm(currentUser, 'system:admin');
 
   return (
     <div className="space-y-6 animate-fadeIn pb-12">
@@ -215,15 +217,27 @@ export const ActuarialStudio: React.FC<ActuarialStudioProps> = ({
             <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
             تحديث
           </button>
-          <button
-            onClick={handleOpenAddModal}
-            className="flex items-center gap-1.5 px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold rounded-xl transition shadow-lg shadow-indigo-900/40"
-          >
-            <Plus className="w-4 h-4" />
-            تأسيس صندوق جديد
-          </button>
+          {canManageFunds && (
+            <button
+              onClick={handleOpenAddModal}
+              className="flex items-center gap-1.5 px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold rounded-xl transition shadow-lg shadow-indigo-900/40"
+            >
+              <Plus className="w-4 h-4" />
+              تأسيس صندوق جديد
+            </button>
+          )}
         </div>
       </div>
+
+      {!loading && funds.length === 0 && (
+        <div role="status" className="flex items-start gap-3 rounded-xl border border-amber-500/25 bg-amber-500/5 p-4 text-[11px] leading-5 text-amber-100">
+          <ShieldAlert className="mt-0.5 h-4 w-4 shrink-0 text-amber-300" />
+          <div>
+            <strong className="block text-amber-200">لا توجد صناديق مسندة حالياً إلى {organizationId}.</strong>
+            <span>لا تُعرض سجلات مؤسسة أخرى، ولا تُعاد نسبة سجلات org-union-main إلى النقابة العامة تلقائياً. يلزم تحقق مؤسسي قبل أي ترحيل أو إعادة إسناد.</span>
+          </div>
+        </div>
+      )}
 
       {/* Primary KPI Metrics */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3.5">
@@ -466,12 +480,14 @@ export const ActuarialStudio: React.FC<ActuarialStudioProps> = ({
 
                   {/* Action buttons */}
                   <div className="flex items-center justify-between gap-2 mt-4">
-                    <button
-                      onClick={() => handleOpenEditModal(fund)}
-                      className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold rounded-lg border border-slate-700 transition"
-                    >
-                      تعديل التقييم
-                    </button>
+                    {canManageFunds && (
+                      <button
+                        onClick={() => handleOpenEditModal(fund)}
+                        className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold rounded-lg border border-slate-700 transition"
+                      >
+                        تعديل التقييم
+                      </button>
+                    )}
                     <button
                       onClick={() => {
                         setSelectedFundId(fund.id);

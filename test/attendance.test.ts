@@ -2,6 +2,7 @@ import assert from 'assert';
 import { erpStore } from '../server/db/store.js';
 import { employeeAffairsService } from '../server/services/employee-affairs.service.js';
 import { attendanceService } from '../server/services/attendance.service.js';
+import { biometricService } from '../server/services/biometric.service.js';
 import { payrollService } from '../server/services/payroll.service.js';
 
 /**
@@ -20,6 +21,7 @@ function runTests() {
   assert.ok(erpStore.employees.length >= 70, `يجب توفر العاملين (found ${erpStore.employees.length})`);
 
   const admin = erpStore.users.find((u) => u.role === 'PROGRAM_MANAGER');
+  const organizationId = 'org-training-center';
   assert.ok(admin, 'مدير البرنامج محمد عبد الله أحمد موجود');
   const arbRole = (erpStore as any).permissionsByRole?.['PROGRAM_MANAGER'];
   assert.ok(
@@ -197,8 +199,12 @@ function runTests() {
   assert.ok(['FACE', 'FINGERPRINT'].includes(seedRec.checkInMethod || ''), 'طريقة بصمة: وجه أو إصبع');
   assert.ok((seedRec.verificationScore || 0) >= 0.9, 'درجة تحقق ≥ 90%');
 
-  const run = payrollService.generateRun(admin!, { year: 2099, month: 1, useAttendance: true });
-  assert.strictEqual(run.basedOnAttendance, true, 'المسير مُعلَّم كمبني على الحضور والبصمة');
+  // محاكاة موافقة الربط الصريحة في الاختبار دون كتابة حالة دائمة على الجهاز.
+  const originalPayrollLinkApproval = biometricService.isPayrollLinkApproved;
+  biometricService.isPayrollLinkApproved = () => true;
+  const run = payrollService.generateRun(admin!, { organizationId, year: 2099, month: 1, useAttendance: true });
+  biometricService.isPayrollLinkApproved = originalPayrollLinkApproval;
+  assert.strictEqual(run.basedOnAttendance, true, 'المسير مُعلَّم كمبني على الحضور بعد اعتماد الربط');
   assert.ok(run.totals.totalAttendanceDeduction! > 0, 'خصومات الغياب النمطية نشأت من الغيابات الدورية');
   assert.ok(
     run.lines.some((l) => (l.attendanceDeduction || 0) > 0 && (l.absentDays || 0) > 0),
@@ -209,14 +215,14 @@ function runTests() {
   assert.strictEqual(sample.netPayable, expected, 'الصافي = أساسي + مكافآت + إضافي − خصومات − سلف − خصم حضور');
 
   // تجاوز الحضور يُرجع المسير التقليدي
-  const plain = payrollService.generateRun(admin!, { year: 2099, month: 1, useAttendance: false, notes: 'override' });
+  const plain = payrollService.generateRun(admin!, { organizationId, year: 2099, month: 1, useAttendance: false, notes: 'override' });
   assert.strictEqual(plain.basedOnAttendance, false, 'تعطيل الربط يعيد الحساب التقليدي');
   assert.strictEqual(plain.totals.totalAttendanceDeduction || 0, 0);
 
-  const withAtt = payrollService.generateRun(admin!, { year: 2099, month: 1, useAttendance: true, notes: 'rebased' });
-  const approved = payrollService.approveRun(admin!, withAtt.id);
+  const withAtt = payrollService.generateRun(admin!, { organizationId, year: 2099, month: 1, useAttendance: true, notes: 'rebased' });
+  const approved = payrollService.approveRun(admin!, withAtt.id, organizationId);
   assert.strictEqual(approved.status, 'APPROVED', 'محمد عبد الله أحمد يعتمد المسير بنفسه (لا مانع داخل دورة الموافقات)');
-  const posted = payrollService.postRun(admin!, withAtt.id);
+  const posted = payrollService.postRun(admin!, withAtt.id, organizationId);
   assert.strictEqual(posted.run.status, 'POSTED');
   const totalDebit = posted.entry.lines.reduce((s, l) => s + l.debit, 0);
   const totalCredit = posted.entry.lines.reduce((s, l) => s + l.credit, 0);
@@ -235,7 +241,7 @@ function runTests() {
   // Test 6: مسير شهر بلا حركات بصمة → يتراجع تلقائياً للحساب التقليدي
   // -------------------------------------------------------------
   console.log('\n🔹 Test 6: Month without punches falls back to classic computation');
-  const emptyRun = payrollService.generateRun(admin!, { year: 2099, month: 2 });
+  const emptyRun = payrollService.generateRun(admin!, { organizationId, year: 2099, month: 2 });
   assert.strictEqual(emptyRun.basedOnAttendance || false, false, 'شهر بلا سجلات تواجد = حساب تقليدي');
   assert.ok(!emptyRun.totals.totalAttendanceDeduction, 'لا خصومات حضور بلا حركات');
   console.log('  ✅ Passed: graceful fallback when a month has no biometric data.');

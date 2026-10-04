@@ -60,7 +60,7 @@ const fmtTime = (iso?: string) => {
   return `${String(d.getUTCHours()).padStart(2, '0')}:${String(d.getUTCMinutes()).padStart(2, '0')}`;
 };
 
-export const Attendance: React.FC<AttendanceProps> = ({ currentUser, onShowToast }) => {
+export const Attendance: React.FC<AttendanceProps> = ({ organizationId, currentUser, onShowToast }) => {
   const canManage = hasPerm(currentUser, 'attendance:manage');
   const now = new Date();
   const todayIso = now.toISOString().split('T')[0];
@@ -95,7 +95,11 @@ export const Attendance: React.FC<AttendanceProps> = ({ currentUser, onShowToast
 
   const loadBasics = async () => {
     try {
-      const [emps, devs, st] = await Promise.all([api.getEmployees(), api.getAttendanceDevices(), api.getAttendanceSettings()]);
+      const [emps, devs, st] = await Promise.all([
+        api.getEmployees(organizationId),
+        api.getAttendanceDevices(),
+        api.getAttendanceSettings(),
+      ]);
       setEmployees(emps.filter((e) => e.status === 'ACTIVE'));
       setDevices(devs);
       setSettings(st);
@@ -108,6 +112,7 @@ export const Attendance: React.FC<AttendanceProps> = ({ currentUser, onShowToast
   const loadRecords = async () => {
     try {
       const recs = await api.getAttendanceRecords({
+        organizationId,
         employeeId: filterEmp || undefined,
         date: filterDate || undefined,
       });
@@ -119,7 +124,7 @@ export const Attendance: React.FC<AttendanceProps> = ({ currentUser, onShowToast
 
   const loadSummaries = async () => {
     try {
-      setSummaries(await api.getAttendanceMonthSummaries(sumYear, sumMonth));
+      setSummaries(await api.getAttendanceMonthSummaries(organizationId, sumYear, sumMonth));
     } catch (err: any) {
       onShowToast('error', err.message || 'تعذر تحميل الملخصات الشهرية.');
     }
@@ -127,16 +132,16 @@ export const Attendance: React.FC<AttendanceProps> = ({ currentUser, onShowToast
 
   useEffect(() => {
     loadBasics();
-  }, []);
+  }, [organizationId]);
 
   useEffect(() => {
     if (tab === 'register') loadRecords();
     if (tab === 'monthly') loadSummaries();
-  }, [tab]);
+  }, [tab, organizationId, sumYear, sumMonth]);
 
   useEffect(() => {
     loadRecords();
-  }, [filterEmp, filterDate]);
+  }, [filterEmp, filterDate, organizationId]);
 
   const handlePunch = async (e: React.FormEvent) => {
     e.preventDefault();

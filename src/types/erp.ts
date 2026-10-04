@@ -906,6 +906,8 @@ export interface UserSecurityState {
 export interface Employee {
   id: string;
   employeeCode: string; // EMP-001
+  /** Tenant owning this employee record; required for server-side HR isolation. */
+  organizationId: string;
   fullName: string;
   jobTitle?: string;
   department?: string;
@@ -946,6 +948,8 @@ export const EMPLOYEE_AFFAIR_TYPES_AR: Record<EmployeeAffairType, string> = {
 
 export interface EmployeeAffair {
   id: string;
+  /** Tenant copied from the referenced employee for direct, durable isolation. */
+  organizationId: string;
   employeeId: string;
   employeeName: string;
   type: EmployeeAffairType;
@@ -972,6 +976,8 @@ export interface EmployeeAdvancePayment {
 
 export interface EmployeeAdvance {
   id: string;
+  /** Tenant copied from the referenced employee for direct, durable isolation. */
+  organizationId: string;
   employeeId: string;
   employeeName: string;
   amount: number; // إجمالي السلفة
@@ -1096,6 +1102,8 @@ export interface AttendanceSettings {
 
 export interface AttendanceRecord {
   id: string;
+  /** Tenant copied from the referenced employee; legacy rows are resolved fail-closed. */
+  organizationId: string;
   employeeId: string;
   employeeCode: string;
   employeeName: string;

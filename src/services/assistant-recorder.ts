@@ -66,6 +66,12 @@ export class AssistantRecorder {
       this.limitTimer = setTimeout(() => {
         if (!this.cancelled && revision === this.revision) onLimit();
       }, ASSISTANT_LIMITS.audioSeconds * 1000);
+      // Create and resume synchronously in the user's click handler. Waiting for
+      // the microphone permission promise first can lose transient user activation
+      // and make Chromium block the AudioContext as autoplay.
+      const context = new AudioContext();
+      this.context = context;
+      const contextReady = context.resume().catch(() => undefined);
       const stream = await navigator.mediaDevices.getUserMedia({
         video: false,
         audio: { echoCancellation: true, noiseSuppression: true, channelCount: 1 },
@@ -75,8 +81,11 @@ export class AssistantRecorder {
         return;
       }
       this.stream = stream;
-      const context = new AudioContext();
-      this.context = context;
+      await contextReady;
+      if (this.cancelled || revision !== this.revision) return;
+      if (context.state !== 'running') {
+        throw new Error('تعذّر تفعيل الصوت. اضغط بدء الإملاء بعد السماح باستخدام الميكروفون.');
+      }
       await context.audioWorklet.addModule('/assistant-recorder.worklet.js');
       if (this.cancelled || revision !== this.revision) {
         if (revision === this.revision) await this.cancel();
@@ -105,7 +114,6 @@ export class AssistantRecorder {
           lastLevelAt = Date.now();
         }
       };
-      await context.resume();
     } catch (error) {
       if (revision === this.revision) await this.cancel();
       throw error;

@@ -13,6 +13,8 @@ import { erpStore } from '../server/db/store.js';
 import { accountingService } from '../server/services/accounting.service.js';
 import { regulationService } from '../server/services/regulation.service.js';
 import { resolveBasicStatutePath } from '../server/services/regulation-documents.js';
+import { USER_PROVIDED_GAZETTE_REFERENCE } from '../server/data/gazette-reference.js';
+import { FINANCIAL_ANOMALIES } from '../server/data/financial-rules.js';
 import { smartAgentEnhancer } from '../server/services/smart-agent.service.js';
 
 /**
@@ -46,6 +48,23 @@ function runTests() {
   const runtimeDistributionIssue = FINANCIAL_REGULATION_SOURCE_ISSUES.find((issue) => issue.id === 'FR-RUNTIME-DISTRIBUTION-MISMATCH');
   assert.ok(runtimeDistributionIssue, 'يُسجل اختلاف قاعدة الإيصالات الحية عن نص المادة');
   assert.strictEqual(sha256(runtimeDistributionIssue!.sourcePath), runtimeDistributionIssue!.sourceSha256, 'بصمة قاعدة التوزيع التشغيلية الحالية');
+  const printingBasisIssue = FINANCIAL_REGULATION_SOURCE_ISSUES.find((issue) => issue.id === 'FR-ARTICLE-2-PROFESSIONAL-PRINTING-BASIS');
+  assert.ok(printingBasisIssue, 'يبقى أساس نسبة المطبوعات المضافة في ملف اللجان المهنية معلّقاً');
+  assert.strictEqual(sha256(printingBasisIssue!.sourcePath), printingBasisIssue!.sourceSha256, 'بصمة ملف اللجان المهنية المحدث');
+  const article72GazetteIssue = FINANCIAL_REGULATION_SOURCE_ISSUES.find((issue) => issue.id === 'FR-GAZETTE-CROSSCHECK-ARTICLE-72');
+  assert.ok(article72GazetteIssue, 'يُسجل تعارض المادة 72 الذي ظهر عند مراجعة الوقائع المصرية');
+  assert.strictEqual(article72GazetteIssue!.status, 'INTERPRETATION_SELECTED_NOT_AUTHENTICATED');
+  assert.strictEqual(article72GazetteIssue!.sourcePath, USER_PROVIDED_GAZETTE_REFERENCE.sourceFilePath);
+  assert.strictEqual(article72GazetteIssue!.sourceSha256, USER_PROVIDED_GAZETTE_REFERENCE.sourceFileSha256);
+  assert.strictEqual(sha256(article72GazetteIssue!.sourcePath), article72GazetteIssue!.sourceSha256, 'بصمة نسخة الوقائع التي أظهرت التعارض');
+  assert.match(article72GazetteIssue!.descriptionAr, /95%[\s\S]*5% الباقية/);
+  const article72Anomaly = FINANCIAL_ANOMALIES.find((anomaly) => anomaly.id === 'FR-ANOM-006');
+  assert.ok(article72Anomaly, 'يظهر التعارض في تقرير الشذوذات المالية ولا يُخفى عن المستخدم');
+  assert.match(article72Anomaly!.evidenceAr, /الصفحة المطبوعة 41/);
+  const article2Note = FINANCIAL_REGULATION_ARTICLES.find((article) => article.articleNo === '2')?.sourceCitation?.noteAr || '';
+  assert.match(article2Note, /CSV النهائي 30\/10\/10\/50/);
+  assert.match(article2Note, /50\/30\/20/);
+  assert.match(article2Note, /المطبوعات 10% بلا قيم أو معادلات/);
   const activeMembershipRule = erpStore.distributionRules.find((rule) => rule.ruleCode === 'DIST-MEMB-V1');
   assert.deepStrictEqual(activeMembershipRule?.lines.map((line) => line.percentage), [50, 30, 20], 'يحافظ الاختبار على النموذج التشغيلي الحالي ولا يدّعي مطابقته للمادة 2');
   const liveReceiptMismatch = regulationService.checkDistributionPercentages(
@@ -72,7 +91,7 @@ function runTests() {
     PROC_LIMITED_TENDER_CEILING: 500_000,
     PROC_LIMITED_TENDER_CEILING_BRANCH: 250_000,
     CONTRACT_ADVANCE_PCT: 25,
-    CONTRACT_WORKS_PROGRESS_PCT: 5,
+    CONTRACT_WORKS_PROGRESS_PCT: 95,
     CONTRACT_WORKS_GUARANTEED_REMAINDER_PCT: 5,
     CONTRACT_MATERIALS_SUPPLY_PCT: 75,
     CONTRACT_SUPPLY_VARIATION_PCT: 15,
@@ -91,6 +110,7 @@ function runTests() {
     TRAVEL_ALLOWANCE_DAILY_CAP_BRANCH: '37',
     GIFTS_CEILING_EXCEPTIONAL: '50',
     PROC_LIMITED_TENDER_CEILING_BRANCH: '61',
+    CONTRACT_WORKS_PROGRESS_PCT: '72',
     CONTRACT_WORKS_GUARANTEED_REMAINDER_PCT: '72',
     PENALTY_CAP_PCT: '73',
     PENALTY_CAP_SUPPLY_PCT: '73',
@@ -99,7 +119,9 @@ function runTests() {
   for (const [ruleId, articleNo] of Object.entries(criticalArticleLinks)) {
     assert.strictEqual(activeById.get(ruleId)?.articleNo, articleNo, `${ruleId} مرتبط بالمادة ${articleNo}`);
   }
-  assert.strictEqual(activeById.has('CONTRACT_PROGRESS_PAYMENT_PCT'), false, 'لا توجد عتبة 95% في المصدر');
+  assert.strictEqual(activeById.has('CONTRACT_PROGRESS_PAYMENT_PCT'), false, 'حد الأعمال 95% يعمل عبر القاعدة التخصصية دون إنشاء حد إجمالي مكرر للدفعات تحت الحساب.');
+  assert.match(FINANCIAL_REGULATION_ARTICLES.find((article) => article.articleNo === '72')?.text || '', /اختيار المستخدم[\s\S]*95%[\s\S]*5%/);
+  assert.match(article72Anomaly!.resolutionAr, /اختار المستخدم[\s\S]*95%[\s\S]*5%/);
   for (const config of REGULATION_ACTIVATED_RULES) {
     const article = FINANCIAL_REGULATION_ARTICLES.find((candidate) => candidate.articleNo === config.articleNo);
     assert.ok(article?.sourceCitation, `المادة ${config.articleNo} لها اقتباس مصدر`);

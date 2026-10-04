@@ -14,6 +14,8 @@ interface AuditSettingsHubProps {
   onShowToast: (type: 'success' | 'error' | 'warning' | 'info', msg: string) => void;
   /** الوحدة الفرعية المفتوحة عند الوصول */
   initialTab?: AuditSettingsTabId;
+  /** تستخدم عند تضمين الوحدة داخل شاشة الرقابة المالية الموحدة. */
+  embedded?: boolean;
 }
 
 const SUB_TABS: ModuleTabDef<AuditSettingsTabId>[] = [
@@ -26,6 +28,7 @@ export const AuditSettingsHub: React.FC<AuditSettingsHubProps> = ({
   currentUser,
   onShowToast,
   initialTab = 'audit',
+  embedded = false,
 }) => {
   const [activeTab, setActiveTab] = useState<AuditSettingsTabId>(initialTab);
   const canConfigure = Boolean(currentUser?.isActive && hasPerm(currentUser, 'system:admin'));
@@ -39,6 +42,8 @@ export const AuditSettingsHub: React.FC<AuditSettingsHubProps> = ({
         activeId={visibleTab}
         onChange={setActiveTab}
         icon={Lock}
+        titleVisible={!embedded}
+        sticky={!embedded}
       />
 
       <div>
