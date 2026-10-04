@@ -59,7 +59,10 @@ export const EmployeeAdvances: React.FC<EmployeeAdvancesProps> = ({
   const loadAll = async () => {
     setLoading(true);
     try {
-      const [emps, advs] = await Promise.all([api.getEmployees(), api.getEmployeeAdvances()]);
+      const [emps, advs] = await Promise.all([
+        api.getEmployees(organizationId),
+        api.getEmployeeAdvances(organizationId),
+      ]);
       setEmployees(emps);
       setAdvances(advs);
     } catch (err: any) {

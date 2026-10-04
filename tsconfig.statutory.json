@@ -1,0 +1,35 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "lib": ["ES2022", "DOM"],
+    "strict": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "allowJs": true,
+    "resolveJsonModule": true,
+    "noEmit": true,
+    "types": ["node"]
+  },
+  "include": [
+    "server/data/statute-articles.ts",
+    "server/data/financial-rules.ts",
+    "server/data/chart-of-accounts.ts",
+    "server/data/financial-regulation.ts",
+    "server/services/statute.service.ts",
+    "server/services/financial.service.ts",
+    "server/services/accounting-core.service.ts",
+    "server/routes/statute.routes.ts",
+    "server/routes/financial.routes.ts",
+    "server/routes/accounting.routes.ts",
+    "server/routes/statutory-ui.routes.ts",
+    "src/types/erp.statute.ts",
+    "src/types/erp.financial.ts",
+    "src/types/erp.accounting.ts",
+    "src/features/statute/statutePayloadDefaults.ts",
+    "src/features/statute/statuteViewModel.ts",
+    "src/utils/statutory-arabic.ts",
+    "scripts/verify-statutory-integration.ts"
+  ]
+}

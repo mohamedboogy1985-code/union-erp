@@ -51,6 +51,19 @@ import {
   AiAgentSkill,
   AccountingProcedure,
 } from '../types/erp.js';
+import type {
+  BusinessTaxResult,
+  PayrollTaxResult,
+  WithholdingResult,
+  TaxEntryDraft,
+  TaxOverview,
+  TaxRegister,
+  VoiceDraftRecord,
+} from '../types/erp.tax.js';
+import type { BiometricEnrollment, BiometricOverview, PayrollLinkState } from '../types/erp.biometric.js';
+import type { RegulationAskResult, RegulationDocumentRecord, RegulationLibraryView } from '../types/erp.regulations.js';
+import type { AssistantRunResult } from '../types/operator-assistant.js';
+import type { DistributionDocumentView } from '../types/erp.distribution.js';
 
 // المستخدم الافتراضي: مدير البرنامج محمد عبد الله أحمد (جميع الصلاحيات)
 // مع حفظ اختيار المستخدم في المتصفح لتذكره بين الجلسات
@@ -105,6 +118,46 @@ export async function request<T>(url: string, options: RequestInit = {}): Promis
   return data as T;
 }
 
+async function fetchAuthenticatedResponse(url: string, options: RequestInit = {}): Promise<Response> {
+  const headers = new Headers(options.headers);
+  headers.set('x-user-id', currentUserId);
+  if (sessionToken) headers.set('Authorization', `Bearer ${sessionToken}`);
+
+  const response = await fetch(url, { ...options, headers });
+  if (!response.ok) {
+    const data = await response.json().catch(() => ({}));
+    throw new ApiError(data.error || data.message || 'تعذّر تحميل الملف.', response.status, data.code);
+  }
+  return response;
+}
+
+/** Fetch a binary API resource with the same explicit identity as JSON API requests. */
+export async function fetchAuthenticatedBlob(url: string, options: RequestInit = {}): Promise<Blob> {
+  const response = await fetchAuthenticatedResponse(url, options);
+  return response.blob();
+}
+
+/** Download a protected API resource without putting identity or bearer tokens in the URL. */
+export async function downloadAuthenticatedFile(url: string, filename?: string): Promise<void> {
+  const response = await fetchAuthenticatedResponse(url);
+  const blob = await response.blob();
+  const contentDisposition = response.headers.get('content-disposition') || '';
+  const encodedFilename = contentDisposition.match(/filename\*=UTF-8''([^;]+)/i)?.[1];
+  const plainFilename = contentDisposition.match(/filename=["']?([^"';]+)["']?/i)?.[1];
+  const responseFilename = encodedFilename
+    ? decodeURIComponent(encodedFilename)
+    : plainFilename;
+  const objectUrl = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = objectUrl;
+  link.download = filename || responseFilename || 'download';
+  link.rel = 'noopener';
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  window.setTimeout(() => URL.revokeObjectURL(objectUrl), 60_000);
+}
+
 export interface AuthLoginResult {
   success: boolean;
   user?: User;
@@ -143,11 +196,14 @@ export const api = {
   getCommittees: (category?: 'COMPANY' | 'PROFESSIONAL') =>
     request<CommitteeSummary[]>(category ? `/api/committees?category=${category}` : '/api/committees'),
   getCommitteesData: () => request<CommitteesData>('/api/committees-data'),
-  getInsuredList: (q?: string) =>
+  getInsuredList: (organizationId: string, q?: string) =>
     q
-      // fix(security): البحث بمعايير حساسة يمر عبر POST بدل query string حتى لا تُسجَّل في الروابط وسجلات البروكسي
-      ? request<InsuredMember[]>('/api/insured-list/search', { method: 'POST', body: JSON.stringify({ q }) })
-      : request<InsuredMember[]>('/api/insured-list'),
+      // البحث بمعايير حساسة يمر عبر POST؛ المؤسسة تُرسل مستقلة ويعيد الخادم مطابقتها مع المنح.
+      ? request<InsuredMember[]>('/api/insured-list/search', {
+          method: 'POST',
+          body: JSON.stringify({ q, organizationId }),
+        })
+      : request<InsuredMember[]>(`/api/insured-list?organizationId=${encodeURIComponent(organizationId)}`),
     getJournal2024: () => request<JournalRow[]>(`/api/journal-2024`),
   createJournal2024: (data: Partial<JournalRow>) =>
     request<JournalRow>(`/api/journal-2024`, { method: "POST", body: JSON.stringify(data) }),
@@ -253,6 +309,8 @@ export const api = {
       body: JSON.stringify(data),
     }),
   getDistributionRules: () => request<RevenueDistributionRule[]>('/api/revenue-distribution-rules'),
+  getRevenueDistributionFinal: () =>
+    request<DistributionDocumentView>('/api/revenue-distribution/final'),
   createDistributionRule: (data: any) =>
     request<RevenueDistributionRule>('/api/revenue-distribution-rules', {
       method: 'POST',
@@ -282,6 +340,11 @@ export const api = {
   getRegulation: () =>
     request<{
       document: string;
+      gazetteReference: {
+        referenceAr: string;
+        noteAr: string;
+        verificationStatus: string;
+      };
       articles: {
         articleNo: string;
         title: string;
@@ -336,8 +399,11 @@ export const api = {
   parseVoiceDictationAI: (spokenText: string) =>
     request<any>('/api/ai/voice-dictation', { method: 'POST', body: JSON.stringify({ spokenText }) }),
   // تحويل صوت مسجل (dataUrl) إلى نص عبر Gemini — بديل موثوق لـ Web Speech API
-  transcribeVoiceAI: (dataUrl: string) =>
-    request<{ text: string }>('/api/ai/stt', { method: 'POST', body: JSON.stringify({ dataUrl }) }),
+  transcribeVoiceAI: (dataUrl: string, mimeType?: string) =>
+    request<{ text: string }>('/api/ai/stt', {
+      method: 'POST',
+      body: JSON.stringify({ dataUrl, ...(mimeType ? { mimeType } : {}) }),
+    }),
   getFinancialForecastAI: (horizon: number = 12) =>
     request<any>(`/api/ai/financial-forecast?horizon=${horizon}`),
 
@@ -425,29 +491,36 @@ export const api = {
     }),
 
   // Actuarial Studio & Pension Funds (الدراسات الإكتوارية وصناديق المعاشات)
-  getActuarialFunds: () => request<ActuarialFund[]>('/api/actuarial/funds'),
-  createActuarialFund: (data: Partial<ActuarialFund>) =>
+  getActuarialFunds: (organizationId: string) =>
+    request<ActuarialFund[]>(`/api/actuarial/funds?organizationId=${encodeURIComponent(organizationId)}`),
+  createActuarialFund: (organizationId: string, data: Partial<ActuarialFund>) =>
     request<ActuarialFund>('/api/actuarial/funds', {
       method: 'POST',
-      body: JSON.stringify(data),
+      body: JSON.stringify({ ...data, organizationId }),
     }),
-  updateActuarialFund: (id: string, data: Partial<ActuarialFund>) =>
+  updateActuarialFund: (id: string, organizationId: string, data: Partial<ActuarialFund>) =>
     request<{ success: boolean; message: string }>(`/api/actuarial/funds/${id}`, {
       method: 'PUT',
-      body: JSON.stringify(data),
+      body: JSON.stringify({ ...data, organizationId }),
     }),
-  simulateActuarialProjections: (params: Partial<ActuarialSimulationParams>) =>
+  simulateActuarialProjections: (organizationId: string, params: Partial<ActuarialSimulationParams>) =>
     request<ActuarialSimulationResult>('/api/actuarial/simulate', {
       method: 'POST',
-      body: JSON.stringify(params),
+      body: JSON.stringify({ ...params, organizationId }),
     }),
 
   // Employee Affairs (شئون العاملين — استمارة 2 تأمينات + الشئون الإدارية + السلف)
-  getEmployees: (search?: string) =>
-    request<Employee[]>(search ? `/api/employees?search=${encodeURIComponent(search)}` : '/api/employees'),
-  getEmployeeAffairsSummary: () => request<EmployeeAffairsSummary>('/api/employee-affairs/summary'),
-  getEmployeeAffairs: (params: { employeeId?: string; type?: string; status?: string } = {}) => {
-    const query = new URLSearchParams();
+  getEmployees: (organizationId: string, search?: string) => {
+    const query = new URLSearchParams({ organizationId });
+    if (search) query.set('search', search);
+    return request<Employee[]>(`/api/employees?${query.toString()}`);
+  },
+  getEmployeeAffairsSummary: (organizationId: string) => {
+    const query = new URLSearchParams({ organizationId });
+    return request<EmployeeAffairsSummary>(`/api/employee-affairs/summary?${query.toString()}`);
+  },
+  getEmployeeAffairs: (params: { organizationId: string; employeeId?: string; type?: string; status?: string }) => {
+    const query = new URLSearchParams({ organizationId: params.organizationId });
     if (params.employeeId) query.set('employeeId', params.employeeId);
     if (params.type) query.set('type', params.type);
     if (params.status) query.set('status', params.status);
@@ -462,8 +535,11 @@ export const api = {
     }),
   deleteEmployeeAffair: (id: string) =>
     request<{ success: boolean; message: string }>(`/api/employee-affairs/${id}`, { method: 'DELETE' }),
-  getEmployeeAdvances: (employeeId?: string) =>
-    request<EmployeeAdvance[]>(employeeId ? `/api/employee-advances?employeeId=${employeeId}` : '/api/employee-advances'),
+  getEmployeeAdvances: (organizationId: string, employeeId?: string) => {
+    const query = new URLSearchParams({ organizationId });
+    if (employeeId) query.set('employeeId', employeeId);
+    return request<EmployeeAdvance[]>(`/api/employee-advances?${query.toString()}`);
+  },
   createEmployeeAdvance: (data: any) =>
     request<EmployeeAdvance>('/api/employee-advances', { method: 'POST', body: JSON.stringify(data) }),
   payEmployeeAdvanceInstallment: (id: string, payment: { amount: number; date: string; method?: string; notes?: string }) =>
@@ -475,24 +551,28 @@ export const api = {
     request<{ success: boolean; message: string }>(`/api/employee-advances/${id}`, { method: 'DELETE' }),
 
   // Payroll (شاشة المرتبات — مسير الرواتب الشهري)
-  getPayrollRuns: () => request<PayrollRun[]>('/api/payroll/runs'),
-  getPayrollImportedMonths: () => request<any[]>('/api/payroll/imported-months'),
-  getPayrollImportedMonth: (id: string) => request<any>(`/api/payroll/imported-months/${id}`),
-  getPayrollRun: (id: string) => request<PayrollRun>(`/api/payroll/runs/${id}`),
-  generatePayrollRun: (data: { year: number; month: number; notes?: string; useAttendance?: boolean }) =>
+  getPayrollRuns: (organizationId: string) =>
+    request<PayrollRun[]>(`/api/payroll/runs?${new URLSearchParams({ organizationId }).toString()}`),
+  getPayrollImportedMonths: (organizationId: string) =>
+    request<any[]>(`/api/payroll/imported-months?${new URLSearchParams({ organizationId }).toString()}`),
+  getPayrollImportedMonth: (id: string, organizationId: string) =>
+    request<any>(`/api/payroll/imported-months/${encodeURIComponent(id)}?${new URLSearchParams({ organizationId }).toString()}`),
+  getPayrollRun: (id: string, organizationId: string) =>
+    request<PayrollRun>(`/api/payroll/runs/${encodeURIComponent(id)}?${new URLSearchParams({ organizationId }).toString()}`),
+  generatePayrollRun: (data: { organizationId: string; year: number; month: number; notes?: string; useAttendance?: boolean }) =>
     request<PayrollRun>('/api/payroll/runs', { method: 'POST', body: JSON.stringify(data) }),
-  approvePayrollRun: (id: string) =>
-    request<PayrollRun>(`/api/payroll/runs/${id}/approve`, { method: 'POST', body: JSON.stringify({}) }),
-  postPayrollRun: (id: string) =>
-    request<{ run: PayrollRun; entry: JournalEntry }>(`/api/payroll/runs/${id}/post`, { method: 'POST', body: JSON.stringify({}) }),
-  deletePayrollRun: (id: string) =>
-    request<{ success: boolean; message: string }>(`/api/payroll/runs/${id}`, { method: 'DELETE' }),
+  approvePayrollRun: (id: string, organizationId: string) =>
+    request<PayrollRun>(`/api/payroll/runs/${encodeURIComponent(id)}/approve?${new URLSearchParams({ organizationId }).toString()}`, { method: 'POST', body: JSON.stringify({}) }),
+  postPayrollRun: (id: string, organizationId: string) =>
+    request<{ run: PayrollRun; entry: JournalEntry }>(`/api/payroll/runs/${encodeURIComponent(id)}/post?${new URLSearchParams({ organizationId }).toString()}`, { method: 'POST', body: JSON.stringify({}) }),
+  deletePayrollRun: (id: string, organizationId: string) =>
+    request<{ success: boolean; message: string }>(`/api/payroll/runs/${encodeURIComponent(id)}?${new URLSearchParams({ organizationId }).toString()}`, { method: 'DELETE' }),
 
   // استيراد أرشيف كشوف المرتبات ZIP/Excel
   importPayrollZipPreview: (fileBase64: string) =>
     request<any>('/api/payroll/import-zip', { method: 'POST', body: JSON.stringify({ fileBase64 }) }),
-  commitPayrollImport: (months: any[], year: number) =>
-    request<any>('/api/payroll/import-commit', { method: 'POST', body: JSON.stringify({ months, year }) }),
+  commitPayrollImport: (months: any[], year: number, organizationId: string) =>
+    request<any>('/api/payroll/import-commit', { method: 'POST', body: JSON.stringify({ months, year, organizationId }) }),
 
   // Attendance & Biometric Punch (الحضور والانصراف بالبصمة — وجه/إصبع)
   getAttendanceSettings: () => request<AttendanceSettings>('/api/attendance/settings'),
@@ -501,8 +581,8 @@ export const api = {
   getAttendanceDevices: () => request<AttendanceDevice[]>('/api/attendance/devices'),
   addAttendanceDevice: (data: { name: string; type: AttendanceDevice['type']; location: string }) =>
     request<AttendanceDevice>('/api/attendance/devices', { method: 'POST', body: JSON.stringify(data) }),
-  getAttendanceRecords: (params: { employeeId?: string; date?: string; from?: string; to?: string } = {}) => {
-    const qs = new URLSearchParams();
+  getAttendanceRecords: (params: { organizationId: string; employeeId?: string; date?: string; from?: string; to?: string }) => {
+    const qs = new URLSearchParams({ organizationId: params.organizationId });
     if (params.employeeId) qs.set('employeeId', params.employeeId);
     if (params.date) qs.set('date', params.date);
     if (params.from) qs.set('from', params.from);
@@ -529,10 +609,10 @@ export const api = {
     request<AttendanceRecord>(`/api/attendance/${id}`, { method: 'PUT', body: JSON.stringify(patch) }),
   deleteAttendanceRecord: (id: string) =>
     request<{ success: boolean; message: string }>(`/api/attendance/${id}`, { method: 'DELETE' }),
-  getAttendanceMonthSummaries: (year: number, month: number) =>
-    request<AttendanceMonthlySummary[]>(`/api/attendance/monthly/${year}/${month}`),
-  getAttendanceEmployeeSummary: (year: number, month: number, employeeId: string) =>
-    request<AttendanceMonthlySummary>(`/api/attendance/monthly/${year}/${month}/${employeeId}`),
+  getAttendanceMonthSummaries: (organizationId: string, year: number, month: number) =>
+    request<AttendanceMonthlySummary[]>(`/api/attendance/monthly/${year}/${month}?${new URLSearchParams({ organizationId }).toString()}`),
+  getAttendanceEmployeeSummary: (organizationId: string, year: number, month: number, employeeId: string) =>
+    request<AttendanceMonthlySummary>(`/api/attendance/monthly/${year}/${month}/${encodeURIComponent(employeeId)}?${new URLSearchParams({ organizationId }).toString()}`),
 
   // ─── منظومة الفاتورة الإلكترونية (ETA) — مصلحة الضرائب المصرية ───
   etaGetStatus: () => request<EtaStatus>(`/api/eta/status`),
@@ -613,6 +693,80 @@ export const api = {
       `/api/accounting-procedures/${id}/execute`,
       { method: 'POST' }
     ),
+
+  // ─── النظام الأساسي واللائحة المالية والنواة المحاسبية ───
+  // التفاصيل النظامية تستخدم statutoryApi في src/services/statutory-api.ts.
+
+  // ─── مكتبة اللوائح ومساعدها ───
+  getRegulationsOverview: () => request<RegulationLibraryView>('/api/regulations/overview'),
+  searchRegulations: (query = '', sourceId: string | null = null, limit = 40) => {
+    const qs = new URLSearchParams();
+    if (query) qs.set('q', query);
+    if (sourceId) qs.set('sourceId', sourceId);
+    qs.set('limit', String(limit));
+    return request<{ count: number; documents: RegulationDocumentRecord[] }>(`/api/regulations/search?${qs.toString()}`);
+  },
+  getRegulationLibraryDocument: (id: string) =>
+    request<RegulationDocumentRecord>(`/api/regulations/documents/${encodeURIComponent(id)}`),
+  askRegulations: (question: string) =>
+    request<RegulationAskResult>('/api/regulations/chat', { method: 'POST', body: JSON.stringify({ question }) }),
+
+  // ─── الضرائب المصرية ───
+  getTaxOverview: () => request<TaxOverview>('/api/tax/overview'),
+  getTaxRegister: (year: number, month?: number) => {
+    const qs = new URLSearchParams({ year: String(year) });
+    if (month !== undefined) qs.set('month', String(month));
+    return request<TaxRegister>(`/api/tax/register?${qs.toString()}`);
+  },
+  getTaxEntryDraft: (kind: string, amount: number, description?: string) => {
+    const qs = new URLSearchParams({ kind, amount: String(amount) });
+    if (description) qs.set('description', description.slice(0, 300));
+    return request<TaxEntryDraft>(`/api/tax/entry-draft?${qs.toString()}`);
+  },
+  calculatePayrollTax: (input: { annualGross?: number; monthlyGross?: number; annualInsurance?: number; monthlyInsurance?: number; otherExemptions?: number }) =>
+    request<PayrollTaxResult>('/api/tax/payroll/calculate', { method: 'POST', body: JSON.stringify(input) }),
+  calculateBusinessTax: (input: { netProfit: number; entityType?: 'NATURAL' | 'CORPORATE'; personalExemption?: boolean; adjustments?: number }) =>
+    request<BusinessTaxResult>('/api/tax/business/calculate', { method: 'POST', body: JSON.stringify(input) }),
+  calculateWithholding: (input: { amount: number; kind: string }) =>
+    request<WithholdingResult>('/api/tax/withholding/calculate', { method: 'POST', body: JSON.stringify(input) }),
+  recordTaxEntry: (input: { kind: 'PAYROLL_TAX' | 'BUSINESS_TAX' | 'WITHHOLDING' | 'VAT'; amount: number; description?: string; organizationId: string; date?: string; debitAccountId?: string; creditAccountId?: string; post?: boolean }) =>
+    request<any>('/api/tax/entries', { method: 'POST', body: JSON.stringify(input) }),
+
+  // ─── البصمة والحضور ───
+  getBiometricOverview: (organizationId: string, year?: number, month?: number) => {
+    const qs = new URLSearchParams({ organizationId });
+    if (year !== undefined) qs.set('year', String(year));
+    if (month !== undefined) qs.set('month', String(month));
+    return request<BiometricOverview>(`/api/biometric/overview?${qs.toString()}`);
+  },
+  enrollBiometric: (input: { employeeId: string; methods: ('FINGERPRINT' | 'FACE')[] }) =>
+    request<BiometricEnrollment>('/api/biometric/enroll', { method: 'POST', body: JSON.stringify(input) }),
+  punchBiometric: (input: { employeeId: string; method: 'FINGERPRINT' | 'FACE' }) =>
+    request<any>('/api/biometric/punch', { method: 'POST', body: JSON.stringify(input) }),
+  requestBiometricPayrollLink: (input: { noteAr?: string; appliedMonth?: string } = {}) =>
+    request<PayrollLinkState>('/api/biometric/payroll-link/request', { method: 'POST', body: JSON.stringify(input) }),
+  decideBiometricPayrollLink: (approved: boolean, noteAr?: string) =>
+    request<PayrollLinkState>('/api/biometric/payroll-link/decide', { method: 'POST', body: JSON.stringify({ approved, noteAr }) }),
+
+  // ─── وكيل القيود الصوتية ───
+  getVoiceStatus: () => request<{ ready: boolean; demoMode: boolean }>('/api/voice-journal/status'),
+  listVoiceDrafts: () => request<{ drafts: VoiceDraftRecord[]; counts: { pending: number; approved: number; posted: number; rejected: number } }>('/api/voice-journal/drafts'),
+  parseVoiceDraft: (input: { transcript: string; organizationId?: string }) =>
+    request<VoiceDraftRecord>('/api/voice-journal/parse', { method: 'POST', body: JSON.stringify(input) }),
+  saveVoiceDraft: (input: Partial<VoiceDraftRecord> & { transcript?: string; organizationId?: string }) =>
+    request<VoiceDraftRecord>('/api/voice-journal/drafts', { method: 'POST', body: JSON.stringify(input) }),
+  updateVoiceDraft: (id: string, input: Partial<Pick<VoiceDraftRecord, 'date' | 'description' | 'lines' | 'type'>>) =>
+    request<VoiceDraftRecord>(`/api/voice-journal/drafts/${encodeURIComponent(id)}`, { method: 'PATCH', body: JSON.stringify(input) }),
+  approveVoiceDraft: (id: string, organizationId: string) =>
+    request<{ draft: VoiceDraftRecord; entry: JournalEntry; warnings: string[]; steps: string[]; posted: boolean }>(`/api/voice-journal/drafts/${encodeURIComponent(id)}/approve`, { method: 'POST', body: JSON.stringify({ organizationId }) }),
+  rejectVoiceDraft: (id: string, note?: string) =>
+    request<VoiceDraftRecord>(`/api/voice-journal/drafts/${encodeURIComponent(id)}/reject`, { method: 'POST', body: JSON.stringify({ note }) }),
+
+  // ─── المساعد العام (النص والصوت والنبرة) ───
+  runGeneralAssistant: (input: { text: string; organizationId?: string; screenId?: string }) =>
+    request<AssistantRunResult>('/api/assistant/run', { method: 'POST', body: JSON.stringify(input) }),
+  confirmGeneralAssistant: (actionId: string) =>
+    request<AssistantRunResult>('/api/assistant/confirm', { method: 'POST', body: JSON.stringify({ actionId }) }),
 
   // ─── مكتبة النماذج والمستندات (مجلد «نماذج») ───
   getModels: () => request<{ directory: string; files: any[]; locked: boolean }>('/api/models'),

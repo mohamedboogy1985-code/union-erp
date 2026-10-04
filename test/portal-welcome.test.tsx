@@ -21,6 +21,7 @@ import React from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { PortalWelcome } from '../src/components/PortalWelcome.js';
 import { GATEWAYS, SCREENS, screensForPortal } from '../src/config/portals.js';
+import { OPERATOR_NAVIGATION } from '../src/config/operator-assistant-navigation.js';
 
 test('PortalWelcome renders the real gateway copy for each portal and nothing without one', () => {
   for (const gateway of GATEWAYS) {
@@ -70,9 +71,13 @@ test('routing: App lazy-loads the skills hub and mounts the welcome modal after 
   assert.match(app, /const \[welcomePortal, setWelcomePortal\] = useState<PortalId[^\n]*null>/);
 });
 
-test('AiHub exposes the real agent overview tab without changing the default start tab', () => {
-  const hub = fs.readFileSync(path.resolve(process.cwd(), 'src', 'pages', 'AiHub.tsx'), 'utf-8');
-  assert.match(hub, /id: 'overview'/);
-  assert.match(hub, /AiAgentOverview/);
-  assert.match(hub, /initialTab = 'customagent'/, 'the default start tab must stay as it was before the review');
+test('routing: the duplicate AI/live-assistant screen is removed while AetherSwarm remains available', () => {
+  const app = fs.readFileSync(path.resolve(process.cwd(), 'src', 'App.tsx'), 'utf-8');
+  assert.equal(SCREENS.some((screen) => screen.id === 'aihub'), false, 'the duplicate AI hub must leave the portal menu');
+  assert.ok(SCREENS.some((screen) => screen.id === 'aetherswarm'), 'AetherSwarm remains the single agent screen');
+  assert.equal(OPERATOR_NAVIGATION.some((screen) => screen.id === 'ai' || screen.id === 'liveagent'), false);
+  assert.ok(OPERATOR_NAVIGATION.some((screen) => screen.id === 'aetherswarm'));
+  assert.match(app, /currentTab === 'aetherswarm'[\s\S]*<AetherSwarmApp/);
+  assert.doesNotMatch(app, /import \{ AiHub/);
+  assert.match(app, /LEGACY_AI_TABS[\s\S]*return 'aetherswarm'/, 'old AI/live links should land on AetherSwarm, not recreate a duplicate screen');
 });

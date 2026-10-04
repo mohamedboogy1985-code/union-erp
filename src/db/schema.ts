@@ -241,6 +241,105 @@ export const regulationRules = pgTable('regulation_rules', {
   updatedAt: timestamp('updated_at').notNull().defaultNow(),
 });
 
+// 15. Statutory source registry and searchable document corpus.
+export const regulationSources = pgTable('regulation_sources', {
+  id: text('id').primaryKey(),
+  code: text('code').notNull().unique(),
+  titleAr: text('title_ar').notNull(),
+  subtitleAr: text('subtitle_ar').notNull().default(''),
+  kindAr: text('kind_ar').notNull().default(''),
+  authorityAr: text('authority_ar').notNull().default(''),
+  issueRefAr: text('issue_ref_ar').notNull().default(''),
+  issuedAt: text('issued_at'),
+  pagesCount: integer('pages_count').notNull().default(0),
+  fileName: text('file_name').notNull().default(''),
+  sha256: text('sha256'),
+  hasTextLayer: boolean('has_text_layer').notNull().default(true),
+  extractionAr: text('extraction_ar').notNull().default(''),
+  docsCount: integer('docs_count').notNull().default(0),
+  unitLabelAr: text('unit_label_ar').notNull().default('مادة'),
+  statusAr: text('status_ar').notNull().default(''),
+  notesAr: text('notes_ar').notNull().default(''),
+  createdAt: timestamp('created_at').defaultNow(),
+});
+
+export const regulationDocuments = pgTable('regulation_documents', {
+  id: text('id').primaryKey(),
+  sourceId: text('source_id').notNull(),
+  sourceTitleAr: text('source_title_ar').notNull().default(''),
+  refCode: text('ref_code').notNull().default(''),
+  articleNumber: text('article_number'),
+  kindAr: text('kind_ar').notNull().default('مادة'),
+  orderIndex: integer('order_index').notNull().default(0),
+  pageNumber: integer('page_number'),
+  chapterAr: text('chapter_ar'),
+  titleAr: text('title_ar').notNull().default(''),
+  textAr: text('text_ar').notNull(),
+  tagsAr: jsonb('tags_ar').notNull(),
+  enforcementRuleIdsAr: jsonb('enforcement_rule_ids_ar').notNull(),
+  ocrDerived: boolean('ocr_derived').notNull().default(false),
+  searchAr: text('search_ar').notNull().default(''),
+  createdAt: timestamp('created_at').defaultNow(),
+}, (table) => [
+  index('regulation_documents_source_idx').on(table.sourceId),
+  index('regulation_documents_article_idx').on(table.sourceId, table.articleNumber),
+  index('regulation_documents_page_idx').on(table.sourceId, table.pageNumber),
+]);
+
+// Article (2) spreadsheet-derived distribution models. These are reference/calculation
+// models only: they deliberately have no general-ledger account mapping.
+export const statutoryDistributionModels = pgTable('statutory_distribution_models', {
+  id: text('id').primaryKey(),
+  code: text('code').notNull().unique(),
+  modelKind: text('model_kind').notNull(),
+  titleAr: text('title_ar').notNull(),
+  articleNo: text('article_no').notNull(),
+  isActive: boolean('is_active').notNull().default(false),
+  postingEnabled: boolean('posting_enabled').notNull().default(false),
+  postingBlockReasonAr: text('posting_block_reason_ar').notNull().default(''),
+  sourceFile: text('source_file').notNull(),
+  sourcePath: text('source_path').notNull(),
+  sourceSheetAr: text('source_sheet_ar').notNull(),
+  sourceCommit: text('source_commit').notNull(),
+  sourceSha256: text('source_sha256').notNull(),
+  sourceRowCount: integer('source_row_count').notNull(),
+  basisAr: text('basis_ar').notNull(),
+  calculationAr: text('calculation_ar').notNull(),
+  scopeAr: text('scope_ar').notNull(),
+  shareConfig: jsonb('share_config').notNull(),
+  totals: jsonb('totals'),
+  openItemsAr: jsonb('open_items_ar').notNull(),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+  updatedAt: timestamp('updated_at').notNull().defaultNow(),
+});
+
+export const statutoryDistributionModelRows = pgTable('statutory_distribution_model_rows', {
+  id: text('id').primaryKey(),
+  modelId: text('model_id').notNull().references(() => statutoryDistributionModels.id, { onDelete: 'cascade' }),
+  sequenceNo: integer('sequence_no').notNull(),
+  sourceRow: integer('source_row').notNull(),
+  nameAr: text('name_ar').notNull(),
+  governorateAr: text('governorate_ar'),
+  memberCount: integer('member_count'),
+  membershipFeePerMember: numeric('membership_fee_per_member', { precision: 18, scale: 2, mode: 'number' }),
+  receiptRangeAr: text('receipt_range_ar'),
+  receiptsCount: integer('receipts_count'),
+  receiptFee: numeric('receipt_fee', { precision: 18, scale: 2, mode: 'number' }),
+  grossCollected: numeric('gross_collected', { precision: 18, scale: 2, mode: 'number' }),
+  educationSupport: numeric('education_support', { precision: 18, scale: 2, mode: 'number' }),
+  distributionBase: numeric('distribution_base', { precision: 18, scale: 2, mode: 'number' }),
+  generalShare: numeric('general_share', { precision: 18, scale: 2, mode: 'number' }),
+  committeeShare: numeric('committee_share', { precision: 18, scale: 2, mode: 'number' }),
+  federationShare: numeric('federation_share', { precision: 18, scale: 2, mode: 'number' }),
+  printingShare: numeric('printing_share', { precision: 18, scale: 2, mode: 'number' }),
+  generalCollected: numeric('general_collected', { precision: 18, scale: 2, mode: 'number' }),
+  calculated: boolean('calculated').notNull().default(false),
+  sourceFormulas: jsonb('source_formulas').notNull().default({}),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+}, (table) => [
+  uniqueIndex('statutory_distribution_model_rows_model_sequence_unique').on(table.modelId, table.sequenceNo),
+]);
+
 // 15. Immutable Audit Logs & Anti-Fraud Trace
 export const auditLogs = pgTable('audit_logs', {
   id: text('id').primaryKey(),

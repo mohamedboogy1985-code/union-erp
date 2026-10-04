@@ -1,5 +1,6 @@
 import fs from 'fs';
 import path from 'path';
+import { isIP } from 'node:net';
 import { resolvePgDataDir } from '../utils/data-paths.js';
 
 /**
@@ -11,9 +12,9 @@ import { resolvePgDataDir } from '../utils/data-paths.js';
  * - أول تشغيل: يهيئ المجلد وينشئ قاعدة union_app والجداول
  * - مقاوم للازدواج: إن كان خادم سابق لا يزال حياً يتصل به بدل الإخفاق
  * - يزيل ملف القفل القديم تلقائياً إذا انهار الخادم السابق دون تنظيف
- * - يستمع على 0.0.0.0 افتراضياً (منفذ مكشوف للمعاينة/العميل على الشبكة) مع
- *   إبقاء المصادقة بالكلمة السرية إلزامية؛ للتقييد: SQL_LISTEN_ADDRESSES=127.0.0.1
- * - لتعطيله: DISABLE_EMBEDDED_PG=true — ولقاعدة خارجية: اضبط SQL_HOST
+ * - يستمع على 127.0.0.1 افتراضياً؛ لا يحتاج المتصفح إلى منفذ SQL مباشر.
+ *   للوصول الشبكي الصريح: SQL_LISTEN_ADDRESSES + SQL_ALLOWED_CIDRS وكلمة سر غير افتراضية.
+ * - لتعطيله: DISABLE_EMBEDDED_PG=true — ولقاعدة خارجية: اضبط SQL_HOST أو DATABASE_URL
  */
 
 interface EmbeddedPgHandle {
@@ -74,15 +75,34 @@ function cleanStaleLock(dataDir: string): boolean {
   }
 }
 
+const OLD_AUTO_HBA_MARKER = '# تعريض الشبكة (يُضاف تلقائياً): اتصال من أي عنوان بكلمة سرية';
+const MANAGED_HBA_START = '# BEGIN UNION ERP MANAGED REMOTE ACCESS';
+const MANAGED_HBA_END = '# END UNION ERP MANAGED REMOTE ACCESS';
+
+function isValidCidr(value: string): boolean {
+  const slash = value.lastIndexOf('/');
+  if (slash <= 0) return false;
+  const address = value.slice(0, slash).trim();
+  const prefix = Number(value.slice(slash + 1));
+  const version = isIP(address);
+  return version === 4
+    ? Number.isInteger(prefix) && prefix >= 0 && prefix <= 32
+    : version === 6 && Number.isInteger(prefix) && prefix >= 0 && prefix <= 128;
+}
+
+function isLoopbackOnly(listenAddresses: string): boolean {
+  const addresses = listenAddresses.split(',').map((address) => address.trim().toLowerCase()).filter(Boolean);
+  return addresses.length > 0 && addresses.every((address) =>
+    address === 'localhost' || address === '127.0.0.1' || address === '::1',
+  );
+}
+
 /**
- * ===== تعريض منفذ PostgreSQL للشبكة =====
- * `initdb` يترك `listen_addresses` معلَّقاً (أي localhost فقط) و`pg_hba.conf`
- * يقبل الاتصال من 127.0.0.1/::1 حصراً، فيبقى المنفذ حبيس الحاوية/الجهاز ولا
- * تصل إليه المعاينة السحابية ولا عميل على الشبكة. هنا نضبط الاستماع على العنوان
- * المطلوب ونضيف سطري `pg_hba` للشبكة — المصادقة بالكلمة السرية تبقى إلزامية.
- * التعديل حتمي وقابل للتكرار (لا يضيف سطراً إن كان موجوداً).
+ * PostgreSQL is local-only by default. If a deployment explicitly requests a
+ * non-loopback listener, only the validated SQL_ALLOWED_CIDRS are added to
+ * pg_hba.conf; no wildcard network rule is generated implicitly.
  */
-function ensureNetworkExposure(dataDir: string, listenAddresses: string): void {
+function ensureNetworkExposure(dataDir: string, listenAddresses: string, allowedCidrs: string[]): void {
   const confPath = path.join(dataDir, 'postgresql.conf');
   const hbaPath = path.join(dataDir, 'pg_hba.conf');
 
@@ -99,31 +119,54 @@ function ensureNetworkExposure(dataDir: string, listenAddresses: string): void {
   }
 
   try {
-    if (fs.existsSync(hbaPath)) {
-      const hba = fs.readFileSync(hbaPath, 'utf-8');
-      const missing: string[] = [];
-      if (!/^[ \t]*host[ \t]+all[ \t]+all[ \t]+0\.0\.0\.0\/0[ \t]/m.test(hba)) {
-        missing.push('host    all             all             0.0.0.0/0               password');
+    if (!fs.existsSync(hbaPath)) return;
+    const original = fs.readFileSync(hbaPath, 'utf-8');
+    const lines = original.split(/\r?\n/);
+    const cleaned: string[] = [];
+    let inManagedBlock = false;
+    let afterOldMarker = false;
+
+    for (const line of lines) {
+      const trimmed = line.trim();
+      if (trimmed === MANAGED_HBA_START) {
+        inManagedBlock = true;
+        continue;
       }
-      if (!/^[ \t]*host[ \t]+all[ \t]+all[ \t]+::\/0[ \t]/m.test(hba)) {
-        missing.push('host    all             all             ::/0                    password');
+      if (inManagedBlock) {
+        if (trimmed === MANAGED_HBA_END) inManagedBlock = false;
+        continue;
       }
-      if (missing.length > 0) {
-        fs.writeFileSync(
-          hbaPath,
-          `${hba.trimEnd()}\n# تعريض الشبكة (يُضاف تلقائياً): اتصال من أي عنوان بكلمة سرية\n${missing.join('\n')}\n`,
-          'utf-8'
-        );
+      if (trimmed === OLD_AUTO_HBA_MARKER) {
+        afterOldMarker = true;
+        continue;
+      }
+      if (afterOldMarker && /^host\s+all\s+all\s+(?:0\.0\.0\.0\/0|::\/0)\s+password$/i.test(trimmed)) {
+        continue;
+      }
+      afterOldMarker = false;
+      cleaned.push(line);
+    }
+
+    if (allowedCidrs.length > 0) {
+      const existing = new Set(cleaned.map((line) => line.trim()));
+      const rules = allowedCidrs
+        .map((cidr) => `host all all ${cidr} scram-sha-256`)
+        .filter((rule) => !existing.has(rule));
+      if (rules.length > 0) {
+        cleaned.push('', MANAGED_HBA_START, ...rules, MANAGED_HBA_END);
       }
     }
+
+    const next = `${cleaned.join('\n').trimEnd()}\n`;
+    if (next !== original) fs.writeFileSync(hbaPath, next, 'utf-8');
   } catch (err: any) {
-    console.warn(`⚠️ تعذّر ضبط pg_hba.conf لاتصالات الشبكة: ${err?.message || err}`);
+    console.warn(`⚠️ تعذّر ضبط pg_hba.conf لاتصالات PostgreSQL: ${err?.message || err}`);
   }
 }
 
 export async function maybeStartEmbeddedPostgres(): Promise<boolean> {
   if (process.env.DISABLE_EMBEDDED_PG === 'true') return false;
-  if (process.env.SQL_HOST) return false; // قاعدة خارجية مضبوطة يدوياً
+  if (process.env.SQL_HOST || process.env.DATABASE_URL) return false; // قاعدة خارجية مضبوطة يدوياً
 
   try {
     // يُحلّ وقت الإقلاع من نفس دالة مؤشّر «مجلد البيانات» (PG_DATA_DIR ← cwd/pgdata)
@@ -132,8 +175,22 @@ export async function maybeStartEmbeddedPostgres(): Promise<boolean> {
     const user = process.env.SQL_USER || 'postgres';
     const password = process.env.SQL_PASSWORD || 'postgres';
     const dbName = process.env.SQL_DB_NAME || 'union_app';
-    // منفذ مكشوف للشبكة افتراضياً (0.0.0.0) ليعمل مع المعاينة السحابية والعميل
-    const listenAddresses = process.env.SQL_LISTEN_ADDRESSES || '0.0.0.0';
+    // واجهة SQL لا تحتاج أن تكون مكشوفة للمتصفح؛ اربطها محلياً افتراضياً.
+    const listenAddresses = process.env.SQL_LISTEN_ADDRESSES || '127.0.0.1';
+    const remoteListener = !isLoopbackOnly(listenAddresses);
+    const allowedCidrs = (process.env.SQL_ALLOWED_CIDRS || '')
+      .split(',')
+      .map((cidr) => cidr.trim())
+      .filter(Boolean);
+
+    if (remoteListener) {
+      if (password.length < 16 || password === 'postgres') {
+        throw new Error('يتطلب تعريض PostgreSQL للشبكة SQL_PASSWORD غير افتراضية بطول 16 محرفاً على الأقل.');
+      }
+      if (allowedCidrs.length === 0 || allowedCidrs.some((cidr) => !isValidCidr(cidr))) {
+        throw new Error('يتطلب تعريض PostgreSQL للشبكة قائمة SQL_ALLOWED_CIDRS صحيحة ومحددة.');
+      }
+    }
 
     // 1) خادم حي بالفعل (إقلاع متكرر/نسخة سابقة) — اتصل به مباشرة
     if (await isPostgresAlive(port, user, password)) {
@@ -167,8 +224,8 @@ export async function maybeStartEmbeddedPostgres(): Promise<boolean> {
       cleanStaleLock(dataDir); // تنظيف قفل انهيار سابق إن وجد
     }
 
-    // 1.b تعريض المنفذ للشبكة (listen_addresses + pg_hba) قبل الإقلاع
-    ensureNetworkExposure(dataDir, listenAddresses);
+    // 1.b ثبّت عنوان الاستماع وسياسة CIDR قبل تشغيل قاعدة البيانات.
+    ensureNetworkExposure(dataDir, listenAddresses, remoteListener ? allowedCidrs : []);
 
     // 2) تشغيل الخادم (مع إعادة محاولة واحدة بعد تنظيف قفل مكتشف هنا)
     try {

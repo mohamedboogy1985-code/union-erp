@@ -60,7 +60,9 @@ const MONEY_LIKE_DB_TYPES = new Set(['double precision', 'real', 'text', 'charac
 export function parseSchemaDdl(ddl: string): Map<string, ColumnSpec[]> {
   const tables = new Map<string, ColumnSpec[]>();
 
-  for (const tableMatch of ddl.matchAll(/CREATE TABLE "([^"]+)" \(([\s\S]*?)\);\n-->/g)) {
+  // Statement-breakpoint comments may be separated by blank lines. Stop at the
+  // table's own closing `);` rather than consuming the next table as this one.
+  for (const tableMatch of ddl.matchAll(/CREATE TABLE "([^"]+)" \(([\s\S]*?)\);/g)) {
     const table = tableMatch[1];
     const body = tableMatch[2];
     const columns: ColumnSpec[] = [];

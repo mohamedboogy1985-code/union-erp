@@ -252,3 +252,105 @@ CREATE TABLE "users" (
 	"created_at" timestamp DEFAULT now(),
 	CONSTRAINT "users_uid_unique" UNIQUE("uid")
 );
+
+--> statement-breakpoint
+CREATE TABLE "regulation_sources" (
+	"id" text PRIMARY KEY NOT NULL,
+	"code" text NOT NULL,
+	"title_ar" text NOT NULL,
+	"subtitle_ar" text DEFAULT '' NOT NULL,
+	"kind_ar" text DEFAULT '' NOT NULL,
+	"authority_ar" text DEFAULT '' NOT NULL,
+	"issue_ref_ar" text DEFAULT '' NOT NULL,
+	"issued_at" text,
+	"pages_count" integer DEFAULT 0 NOT NULL,
+	"file_name" text DEFAULT '' NOT NULL,
+	"sha256" text,
+	"has_text_layer" boolean DEFAULT true NOT NULL,
+	"extraction_ar" text DEFAULT '' NOT NULL,
+	"docs_count" integer DEFAULT 0 NOT NULL,
+	"unit_label_ar" text DEFAULT 'مادة' NOT NULL,
+	"status_ar" text DEFAULT '' NOT NULL,
+	"notes_ar" text DEFAULT '' NOT NULL,
+	"created_at" timestamp DEFAULT now(),
+	CONSTRAINT "regulation_sources_code_unique" UNIQUE("code")
+);
+--> statement-breakpoint
+CREATE TABLE "regulation_documents" (
+	"id" text PRIMARY KEY NOT NULL,
+	"source_id" text NOT NULL,
+	"source_title_ar" text DEFAULT '' NOT NULL,
+	"ref_code" text DEFAULT '' NOT NULL,
+	"article_number" text,
+	"kind_ar" text DEFAULT 'مادة' NOT NULL,
+	"order_index" integer DEFAULT 0 NOT NULL,
+	"page_number" integer,
+	"chapter_ar" text,
+	"title_ar" text DEFAULT '' NOT NULL,
+	"text_ar" text NOT NULL,
+	"tags_ar" jsonb DEFAULT '[]'::jsonb NOT NULL,
+	"enforcement_rule_ids_ar" jsonb DEFAULT '[]'::jsonb NOT NULL,
+	"ocr_derived" boolean DEFAULT false NOT NULL,
+	"search_ar" text DEFAULT '' NOT NULL,
+	"created_at" timestamp DEFAULT now()
+);
+--> statement-breakpoint
+CREATE INDEX "regulation_documents_source_idx" ON "regulation_documents" ("source_id");
+--> statement-breakpoint
+CREATE INDEX "regulation_documents_article_idx" ON "regulation_documents" ("source_id", "article_number");
+--> statement-breakpoint
+CREATE INDEX "regulation_documents_page_idx" ON "regulation_documents" ("source_id", "page_number");
+--> statement-breakpoint
+CREATE TABLE "statutory_distribution_models" (
+	"id" text PRIMARY KEY NOT NULL,
+	"code" text NOT NULL,
+	"model_kind" text NOT NULL,
+	"title_ar" text NOT NULL,
+	"article_no" text NOT NULL,
+	"is_active" boolean DEFAULT false NOT NULL,
+	"posting_enabled" boolean DEFAULT false NOT NULL,
+	"posting_block_reason_ar" text DEFAULT '' NOT NULL,
+	"source_file" text NOT NULL,
+	"source_path" text NOT NULL,
+	"source_sheet_ar" text NOT NULL,
+	"source_commit" text NOT NULL,
+	"source_sha256" text NOT NULL,
+	"source_row_count" integer NOT NULL,
+	"basis_ar" text NOT NULL,
+	"calculation_ar" text NOT NULL,
+	"scope_ar" text NOT NULL,
+	"share_config" jsonb NOT NULL,
+	"totals" jsonb,
+	"open_items_ar" jsonb NOT NULL,
+	"created_at" timestamp DEFAULT now() NOT NULL,
+	"updated_at" timestamp DEFAULT now() NOT NULL,
+	CONSTRAINT "statutory_distribution_models_code_unique" UNIQUE("code")
+);
+--> statement-breakpoint
+CREATE TABLE "statutory_distribution_model_rows" (
+	"id" text PRIMARY KEY NOT NULL,
+	"model_id" text NOT NULL,
+	"sequence_no" integer NOT NULL,
+	"source_row" integer NOT NULL,
+	"name_ar" text NOT NULL,
+	"governorate_ar" text,
+	"member_count" integer,
+	"membership_fee_per_member" numeric(18,2),
+	"receipt_range_ar" text,
+	"receipts_count" integer,
+	"receipt_fee" numeric(18,2),
+	"gross_collected" numeric(18,2),
+	"education_support" numeric(18,2),
+	"distribution_base" numeric(18,2),
+	"general_share" numeric(18,2),
+	"committee_share" numeric(18,2),
+	"federation_share" numeric(18,2),
+	"printing_share" numeric(18,2),
+	"general_collected" numeric(18,2),
+	"calculated" boolean DEFAULT false NOT NULL,
+	"source_formulas" jsonb DEFAULT '{}'::jsonb NOT NULL,
+	"created_at" timestamp DEFAULT now() NOT NULL,
+	CONSTRAINT "statutory_distribution_model_rows_model_id_fkey" FOREIGN KEY ("model_id") REFERENCES "statutory_distribution_models"("id") ON DELETE CASCADE
+);
+--> statement-breakpoint
+CREATE UNIQUE INDEX "statutory_distribution_model_rows_model_sequence_unique" ON "statutory_distribution_model_rows" ("model_id", "sequence_no");

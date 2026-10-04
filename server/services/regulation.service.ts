@@ -114,7 +114,8 @@ export class RegulationService {
       process.env.SQL_HOST ||
       process.env.PGHOST ||
       process.env.SQL_DB_NAME ||
-      process.env.PGDATABASE
+      process.env.PGDATABASE ||
+      process.env.DATABASE_URL
     );
   }
 
@@ -176,6 +177,20 @@ export class RegulationService {
     if (this.storageInitialized || !this.hasDatabaseConfiguration()) return;
     try {
       await this.ensureStorageTable();
+      // Persist every regulation default exactly once so article (2) and the other
+      // source-activated values are enabled in SQL as well as in the in-memory engine.
+      // onConflictDoNothing preserves any later, explicitly configured SQL value.
+      for (const config of REGULATION_ACTIVATED_RULES) {
+        await db.insert(dbSchema.regulationRules).values({
+          ruleId: config.ruleId,
+          value: String(config.value),
+          valueType: typeof config.value === 'number' ? 'number' : 'string',
+          articleNo: config.articleNo,
+          enabled: true,
+          severity: config.severity ?? 'WARN',
+          updatedAt: new Date(),
+        }).onConflictDoNothing();
+      }
       const storedRules = await db.select().from(dbSchema.regulationRules);
       for (const stored of storedRules) {
         const rule = liveRules.find((candidate) => candidate.ruleId === stored.ruleId);

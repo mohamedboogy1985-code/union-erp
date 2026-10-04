@@ -13,6 +13,8 @@ interface InsuredActuarialHubProps {
   onShowToast: (type: 'success' | 'error' | 'warning' | 'info', msg: string) => void;
   /** الوحدة الفرعية المفتوحة عند الوصول */
   initialTab?: InsuredActuarialTabId;
+  /** يخفي عنوان الوحدة المستقلة عندما تُعرض داخل محور الموارد البشرية. */
+  embedded?: boolean;
 }
 
 const SUB_TABS: ModuleTabDef<InsuredActuarialTabId>[] = [
@@ -25,6 +27,7 @@ export const InsuredActuarialHub: React.FC<InsuredActuarialHubProps> = ({
   currentUser,
   onShowToast,
   initialTab = 'insured',
+  embedded = false,
 }) => {
   const [activeTab, setActiveTab] = useState<InsuredActuarialTabId>(initialTab);
 
@@ -36,6 +39,8 @@ export const InsuredActuarialHub: React.FC<InsuredActuarialHubProps> = ({
         activeId={activeTab}
         onChange={setActiveTab}
         icon={ShieldCheck}
+        titleVisible={!embedded}
+        sticky={!embedded}
       />
 
       <div>
