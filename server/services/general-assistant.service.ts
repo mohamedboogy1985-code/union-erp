@@ -3361,7 +3361,14 @@ export class GeneralAssistantService {
         navigateLabelAr: "اللوائح والمرفقات",
       };
     }
-    const articleMatch = text.match(/الماده\s*\(?\s*(\d{1,3})/);
+    let articleMatch: RegExpExecArray | null = null;
+    const articleKeywordIndex = text.indexOf("الماده");
+    if (articleKeywordIndex >= 0) {
+      const tailStart = articleKeywordIndex + "الماده".length;
+      const tail = text.slice(tailStart).trimStart();
+      const numberText = tail.startsWith("(") ? tail.slice(1).trimStart() : tail;
+      articleMatch = /^(\d{1,3})/u.exec(numberText);
+    }
     const tokens = text
       .split(" ")
       .filter(
