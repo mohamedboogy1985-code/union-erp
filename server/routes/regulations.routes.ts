@@ -1,4 +1,6 @@
 import { Router } from 'express';
+import rateLimit from 'express-rate-limit';
+import { resolveClientIp } from '../security/request-context.js';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -17,6 +19,16 @@ interface RegulationsRouterDeps {
 /** مكتبة القراءة ومساعد اللوائح — مصادر ثابتة ومُدرجة، بلا كتابة أو تسجيل للسؤال الخام. */
 export const createRegulationsRouter = (deps: RegulationsRouterDeps): Router => {
   const router = Router();
+
+  // Defense in depth for direct router mounts; the API-wide guard and limiter remain in server.ts.
+  router.use(rateLimit({
+    windowMs: 60_000,
+    limit: Number(process.env.RATE_LIMIT_MAX || 300),
+    standardHeaders: 'draft-7',
+    legacyHeaders: false,
+    keyGenerator: (req) => resolveClientIp(req) || 'unknown',
+    validate: { keyGeneratorIpFallback: false, trustProxy: false, xForwardedForHeader: false },
+  }));
   const moduleDir = path.dirname(fileURLToPath(import.meta.url));
   const law35Dir = path.resolve(moduleDir, '../data/laws/law35-2018');
 

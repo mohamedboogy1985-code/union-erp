@@ -1,4 +1,6 @@
 import express from 'express';
+import rateLimit from 'express-rate-limit';
+import { resolveClientIp } from '../security/request-context.js';
 import type { Request, Response, Router, NextFunction } from 'express';
 import {
   auditChartGrounding,
@@ -50,6 +52,16 @@ interface UiAuditRow {
 
 export const createStatutoryUiRouter = (deps: StatutoryUiRouterDeps): Router => {
   const router = express.Router();
+
+  // Defense in depth for direct router mounts; the API-wide guard and limiter remain in server.ts.
+  router.use(rateLimit({
+    windowMs: 60_000,
+    limit: Number(process.env.RATE_LIMIT_MAX || 300),
+    standardHeaders: 'draft-7',
+    legacyHeaders: false,
+    keyGenerator: (req) => resolveClientIp(req) || 'unknown',
+    validate: { keyGeneratorIpFallback: false, trustProxy: false, xForwardedForHeader: false },
+  }));
   const auditRows: UiAuditRow[] = [];
 
   router.use((req: Request, res: Response, next: NextFunction) => {

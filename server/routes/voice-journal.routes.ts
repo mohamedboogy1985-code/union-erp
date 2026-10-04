@@ -1,4 +1,6 @@
 import { Router } from "express";
+import rateLimit from 'express-rate-limit';
+import { resolveClientIp } from '../security/request-context.js';
 import type { Request, Response } from "express";
 import { erpStore } from "../db/store.js";
 import { can } from "../security/permissions.js";
@@ -14,6 +16,16 @@ interface VoiceJournalDeps {
 /** مسارات وكيل القيود الصوتية: تحليل الإملاء → مسودة للمراجعة → اعتماد وترحيل. */
 export const createVoiceJournalRouter = (deps: VoiceJournalDeps): Router => {
   const router = Router();
+
+  // Defense in depth for direct router mounts; the API-wide guard and limiter remain in server.ts.
+  router.use(rateLimit({
+    windowMs: 60_000,
+    limit: Number(process.env.RATE_LIMIT_MAX || 300),
+    standardHeaders: 'draft-7',
+    legacyHeaders: false,
+    keyGenerator: (req) => resolveClientIp(req) || 'unknown',
+    validate: { keyGeneratorIpFallback: false, trustProxy: false, xForwardedForHeader: false },
+  }));
 
   const actor = (req: Request, res: Response, permission = "journal:create"): User | null => {
     const user = deps.authenticate(req);

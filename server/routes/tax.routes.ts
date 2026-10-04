@@ -1,4 +1,6 @@
 import { Router } from 'express';
+import rateLimit from 'express-rate-limit';
+import { resolveClientIp } from '../security/request-context.js';
 import type { Request, Response } from 'express';
 import { taxService } from '../services/tax.service.js';
 import { can } from '../security/permissions.js';
@@ -15,6 +17,16 @@ const TAX_KINDS: TaxKind[] = ['PAYROLL_TAX', 'BUSINESS_TAX', 'WITHHOLDING', 'VAT
 /** وحدة الضرائب: الحسابات قراءة فقط؛ إنشاء القيد يحتاج journal:create، وترحيله journal:workflow. */
 export const createTaxRouter = (deps: TaxRouterDeps): Router => {
   const router = Router();
+
+  // Defense in depth for direct router mounts; the API-wide guard and limiter remain in server.ts.
+  router.use(rateLimit({
+    windowMs: 60_000,
+    limit: Number(process.env.RATE_LIMIT_MAX || 300),
+    standardHeaders: 'draft-7',
+    legacyHeaders: false,
+    keyGenerator: (req) => resolveClientIp(req) || 'unknown',
+    validate: { keyGeneratorIpFallback: false, trustProxy: false, xForwardedForHeader: false },
+  }));
 
   const actor = (req: Request, res: Response, permission = 'view:all'): User | null => {
     const user = deps.authenticate(req);

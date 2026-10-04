@@ -1,4 +1,6 @@
 import { Router } from 'express';
+import rateLimit from 'express-rate-limit';
+import { resolveClientIp } from '../security/request-context.js';
 import type { Request, Response } from 'express';
 import type { InsuredMember, User } from '../../src/types/erp.js';
 import { getInsuredList } from '../services/portal-data.service.js';
@@ -17,6 +19,16 @@ interface InsuredListRouterDeps {
 /** Insured-list data belongs to the general union only; caller input never grants access. */
 export const createInsuredListRouter = (deps: InsuredListRouterDeps): Router => {
   const router = Router();
+
+  // Defense in depth for direct router mounts; the API-wide guard and limiter remain in server.ts.
+  router.use(rateLimit({
+    windowMs: 60_000,
+    limit: Number(process.env.RATE_LIMIT_MAX || 300),
+    standardHeaders: 'draft-7',
+    legacyHeaders: false,
+    keyGenerator: (req) => resolveClientIp(req) || 'unknown',
+    validate: { keyGeneratorIpFallback: false, trustProxy: false, xForwardedForHeader: false },
+  }));
   const context = (req: Request, res: Response, requestedOrganizationId: unknown): boolean => {
     const user = deps.authenticate(req);
     if (!user) {

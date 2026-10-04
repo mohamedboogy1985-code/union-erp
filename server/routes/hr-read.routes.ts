@@ -1,4 +1,6 @@
 import { Router } from 'express';
+import rateLimit from 'express-rate-limit';
+import { resolveClientIp } from '../security/request-context.js';
 import type { Request, Response } from 'express';
 import type { EmployeeAffairType, User } from '../../src/types/erp.js';
 import { erpStore } from '../db/store.js';
@@ -20,6 +22,16 @@ interface HrReadContext {
 /** Employee, attendance, and payroll read APIs with an authenticated tenant scope. */
 export const createHrReadRouter = (deps: HrReadRouterDeps): Router => {
   const router = Router();
+
+  // Defense in depth for direct router mounts; the API-wide guard and limiter remain in server.ts.
+  router.use(rateLimit({
+    windowMs: 60_000,
+    limit: Number(process.env.RATE_LIMIT_MAX || 300),
+    standardHeaders: 'draft-7',
+    legacyHeaders: false,
+    keyGenerator: (req) => resolveClientIp(req) || 'unknown',
+    validate: { keyGeneratorIpFallback: false, trustProxy: false, xForwardedForHeader: false },
+  }));
 
   const context = (req: Request, res: Response): HrReadContext | null => {
     const user = deps.authenticate(req);

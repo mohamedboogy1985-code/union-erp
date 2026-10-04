@@ -1313,7 +1313,7 @@ export class GeneralAssistantService {
     ]);
     if (!asksMovements && !asksDirectory) return null;
     const accounts = erpStore.accounts ?? [];
-    const codeMatch = text.match(/(?:حساب|كود|رقم)?\s*\b(\d{3,5})\b/);
+    const codeMatch = text.match(/\b(\d{3,5})\b/);
     if (codeMatch) {
       const account = accounts.find((row) => row.code === codeMatch[1]);
       if (!account)
@@ -2937,9 +2937,14 @@ export class GeneralAssistantService {
     const bankTransactions = (erpStore.bankTransactions ?? []).filter((transaction: any) =>
       bankAccountsById.get(transaction.bankAccountId)?.organizationId === input.organizationId,
     );
-    const chequeMatch = text.match(
-      /(?:شيك|شيكات|cheque|check)\s*(?:رقم)?\s*(\d{3,12})/,
-    );
+    let chequeMatch: RegExpExecArray | null = null;
+    const chequeKeyword = /(?:شيكات?|cheque|check)/iu.exec(text);
+    if (chequeKeyword) {
+      const tailStart = chequeKeyword.index + chequeKeyword[0].length;
+      const tail = text.slice(tailStart, tailStart + 64).trimStart();
+      const numberText = tail.startsWith('رقم') ? tail.slice(3).trimStart() : tail;
+      chequeMatch = /^(\d{3,12})/u.exec(numberText);
+    }
     const dateRange = this.extractDateRange(text);
 
     if (chequeMatch) {
