@@ -32,6 +32,8 @@ import { regulationService } from '../server/services/regulation.service.js';
 import { checkFinancialAction } from '../server/services/financial.service.js';
 import { checkGovernanceAction } from '../server/services/statute.service.js';
 import { REGULATION_ACTIVATED_RULES } from '../server/data/financial-regulation.js';
+import { MINUTES_2004_REFERENCE } from '../server/data/minutes-2004-reference.js';
+import crypto from 'node:crypto';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 let passed = 0;
@@ -319,9 +321,31 @@ check(
   distribution.document.provenance.committeesSha256.length === 64 && distribution.document.provenance.officesSha256.length === 64,
 );
 check(
-  'تعارض المصدرين DIST-OPEN-001 معلن وغير محسوم بلا اعتماد قانوني (OPEN)',
-  distribution.openItems.length === 1 && distribution.openItems[0].id === 'DIST-OPEN-001' && distribution.openItems[0].status === 'PENDING',
+  'بند المطابقة DIST-OPEN-001 محسوم (RESOLVED) بسند محضر 15/4/2004 والوقائع المصرية ومعلن في اللوحة',
+  distribution.openItems.length === 1 &&
+    distribution.openItems[0].id === 'DIST-OPEN-001' &&
+    distribution.openItems[0].status === 'RESOLVED' &&
+    distribution.openItems[0].detailAr.includes('القرار التاسع عشر'),
   JSON.stringify(distribution.openItems.map((o: any) => `${o.id}:${o.status}`)),
+);
+for (const minutesFile of MINUTES_2004_REFERENCE.files) {
+  const minutesBytes = fs.readFileSync(path.join(root, minutesFile.filePath));
+  check(
+    `سند المطبوعات: صورة المحضر ${minutesFile.fileName} موجودة ومطابقة البصمة والحجم`,
+    crypto.createHash('sha256').update(minutesBytes).digest('hex') === minutesFile.sha256 &&
+      minutesBytes.byteLength === minutesFile.sizeBytes,
+    minutesFile.sha256.slice(0, 12),
+  );
+}
+check(
+  'محضر 15/4/2004: القرار التاسع عشر يعتمد المطبوعات ١٠٪ واللوائح معتمدة بالنشر في الوقائع',
+  MINUTES_2004_REFERENCE.printingDecisionNo === 19 &&
+    MINUTES_2004_REFERENCE.printingPercent === 10 &&
+    MINUTES_2004_REFERENCE.meetingDate === '2004-04-15' &&
+    MINUTES_2004_REFERENCE.printingDecisionAr.includes('١٠٪') &&
+    MINUTES_2004_REFERENCE.approvalAr.includes('وزارة القوى العاملة') &&
+    MINUTES_2004_REFERENCE.gazetteReferenceAr.includes('۲۷'),
+  MINUTES_2004_REFERENCE.meetingDate,
 );
 const article2 = (await get('/api/regulations/search?sourceId=src-financial&q=توزيع حصيلة الاشتراكات')).documents?.[0];
 check(
