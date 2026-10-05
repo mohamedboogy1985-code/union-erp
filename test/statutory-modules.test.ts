@@ -133,9 +133,11 @@ test('CSV distribution display is authenticated and isolated from operating rece
   assert.equal(response.status, 200);
   const reference = await response.json() as ReturnType<typeof distributionDocumentView>;
   assert.equal(reference.document.id, 'REV-DIST-FINAL');
-  assert.equal(reference.openItems[0]?.status, 'PENDING');
+  assert.equal(reference.openItems[0]?.status, 'RESOLVED');
   assert.equal(reference.percentages.find((item) => item.id === 'pct-committee')?.percent, 50);
   assert.match(reference.openItems[0]?.detailAr ?? '', /60% للجنة/);
+  assert.match(reference.openItems[0]?.detailAr ?? '', /القرار التاسع عشر/);
+  assert.match(reference.openItems[0]?.sourceAr ?? '', /محضر اجتماع 15\/4\/2004/);
 
   // The reference endpoint is read-only; it must not replace the live 50/30/20 or certificate rules.
   const operatingCodes = erpStore.distributionRules.map((rule) => rule.ruleCode).sort();

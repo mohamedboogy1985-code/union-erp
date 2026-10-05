@@ -4,6 +4,7 @@ import type {
   ProfessionalCommitteeRow,
   MembershipOfficeRow,
 } from '../../src/types/erp.distribution.js';
+import { MINUTES_2004_REFERENCE } from './minutes-2004-reference.js';
 
 /**
  * ===== عرض مرجعي لملف CSV — لا يغيّر المادة (2) أو سياسة الإيصالات التشغيلية =====
@@ -1069,17 +1070,26 @@ export const FINAL_DISTRIBUTION_RULE = {
   })),
 };
 
-/** بند معلن: ملف CSV المرجعي لا يطابق النص القانوني أو قاعدة الإيصالات التشغيلية. */
+/**
+ * بند محسوم بقرار المستخدم وسنده الوثائقي:
+ * بند المطبوعات 10% معتمد بالقرار التاسع عشر من محضر الجمعية العمومية العادية
+ * (دور الانعقاد الأول للدورة 2001/2006 — الخميس 15/4/2004) بصورتي WhatsApp المرفوعتين،
+ * ولوائح النقابة معتمدة من المجلس ووزارة القوى العاملة والاتحاد العام بنشرها في الوقائع المصرية.
+ */
 export const DISTRIBUTION_OPEN_ITEM = {
   id: 'DIST-OPEN-001',
-  status: 'PENDING',
-  titleAr: 'فصل نموذج CSV المرجعي عن المادة (2) وقاعدة الإيصالات التشغيلية',
+  status: 'RESOLVED' as 'PENDING' | 'RESOLVED',
+  titleAr: 'اعتماد سند المطبوعات 10% وفصل نموذج CSV المرجعي عن نص المادة (2) المنشور',
   detailAr:
-    'يُطبَّق في فحص المادة (2) النص الرسمي: 10% للاتحاد النقابي إن وجد، و60% للجنة، و30% للنقابة العامة. ' +
-    'يعرض ملف CSV نسباً مختلفة (30% للنقابة العامة + 10% مطبوعات + 10% اتحاد + 50% لجنة)، ' +
-    'بينما تظل قاعدة الإيصالات الحالية DIST-MEMB-V1 مستقلة (50% للنقابة العامة + 30% للجنة + 20% لصندوق التكافل). ' +
-    'لا يُستنتج من CSV تعديلٌ قانوني أو تشغيلي؛ يتطلب توحيد النسب قراراً قانونياً ومحاسبياً منفصلاً.',
-  sourceAr: "نسب توزيع اللجان المهنية نهائى.csv" + ' (مرجع مستقل) — اللائحة المالية المادة (2) — server/db/store.ts: DIST-MEMB-V1',
+    'حُسم البند بقرار المستخدم: نسبة المطبوعات 10% معتمدة بالقرار التاسع عشر من محضر الجمعية العمومية العادية بتاريخ 15/4/2004 (صورتا WhatsApp المرفوعتان)، ' +
+    'ولوائح النقابة العامة معتمدة من المجلس ووزارة القوى العاملة والاتحاد العام بمجرد النشر في ' + MINUTES_2004_REFERENCE.gazetteReferenceAr + '. ' +
+    'يبقى نص المادة (2) المنشور كما ورد: 10% للاتحاد النقابي إن وجد و60% للجنة و30% للنقابة العامة، ' +
+    'ويُقرأ نموذج CSV النهائي (30% نقابة + 10% مطبوعات + 10% اتحاد + 50% لجنة) كتطبيق معتمد: حصة اللجنة 50% + المطبوعات 10% = 60% للجنة في نص المادة. ' +
+    'قاعدة الإيصالات التشغيلية DIST-MEMB-V1 (50/30/20) تظل مستقلة حتى يقرر المستخدم توحيد قواعد التشغيل.',
+  sourceAr:
+    'محضر اجتماع 15/4/2004 — القرار التاسع عشر (' +
+    MINUTES_2004_REFERENCE.files.map((f) => f.fileName).join(' + ') +
+    ') — ' + MINUTES_2004_REFERENCE.gazetteReferenceAr + ' — نسب توزيع اللجان المهنية نهائى.csv — server/db/store.ts: DIST-MEMB-V1',
 };
 
 export const distributionDocumentView = (): DistributionDocumentView => ({
@@ -1089,5 +1099,5 @@ export const distributionDocumentView = (): DistributionDocumentView => ({
   committeeTotals: { ...PROFESSIONAL_COMMITTEE_TOTALS },
   offices: MEMBERSHIP_OFFICE_ROWS.map((row) => ({ ...row })),
   officeTotals: { ...MEMBERSHIP_OFFICE_TOTALS },
-  openItems: [{ ...DISTRIBUTION_OPEN_ITEM, status: 'PENDING' as const }],
+  openItems: [{ ...DISTRIBUTION_OPEN_ITEM, status: DISTRIBUTION_OPEN_ITEM.status }],
 });
