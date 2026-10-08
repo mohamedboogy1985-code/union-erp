@@ -1,41 +1,38 @@
-import { useEffect, useState } from 'react';
-import { fetchAuthenticatedBlob } from '../services/api.js';
+import { useState, useEffect } from 'react';
+import { getAuthenticatedAssetUrl } from '../services/api.js';
 
-export function useAuthenticatedApiAsset(url: string | null) {
+export function useAuthenticatedApiAsset(src: string) {
   const [assetUrl, setAssetUrl] = useState<string | null>(null);
-  const [error, setError] = useState<Error | null>(null);
+  const [error, setError] = useState<unknown | null>(null);
 
   useEffect(() => {
-    let active = true;
-    let objectUrl: string | null = null;
-    const controller = new AbortController();
-    setAssetUrl(null);
-    setError(null);
+    let isMounted = true;
+    if (!src) {
+      setAssetUrl(null);
+      setError(null);
+      return;
+    }
 
-    if (!url) return () => controller.abort();
-
-    void fetchAuthenticatedBlob(url, { signal: controller.signal })
-      .then((blob) => {
-        const nextUrl = URL.createObjectURL(blob);
-        if (!active) {
-          URL.revokeObjectURL(nextUrl);
-          return;
+    getAuthenticatedAssetUrl(src)
+      .then((url: string) => {
+        if (isMounted) {
+          setAssetUrl(url);
+          setError(null);
         }
-        objectUrl = nextUrl;
-        setAssetUrl(nextUrl);
       })
-      .catch((reason: unknown) => {
-        if (active && !(reason instanceof DOMException && reason.name === 'AbortError')) {
-          setError(reason instanceof Error ? reason : new Error('تعذّر تحميل الملف.'));
+      .catch((err: unknown) => {
+        if (isMounted) {
+          setError(err);
+          setAssetUrl(null);
         }
       });
 
     return () => {
-      active = false;
-      controller.abort();
-      if (objectUrl) URL.revokeObjectURL(objectUrl);
+      isMounted = false;
     };
-  }, [url]);
+  }, [src]);
 
   return { assetUrl, error };
 }
+
+export default useAuthenticatedApiAsset;
