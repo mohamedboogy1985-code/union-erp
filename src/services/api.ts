@@ -559,3 +559,16 @@ export const api = {
   modelDownloadUrl: (name: string) => `/api/models/${encodeURIComponent(name)}/download`,
 };
 
+
+export async function getAuthenticatedAssetUrl(src: string): Promise<string> {
+  const headers = new Headers();
+  headers.set('x-user-id', currentUserId);
+  if (sessionToken) headers.set('Authorization', `Bearer ${sessionToken}`);
+
+  const response = await fetch(src, { headers });
+  if (!response.ok) {
+    throw new ApiError('تعذر جلب الملف المحمي.', response.status);
+  }
+  const blob = await response.blob();
+  return URL.createObjectURL(blob);
+}
