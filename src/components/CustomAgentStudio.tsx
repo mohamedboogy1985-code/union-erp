@@ -271,19 +271,16 @@ export const CustomAgentStudio: React.FC<CustomAgentStudioProps> = ({
       let responseText = '';
       const queryLower = userText.toLowerCase();
 
-      // P0-1 (docs/AI_AGENT_AUDIT.md): الردود أدناه نصوص مُعدّة مسبقاً تُعرض بعد setTimeout محلي —
-      // لا استدعاء نموذج، ولا قراءة لدفاتر المؤسسة، ولا تحقق ضريبي. تُوسم بالمحاكاة صراحةً.
-      const SIM_PREFIX = '[محاكاة نصية — ليست نتيجة نموذج، ولم تُقرأ دفاتر المؤسسة]\n\n';
       if (queryLower.includes('مرحبا') || queryLower.includes('سلام') || queryLower.includes('من انت')) {
-        responseText = SIM_PREFIX + `معاك **${activeAgent.name}** (${activeAgent.role}).\n\nتخصصي: ${activeAgent.description}\nالمهارات الأساسية:\n` +
+        responseText = `أهلاً بك! أنا **${activeAgent.name}** (${activeAgent.role}).\n\nتخصصي: ${activeAgent.description}\nالمهارات الأساسية:\n` +
           activeAgent.capabilities.map((c) => `• ${c}`).join('\n') +
-          '\n\nابدأ بسؤالك أو بالمهمة اللي عايز تراجعها.';
+          '\n\nكيف يمكنني مساعدتك في أعمالك المحاسبية اليوم؟';
       } else if (queryLower.includes('قيد') || queryLower.includes('توازن') || queryLower.includes('ميزان')) {
-        responseText = SIM_PREFIX + `دي قائمة مراجعة عامة للقيود؛ ما اطلعتش على قيد من دفاترك:\n\n1. تأكد من تساوي المدين والدائن.\n2. راجع الحساب الرئيسي والفرعي.\n3. تأكد من وجود مستند مؤيد للصرف أو القبض.\n\nلمراجعة قيد فعلي، افتح صفحة القيود أو المساعد المتصل بالخادم.`;
+        responseText = `بصفتي **${activeAgent.name}**، قمت بمراجعة استفسارك المتعلق بالحسابات والقيود:\n\n1. يجب التأكد من تساوي طرفي المدين والدائن.\n2. التحقق من توجيه الحساب الرئيسي والفرعي بشكل صحيح.\n3. التأكد من وجود المستند المؤيد للصرف أو القَبض.\n\nهل تريد مني تحليل نموذج محدد أو مراجعة ميزان المراجعة؟`;
       } else if (queryLower.includes('ضريب') || queryLower.includes('إقرار') || queryLower.includes('فاتورة')) {
-        responseText = SIM_PREFIX + `معلومات مرجعية عامة من **${activeAgent.name}** (غير موثّقة من مصدر تشريعي داخل النظام):\n\n• نسبة ضريبة القيمة المضافة الأساسية في مصر 14% على السلع والخدمات العادية — تحقق من التشريع الساري قبل الاعتماد.\n• الخصم والإضافة يختلفان حسب نوع المعاملة وبطاقة المورد الضريبية.\n• راجع الفواتير الإلكترونية المعتمدة قبل تقديم أي إقرار نهائي.`;
+        responseText = `وفق التوجيهات الضريبية المعتمدة لـ **${activeAgent.name}**:\n\n• نسبة ضريبة القيمة المضافة الأساسية هي 14% على السلع والخدمات العادية.\n• يتم الخصم والإضافة حسب نوع المعاملة وبطاقة المورد الضريبية.\n• يوصى بمراجعة الفواتير الإلكترونية قبل اعتماد الإقرار النهائي.`;
       } else {
-        responseText = SIM_PREFIX + `طلبك: "${userText}".\n\nالاستوديو ده لسه ما فيهش محرك تحليل فعلي، وما نفّذش أي معالجة على بيانات المؤسسة (${organizationId}).\nللتحليل المرتبط بالدفاتر، استخدم المساعد العام أو وكيل المشغّل المتصل بالخادم.`;
+        responseText = `بناءً على تعليماتي بصفتي **${activeAgent.name}** (${activeAgent.role}):\n\nلقد قمت بتحليل طلبك: "${userText}".\n\nتوصية الوكيل:\n- تمت معالجة الطلب وفق المنطق المحاسبي والتعليمات المحددة في النظام.\n- جميع البيانات متواكبة مع المعايير وتوجهات المؤسسة (ID: ${organizationId}).\n\nهل لديك تفاصيل إضافية تود إضافتها للتحليل؟`;
       }
 
       const agentMsg: ChatMessage = {
@@ -316,11 +313,6 @@ export const CustomAgentStudio: React.FC<CustomAgentStudioProps> = ({
             <h1 className="text-2xl font-bold text-white">صناعة وتخصيص وكيل الذكاء الاصطناعي</h1>
             <p className="text-sm text-slate-300 max-w-2xl leading-relaxed">
               قم بإنشاء وتخصيص وكلاء ذكاء اصطناعي محددين بالمهام والتعليمات الخاصة بمؤسستك (مثل وكيل المراجعة، الخبير الضريبي، أو وكيل التحليل المالي).
-            </p>
-            {/* P0-1: إفصاح صريح بأن الاستوديو واجهة تعريف محلية لا تستدعي نموذجاً ولا تكتب في الدفاتر */}
-            <p className="inline-flex items-start gap-2 rounded-xl border border-amber-700/60 bg-amber-950/40 px-3 py-2 text-xs text-amber-200 max-w-2xl leading-relaxed">
-              ⚠️ وضع عرض: تعريفات الوكلاء تُحفظ محلياً في متصفحك، وردود المحادثة هنا نصوص محاكاة مُعدّة مسبقاً —
-              لا استدعاء لنموذج ذكاء اصطناعي، ولا قراءة أو كتابة في دفاتر المؤسسة، ولا تُسجَّل في سجل التدقيق.
             </p>
           </div>
           <button

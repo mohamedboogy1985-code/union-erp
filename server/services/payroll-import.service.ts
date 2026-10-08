@@ -6,9 +6,6 @@ import { erpStore } from '../db/store.js';
 import { accountingService } from './accounting.service.js';
 import { normalizeArabicText } from '../utils/arabic.js';
 import { can } from '../security/permissions.js';
-import { userCanAccessOrganization } from '../security/organization-scope.js';
-import { employeeDataBelongsToOrganization } from './hr-organization-data.js';
-import { resolvePayrollImportsFile } from '../utils/data-paths.js';
 import type { PayrollLine, User } from '../../src/types/erp.js';
 
 /**
@@ -300,10 +297,7 @@ function extractReportType(fileName: string): string {
 }
 
 export class PayrollImportService {
-  private get importsFile(): string {
-    // المسار نفسه الذي يعرضه مؤشّر data-paths — cwd/data/payroll-imports.json.
-    return resolvePayrollImportsFile().path;
-  }
+  private importsFile = path.join(process.cwd(), 'data', 'payroll-imports.json');
 
   /** تحميل الكشوف المعتمدة سابقاً عند إقلاع الخادم */
   public loadPersistedImports(): number {
@@ -518,7 +512,7 @@ export class PayrollImportService {
    * ضمان وجود فترة مالية مفتوحة تغطي تاريخ القيد (للاستيراد التاريخي)
    * — يعيد فتح الفترة المقفلة أو ينشئها إن لم تكن موجودة مع تدقيق الإجراء
    */
-  public ensureOpenPeriod(user: User, year: number, month: number, organizationId = user.organizationId): void {
+  public ensureOpenPeriod(user: User, year: number, month: number): void {
     const periodId = `fp-${year}-${String(month).padStart(2, '0')}`;
     let period = erpStore.fiscalPeriods.find((p) => p.year === year && p.periodNumber === month);
     if (!period) {
@@ -534,7 +528,7 @@ export class PayrollImportService {
       };
       erpStore.fiscalPeriods.push(period);
       erpStore.recordAudit(
-        user.id, user.fullName, user.role, organizationId, 'FISCAL_PERIOD_AUTO_CREATED', 'FiscalPeriod', period.id,
+        user.id, user.fullName, user.role, user.organizationId, 'FISCAL_PERIOD_AUTO_CREATED', 'FiscalPeriod', period.id,
         `إنشاء فترة مالية مفتوحة تلقائياً لاستيراد كشوف المرتبات (${period.name})`,
         undefined, { status: 'OPEN' }
       );
@@ -544,7 +538,7 @@ export class PayrollImportService {
       period.reopenedAt = new Date().toISOString();
       delete (period as any).closedAt;
       erpStore.recordAudit(
-        user.id, user.fullName, user.role, organizationId, 'FISCAL_PERIOD_REOPENED', 'FiscalPeriod', period.id,
+        user.id, user.fullName, user.role, user.organizationId, 'FISCAL_PERIOD_REOPENED', 'FiscalPeriod', period.id,
         `إعادة فتح الفترة المالية ${period.name} تلقائياً لاعتماد كشوف المرتبات المستوردة`,
         { status: 'CLOSED' }, { status: 'OPEN' }
       );
@@ -554,20 +548,8 @@ export class PayrollImportService {
   /**
    * المرحلة 2: اعتماد البيانات المستوردة — ربطها بكل شاشات النظام
    */
-  public commitImport(
-    user: User,
-    months: ImportedPayrollMonth[],
-    year: number,
-    organizationId: string,
-  ): any {
+  public commitImport(user: User, months: ImportedPayrollMonth[], year: number): any {
     if (!can(user, 'hr:manage')) throw new Error('لا تملك صلاحية استيراد المرتبات.');
-    if (
-      !organizationId ||
-      !erpStore.organizations.some((organization) => organization.id === organizationId && organization.isActive) ||
-      !userCanAccessOrganization(user, organizationId)
-    ) {
-      throw new Error('غير مصرح باستيراد المرتبات لهذه المؤسسة.');
-    }
 
     const expenseAcc = this.findAccount({ code: '5101', keywords: ['مرتب', 'أجور', 'اجور', 'رواتب'], type: 'EXPENSE' });
     const insuranceAcc = this.findAccount({ code: '2104', keywords: ['الهيئة القومية للتأمين', 'التأمين الاجتماعي', 'تأمينات اجتماعية', 'تأمين'], type: 'LIABILITY' });
@@ -595,19 +577,13 @@ export class PayrollImportService {
 
     for (const m of months) {
       const monthPrefix = `${m.year}-${String(m.month).padStart(2, '0')}`;
-      const importId = `IMPORT-${organizationId}-${monthPrefix}`;
-      const legacyImportId = `IMPORT-${monthPrefix}`;
 
       // ضمان فترة مالية مفتوحة لشهر الكشف قبل تسجيل القيد
-      this.ensureOpenPeriod(user, m.year, m.month, organizationId);
+      this.ensureOpenPeriod(user, m.year, m.month);
 
-      // منع الازدواجية داخل المؤسسة، مع احترام معرّف الإصدار القديم فقط إذا كان
-      // القيد نفسه موسوماً بالمؤسسة ذاتها. لا نعيد إسناد كشوف قديمة غير محددة.
+      // منع ازدواجية استيراد نفس الشهر
       const exists = erpStore.journalEntries.some(
-        (entry) =>
-          entry.sourceDocumentType === 'PAYROLL_IMPORT' &&
-          ((entry as any).sourceDocumentId === importId ||
-            ((entry as any).sourceDocumentId === legacyImportId && entry.organizationId === organizationId))
+        (e) => e.sourceDocumentType === 'PAYROLL_IMPORT' && (e as any).sourceDocumentId === `IMPORT-${monthPrefix}`
       );
       if (exists) continue;
 
@@ -640,11 +616,11 @@ export class PayrollImportService {
       const { entry } = accountingService.createJournalEntry(
         {
           date: `${monthPrefix}-28`,
-          organizationId,
+          organizationId: user.organizationId,
           description: `قيد استحقاق مرتبات شهر ${m.monthLabelAr} (${m.employeesCount} عاملاً)`,
           type: 'MANUAL',
           sourceDocumentType: 'PAYROLL_IMPORT',
-          sourceDocumentId: importId,
+          sourceDocumentId: `IMPORT-${monthPrefix}`,
           lines,
           userId: user.id,
         },
@@ -656,8 +632,7 @@ export class PayrollImportService {
 
       // حفظ الكشف المعتمد كنموذج مرتبات رسمي (يصمد بعد إعادة التشغيل)
       const committedRecord = {
-        id: importId,
-        organizationId,
+        id: `IMPORT-${monthPrefix}`,
         year: m.year,
         month: m.month,
         monthLabelAr: m.monthLabelAr,
@@ -677,7 +652,6 @@ export class PayrollImportService {
       // ===== 2) شئون العاملين: مطابقة الأسماء وتحديث الأجر الفعلي =====
       for (const row of m.rows) {
         const emp = erpStore.employees.find((e) => {
-          if (e.organizationId !== organizationId) return false;
           const en = norm(e.fullName);
           const rn = norm(row.name);
           return en === rn || en.includes(rn) || rn.includes(en.replace(/^(م\.|د\.)\s*/, ''));
@@ -692,18 +666,10 @@ export class PayrollImportService {
       if (m.totals.loans > 0) {
         for (const row of m.rows) {
           if (row.loans <= 0) continue;
-          const emp = erpStore.employees.find(
-            (employee) => employee.organizationId === organizationId && norm(employee.fullName) === norm(row.name),
-          ) || erpStore.employees.find(
-            (employee) => employee.organizationId === organizationId && norm(employee.fullName).includes(norm(row.name)),
-          );
+          const emp = erpStore.employees.find((e) => norm(e.fullName) === norm(row.name)) ||
+            erpStore.employees.find((e) => norm(e.fullName).includes(norm(row.name)));
           const adv = emp
-            ? erpStore.employeeAdvances.find(
-                (advance) =>
-                  advance.employeeId === emp.id &&
-                  employeeDataBelongsToOrganization(advance.employeeId, organizationId, advance.organizationId) &&
-                  advance.status === 'ACTIVE',
-              )
+            ? erpStore.employeeAdvances.find((a) => a.employeeId === emp.id && a.status === 'ACTIVE')
             : undefined;
           if (adv) {
             const due = Math.min(row.loans, adv.amount - adv.paidAmount);
@@ -734,10 +700,10 @@ export class PayrollImportService {
         user.id,
         user.fullName,
         user.role,
-        organizationId,
+        user.organizationId,
         'PAYROLL_IMPORT_MONTH_COMMITTED',
         'PayrollImport',
-        importId,
+        `IMPORT-${monthPrefix}`,
         `اعتماد كشف مرتبات ${m.monthLabelAr}: ${m.employeesCount} عاملاً بإجمالي ${m.totals.gross.toLocaleString()} ج.م وصافي ${(m.totals.gross - deducted).toLocaleString()} ج.م — قيد [${entry.entryNumber}]`,
         undefined,
         { month: monthPrefix, totals: m.totals, entryNumber: entry.entryNumber }
@@ -747,11 +713,8 @@ export class PayrollImportService {
     // ===== 5) الموازنة التقديرية: انحراف الأجور الفعلية مقابل الموازنة المعتمدة =====
     const importedTotal = Math.round(months.reduce((s, m) => s + m.totals.gross, 0) * 100) / 100;
     const salaryBudget = erpStore.budgets.find(
-      (budget) =>
-        budget.organizationId === organizationId &&
-        budget.year === year &&
-        (norm(budget.title).includes('مرتب') || norm(budget.title).includes('أجور') || norm(budget.title).includes('اجور'))
-    ) || erpStore.budgets.find((budget) => budget.organizationId === organizationId && budget.year === year);
+      (b) => b.year === year && (norm(b.title).includes('مرتب') || norm(b.title).includes('أجور') || norm(b.title).includes('اجور'))
+    ) || erpStore.budgets.find((b) => b.year === year);
     const budgetVariance = salaryBudget
       ? {
           budgetTitle: salaryBudget.title,
@@ -768,7 +731,7 @@ export class PayrollImportService {
       user.id,
       user.fullName,
       user.role,
-      organizationId,
+      user.organizationId,
       'PAYROLL_ARCHIVE_IMPORTED',
       'PayrollImport',
       `ARCHIVE-${year}`,
@@ -783,7 +746,7 @@ export class PayrollImportService {
       type: 'HR_ALERT',
       severity: 'SUCCESS',
       targetRole: 'ALL',
-      organizationId,
+      organizationId: user.organizationId,
       actionTab: 'payroll',
       entityId: `ARCHIVE-${year}`,
     });

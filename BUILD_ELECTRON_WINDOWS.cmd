@@ -21,10 +21,6 @@ echo [3/4] تجميع الخادم (esbuild bundle)...
 call npm run build:server
 if errorlevel 1 goto :error
 
-echo [3.5/4] تنزيل ملفات Electron التنفيذية إن لم تكن موجودة (Electron 40+ لا ينزّلها في postinstall)...
-call npx install-electron
-if errorlevel 1 goto :error
-
 echo [4/4] حزم تطبيق Electron (مثبت + نسخة محمولة)...
 call npx electron-builder --win nsis portable
 if errorlevel 1 goto :error
@@ -32,8 +28,8 @@ if errorlevel 1 goto :error
 echo.
 echo ===================================================================
 echo   اكتمل البناء بنجاح. الملفات الناتجة في مجلد release\
-echo   - UnionERP-[version]-x64.exe          (مثبت NSIS)
-echo   - UnionERP-Portable-[version]-x64.exe (نسخة محمولة بدون تثبيت)
+echo   - UnionERP-x64.exe         (مثبت NSIS)
+echo   - UnionERP-Portable-x64.exe (نسخة محمولة بدون تثبيت)
 echo ===================================================================
 pause
 exit /b 0

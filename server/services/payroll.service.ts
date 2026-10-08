@@ -1,12 +1,9 @@
 import { erpStore } from '../db/store.js';
-import { biometricService } from './biometric.service.js';
 import { accountingService } from './accounting.service.js';
 import { attendanceService } from './attendance.service.js';
 import { findExpenseAccount, findTreasuryAccount, findAccountByCodeOrName } from '../utils/account-lookup.js';
 import { normalizeArabicText } from '../utils/arabic.js';
 import { can } from '../security/permissions.js';
-import { userCanAccessOrganization } from '../security/organization-scope.js';
-import { employeeDataBelongsToOrganization } from './hr-organization-data.js';
 import type { PayrollLine, PayrollRun, User } from '../../src/types/erp.js';
 import { PAYROLL_MONTHS_AR } from '../../src/types/erp.js';
 
@@ -20,18 +17,14 @@ import { PAYROLL_MONTHS_AR } from '../../src/types/erp.js';
 export class PayrollService {
   private static readonly ROUND = (n: number) => Math.round(n * 100) / 100;
 
-  public listRuns(organizationId: string): PayrollRun[] {
-    if (!organizationId) return [];
-    return erpStore.payrollRuns
-      .filter((run) => run.organizationId === organizationId)
-      .sort((a, b) =>
-        b.year - a.year || b.month - a.month || b.createdAt.localeCompare(a.createdAt)
-      );
+  public listRuns(): PayrollRun[] {
+    return [...erpStore.payrollRuns].sort((a, b) =>
+      b.year - a.year || b.month - a.month || b.createdAt.localeCompare(a.createdAt)
+    );
   }
 
-  public getRun(id: string, organizationId: string): PayrollRun | undefined {
-    if (!organizationId) return undefined;
-    return erpStore.payrollRuns.find((run) => run.id === id && run.organizationId === organizationId);
+  public getRun(id: string): PayrollRun | undefined {
+    return erpStore.payrollRuns.find((r) => r.id === id);
   }
 
   /**
@@ -43,29 +36,20 @@ export class PayrollService {
    */
   public generateRun(
     user: User,
-    data: { year: number; month: number; organizationId?: string; notes?: string; useAttendance?: boolean }
+    data: { year: number; month: number; notes?: string; useAttendance?: boolean }
   ): PayrollRun {
     const year = Number(data.year);
     const month = Number(data.month);
-    const organizationId = data.organizationId ?? user.organizationId;
     if (!Number.isInteger(year) || year < 2000 || year > 2100) throw new Error('سنة غير صحيحة.');
     if (!Number.isInteger(month) || month < 1 || month > 12) throw new Error('الشهر يجب أن يكون بين 1 و 12.');
-    if (!organizationId || !userCanAccessOrganization(user, organizationId)) {
-      throw new Error('غير مصرح بتوليد مسير لهذه المؤسسة.');
-    }
 
-    const employees = erpStore.employees.filter(
-      (employee) => employee.organizationId === organizationId && employee.status === 'ACTIVE',
-    );
+    const employees = erpStore.employees.filter((e) => e.status === 'ACTIVE');
     if (employees.length === 0) {
-      throw new Error('لا يوجد عاملون نشطون في قاعدة البيانات (استمارة 2 تأمينات) لهذه المؤسسة.');
+      throw new Error('لا يوجد عاملون نشطون في قاعدة البيانات (استمارة 2 تأمينات).');
     }
 
-    const employeeIds = new Set(employees.map((employee) => employee.id));
     const monthPrefix = `${year}-${String(month).padStart(2, '0')}`;
-    const existing = erpStore.payrollRuns.find(
-      (run) => run.organizationId === organizationId && run.year === year && run.month === month,
-    );
+    const existing = erpStore.payrollRuns.find((r) => r.year === year && r.month === month);
 
     if (existing && existing.status !== 'DRAFT') {
       throw new Error(`مسير ${PAYROLL_MONTHS_AR[month - 1]} ${year} موجود بالفعل بحالة [${existing.status === 'POSTED' ? 'مرحّل' : 'معتمد'}] ولا يمكن إعادة توليده.`);
@@ -75,15 +59,8 @@ export class PayrollService {
     const monthEnd = new Date(Date.UTC(year, month, 0)).toISOString().split('T')[0];
 
     // الربط التلقائي بالحضور: يُفعَّل إن وُجدت حركات بصمة للشهر ولم يُستبعد صراحةً
-    const monthHasAttendance = erpStore.attendanceRecords.some(
-      (record) =>
-        employeeIds.has(record.employeeId) &&
-        employeeDataBelongsToOrganization(record.employeeId, organizationId, record.organizationId) &&
-        record.date.startsWith(monthPrefix),
-    );
-    // بوابة الاعتماد: ربط البصمة بالمراتب لا يُطبَّق إلا باعتماد المستخدم المصرَّح له (محمد عبد الله أحمد)
-    const attendanceLinkApproved = biometricService.isPayrollLinkApproved();
-    const basedOnAttendance = attendanceLinkApproved && data.useAttendance !== false && monthHasAttendance;
+    const monthHasAttendance = erpStore.attendanceRecords.some((r) => r.date.startsWith(monthPrefix));
+    const basedOnAttendance = data.useAttendance !== false && monthHasAttendance;
 
     let attendanceDeductionSum = 0;
     let overtimePaySum = 0;
@@ -93,7 +70,6 @@ export class PayrollService {
       const affairs = erpStore.employeeAffairs.filter(
         (a) =>
           a.employeeId === emp.id &&
-          employeeDataBelongsToOrganization(a.employeeId, organizationId, a.organizationId) &&
           a.status === 'APPROVED' &&
           a.startDate >= monthStart &&
           a.startDate <= monthEnd
@@ -107,10 +83,7 @@ export class PayrollService {
 
       // أقساط السلف النشطة المستحقة هذا الشهر
       const activeAdvances = erpStore.employeeAdvances.filter(
-        (a) =>
-          a.employeeId === emp.id &&
-          employeeDataBelongsToOrganization(a.employeeId, organizationId, a.organizationId) &&
-          a.status === 'ACTIVE'
+        (a) => a.employeeId === emp.id && a.status === 'ACTIVE'
       );
       const advanceDeduction = activeAdvances.reduce(
         (s, a) => s + Math.min(a.installmentAmount, a.amount - a.paidAmount),
@@ -180,7 +153,7 @@ export class PayrollService {
         user.id,
         user.fullName,
         user.role,
-        organizationId,
+        user.organizationId,
         'PAYROLL_REGENERATED',
         'PayrollRun',
         existing.id,
@@ -190,13 +163,13 @@ export class PayrollService {
     }
 
     const run: PayrollRun = {
-      id: `pay-${organizationId}-${Date.now()}`,
+      id: `pay-${Date.now()}`,
       runNumber,
       year,
       month,
       monthLabelAr: `${PAYROLL_MONTHS_AR[month - 1]} ${year}`,
       status: 'DRAFT',
-      organizationId,
+      organizationId: user.organizationId,
       lines,
       totals,
       basedOnAttendance,
@@ -212,7 +185,7 @@ export class PayrollService {
       type: 'HR_ALERT',
       severity: 'INFO',
       targetRole: 'ALL',
-      organizationId,
+      organizationId: user.organizationId,
       actionTab: 'payroll',
       entityId: run.id,
     });
@@ -221,7 +194,7 @@ export class PayrollService {
       user.id,
       user.fullName,
       user.role,
-      organizationId,
+      user.organizationId,
       'PAYROLL_GENERATED',
       'PayrollRun',
       run.id,
@@ -233,11 +206,8 @@ export class PayrollService {
     return run;
   }
 
-  public approveRun(user: User, runId: string, organizationId: string): PayrollRun {
-    if (!userCanAccessOrganization(user, organizationId)) {
-      throw new Error('غير مصرح باعتماد مسير هذه المؤسسة.');
-    }
-    const run = this.getRun(runId, organizationId);
+  public approveRun(user: User, runId: string): PayrollRun {
+    const run = this.getRun(runId);
     if (!run) throw new Error('المسير غير موجود.');
     if (run.status !== 'DRAFT') throw new Error('يُعتمد المسير من حالة مسودة فقط.');
     if (run.totals.employeesCount === 0) throw new Error('لا يمكن اعتماد مسير فارغ.');
@@ -250,7 +220,7 @@ export class PayrollService {
       user.id,
       user.fullName,
       user.role,
-      run.organizationId,
+      user.organizationId,
       'PAYROLL_APPROVED',
       'PayrollRun',
       run.id,
@@ -265,11 +235,8 @@ export class PayrollService {
    * مدين: مصروف المرتبات (الأساسي + المكافآت − الخصومات الإدارية)
    * دائن: الخزينة/البنك (الصافي المصروف) + حساب السلف المستردة (أقساط مستقطعة إن وجدت)
    */
-  public postRun(user: User, runId: string, organizationId: string): { run: PayrollRun; entry: any } {
-    if (!userCanAccessOrganization(user, organizationId)) {
-      throw new Error('غير مصرح بترحيل مسير هذه المؤسسة.');
-    }
-    const run = this.getRun(runId, organizationId);
+  public postRun(user: User, runId: string): { run: PayrollRun; entry: any } {
+    const run = this.getRun(runId);
     if (!run) throw new Error('المسير غير موجود.');
     if (run.status !== 'APPROVED') throw new Error('يجب اعتماد المسير قبل الترحيل.');
 
@@ -343,10 +310,7 @@ export class PayrollService {
       for (const line of run.lines) {
         if (line.advanceDeduction <= 0) continue;
         const empAdvances = erpStore.employeeAdvances.filter(
-          (advance) =>
-            advance.employeeId === line.employeeId &&
-            employeeDataBelongsToOrganization(advance.employeeId, run.organizationId, advance.organizationId) &&
-            advance.status === 'ACTIVE'
+          (a) => a.employeeId === line.employeeId && a.status === 'ACTIVE'
         );
         let remaining = line.advanceDeduction;
         for (const adv of empAdvances) {
@@ -402,13 +366,8 @@ export class PayrollService {
     return { run, entry: result.entry };
   }
 
-  public deleteDraftRun(user: User, runId: string, organizationId: string): void {
-    if (!userCanAccessOrganization(user, organizationId)) {
-      throw new Error('غير مصرح بحذف مسير هذه المؤسسة.');
-    }
-    const index = erpStore.payrollRuns.findIndex(
-      (run) => run.id === runId && run.organizationId === organizationId,
-    );
+  public deleteDraftRun(user: User, runId: string): void {
+    const index = erpStore.payrollRuns.findIndex((r) => r.id === runId);
     if (index === -1) throw new Error('المسير غير موجود.');
     const run = erpStore.payrollRuns[index];
     if (run.status !== 'DRAFT') throw new Error('لا يمكن حذف مسير معتمد أو مرحّل.');
@@ -418,7 +377,7 @@ export class PayrollService {
       user.id,
       user.fullName,
       user.role,
-      run.organizationId,
+      user.organizationId,
       'PAYROLL_DELETED',
       'PayrollRun',
       runId,

@@ -154,7 +154,7 @@ export const LiveVoiceModal: React.FC<LiveVoiceModalProps> = ({
               <div className="flex items-center gap-2">
                 <h3 className="text-sm font-bold text-white">Gemini Live API Voice</h3>
                 <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-cyan-950 text-cyan-300 border border-cyan-800">
-                  Gemini Live
+                  gemini-3.8-live
                 </span>
               </div>
               <p className="text-xs text-slate-400">

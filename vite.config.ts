@@ -10,8 +10,6 @@ export default defineConfig(() => {
       alias: {
         '@': path.resolve(__dirname, '.'),
       },
-      // Keep React and React DOM singletons shared by the app and all lazy-loaded hubs.
-      dedupe: ['react', 'react-dom'],
     },
     build: {
       // الحزمة الرئيسية تحوي كل وحدات العمل المحاسبية/العضوية/الموارد (تُعرض فوراً
@@ -34,10 +32,10 @@ export default defineConfig(() => {
       // Disable file watching when DISABLE_HMR is true to save CPU during agent edits.
       watch: process.env.DISABLE_HMR === 'true' ? null : {
         // لا تراقب مجلدات الإخراج/البيانات — تمنع EBUSY مع الملفات المقفلة عندما تعمل نسخة معبأة
-        ignored: ['**/release/**', '**/dist/**', '**/dist-server/**', '**/pgdata/**', '**/node_modules/**', '**/server/data/**'],
+        ignored: ['**/release/**', '**/dist/**', '**/dist-server/**', '**/pgdata/**', '**/node_modules/**'],
       },
       // السماح بمضيفات المعاينة السحابية (مثل e2b.app) مع localhost
-      allowedHosts: ['localhost', '.e2b.app', '.arena.site'],
+      allowedHosts: ['localhost', '.e2b.app'],
     },
   };
 });

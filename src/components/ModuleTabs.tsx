@@ -15,10 +15,6 @@ interface ModuleTabsProps<T extends string> {
   activeId: T;
   onChange: (id: T) => void;
   icon?: React.ComponentType<{ className?: string }>;
-  /** إخفاء عنوان الوحدة الفرعية عند تضمينها داخل شاشة موحّدة أكبر. */
-  titleVisible?: boolean;
-  /** تعطيل الالتصاق عندما توجد طبقة تبويبات رئيسية أعلى هذا الشريط. */
-  sticky?: boolean;
 }
 
 /** شريط تبويبات موحد لوحدات الشاشات المجمعة (يظهر أعلى المضمون للتبديل المتقارب) */
@@ -28,19 +24,13 @@ export const ModuleTabs = <T extends string>({
   activeId,
   onChange,
   icon: TitleIcon = Layers,
-  titleVisible = true,
-  sticky = true,
 }: ModuleTabsProps<T>) => {
   return (
-    <div
-      className={`${sticky ? 'sticky top-0 z-30' : 'relative'} -mx-4 px-4 ${titleVisible ? 'pt-4' : 'pt-3'} bg-[#0f172a]/95 backdrop-blur border-b border-slate-800`}
-    >
-      {titleVisible && (
-        <div className="flex items-center gap-2 mb-3">
-          <TitleIcon className="w-4 h-4 text-sky-400" />
-          <span className="text-[11px] font-bold text-slate-300">{title}</span>
-        </div>
-      )}
+    <div className="sticky top-0 z-30 -mx-4 px-4 pt-4 bg-[#0f172a]/95 backdrop-blur border-b border-slate-800">
+      <div className="flex items-center gap-2 mb-3">
+        <TitleIcon className="w-4 h-4 text-sky-400" />
+        <span className="text-[11px] font-bold text-slate-300">{title}</span>
+      </div>
       <div className="flex items-center gap-1.5 pb-3 overflow-x-auto">
         {tabs.map((tab) => {
           const Icon = tab.icon;

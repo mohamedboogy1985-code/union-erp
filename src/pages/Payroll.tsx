@@ -30,7 +30,7 @@ const STATUS_AR: Record<PayrollRun['status'], { label: string; cls: string }> = 
   POSTED: { label: 'مرحّل محاسبياً', cls: 'bg-emerald-950/60 text-emerald-300 border-emerald-800/40' },
 };
 
-export const Payroll: React.FC<PayrollProps> = ({ organizationId, currentUser, onShowToast }) => {
+export const Payroll: React.FC<PayrollProps> = ({ currentUser, onShowToast }) => {
   const [runs, setRuns] = useState<PayrollRun[]>([]);
   const [loading, setLoading] = useState(true);
   const [isGenerateModalOpen, setIsGenerateModalOpen] = useState(false);
@@ -55,12 +55,12 @@ export const Payroll: React.FC<PayrollProps> = ({ organizationId, currentUser, o
   useEffect(() => {
     loadRuns();
     loadImportedMonths();
-  }, [organizationId]);
+  }, []);
 
   const loadRuns = async () => {
     setLoading(true);
     try {
-      setRuns(await api.getPayrollRuns(organizationId));
+      setRuns(await api.getPayrollRuns());
     } catch (err: any) {
       onShowToast('error', err.message);
     } finally {
@@ -70,7 +70,7 @@ export const Payroll: React.FC<PayrollProps> = ({ organizationId, currentUser, o
 
   const loadImportedMonths = async () => {
     try {
-      setImportedMonths(await api.getPayrollImportedMonths(organizationId));
+      setImportedMonths(await api.getPayrollImportedMonths());
     } catch {
       /* القسم اختياري — لا يعطل الشاشة */
     }
@@ -79,7 +79,7 @@ export const Payroll: React.FC<PayrollProps> = ({ organizationId, currentUser, o
   const handleGenerate = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      const run = await api.generatePayrollRun({ organizationId, year: Number(form.year), month: Number(form.month), notes: form.notes || undefined, useAttendance: form.useAttendance });
+      const run = await api.generatePayrollRun({ year: Number(form.year), month: Number(form.month), notes: form.notes || undefined, useAttendance: form.useAttendance });
       onShowToast(
         'success',
         `تم توليد مسير مرتبات ${run.monthLabelAr}${run.basedOnAttendance ? ' مبنياً على الحضور والبصمة' : ''} — ${run.totals.employeesCount} عاملاً بصافي ${fmt(run.totals.totalNet)} ج.م${(run.totals.totalAttendanceDeduction ?? 0) > 0 ? ` (خصومات حضور ${fmt(run.totals.totalAttendanceDeduction)} ج.م)` : ''}.`
@@ -93,7 +93,7 @@ export const Payroll: React.FC<PayrollProps> = ({ organizationId, currentUser, o
 
   const handleApprove = async (run: PayrollRun) => {
     try {
-      await api.approvePayrollRun(run.id, organizationId);
+      await api.approvePayrollRun(run.id);
       onShowToast('success', `تم اعتماد مسير ${run.monthLabelAr}.`);
       loadRuns();
     } catch (err: any) {
@@ -103,7 +103,7 @@ export const Payroll: React.FC<PayrollProps> = ({ organizationId, currentUser, o
 
   const handlePost = async (run: PayrollRun) => {
     try {
-      const result = await api.postPayrollRun(run.id, organizationId);
+      const result = await api.postPayrollRun(run.id);
       onShowToast('success', `تم ترحيل مسير ${run.monthLabelAr} بالقيد رقم [${(result.entry as any).entryNumber || result.entry.id}].`);
       loadRuns();
     } catch (err: any) {
@@ -114,7 +114,7 @@ export const Payroll: React.FC<PayrollProps> = ({ organizationId, currentUser, o
   const handleDelete = async (run: PayrollRun) => {
     if (!confirm(`حذف مسودة مسير ${run.monthLabelAr}؟`)) return;
     try {
-      await api.deletePayrollRun(run.id, organizationId);
+      await api.deletePayrollRun(run.id);
       onShowToast('info', 'تم حذف المسودة.');
       loadRuns();
     } catch (err: any) {
@@ -153,7 +153,7 @@ export const Payroll: React.FC<PayrollProps> = ({ organizationId, currentUser, o
     setCommitLoading(true);
     try {
       const year = importPreview.months[0].year;
-      const result = await api.commitPayrollImport(importPreview.months, year, organizationId);
+      const result = await api.commitPayrollImport(importPreview.months, year);
       onShowToast(
         'success',
         `${result.message} (${result.monthsCommitted} شهراً، ${result.journalEntriesCreated} قيداً محاسبياً، ${result.advanceDeductionsApplied} قسط سلفة، ${result.employeesSalaryUpdated} أجراً محدثاً)`
@@ -171,7 +171,7 @@ export const Payroll: React.FC<PayrollProps> = ({ organizationId, currentUser, o
 
   const openImportDetails = async (id: string) => {
     try {
-      setDetailsImport(await api.getPayrollImportedMonth(id, organizationId));
+      setDetailsImport(await api.getPayrollImportedMonth(id));
     } catch (err: any) {
       onShowToast('error', err.message);
     }
@@ -179,7 +179,7 @@ export const Payroll: React.FC<PayrollProps> = ({ organizationId, currentUser, o
 
   const exportImportCsv = async (m: any) => {
     try {
-      const full = detailsImport?.id === m.id ? detailsImport : await api.getPayrollImportedMonth(m.id, organizationId);
+      const full = detailsImport?.id === m.id ? detailsImport : await api.getPayrollImportedMonth(m.id);
       const header = 'م,الاسم,الأساسي,البدلات والمنح والإضافي,الإجمالي,تأمينات,ضرائب,سلف وأقساط,خصومات أخرى,إجمالي الاستقطاع,الصافي\n';
       const rows = (full.rows || [])
         .map((r: any, i: number) =>

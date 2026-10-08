@@ -169,21 +169,21 @@ export const Header: React.FC<HeaderProps> = ({
 
         {/* Feature Action Buttons: Live Voice, Transcribe, Firebase Auth */}
         <div className="flex items-center gap-2">
-          {/* زر المحادثة الصوتية الحية (نموذج الجلسة يُضبط في الخادم عبر AI_LIVE_MODEL) */}
+          {/* Live Voice API (gemini-3.8-live) Button */}
           <button
             onClick={onOpenLiveVoice}
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-gradient-to-r from-cyan-600 to-indigo-600 hover:from-cyan-500 hover:to-indigo-500 text-white text-xs font-bold transition-all shadow-md shadow-cyan-600/20"
-            title="بدء محادثة صوتية لحظية عبر Gemini Live API (اسم النموذج من إعداد الخادم)"
+            title="بدء محادثة صوتية لحظية بواسطة Gemini Live API (gemini-3.8-live)"
           >
             <Radio className="w-3.5 h-3.5 animate-pulse text-cyan-200" />
             <span className="hidden sm:inline">صوت حي (Live API)</span>
           </button>
 
-          {/* زر نسخ الصوت من الميكروفون */}
+          {/* Transcribe Audio (gemini-3.5-transcribe) Button */}
           <button
             onClick={onOpenTranscribe}
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-cyan-300 border border-slate-700 text-xs font-medium transition-all shadow-sm"
-            title="نسخ الصوت من الميكروفون عبر نموذج التوليد المعلن في الخادم"
+            title="نسخ الصوت من الميكروفون عبر نموذج gemini-3.5-transcribe"
           >
             <FileAudio className="w-3.5 h-3.5 text-cyan-400" />
             <span className="hidden sm:inline">نسخ الصوت</span>

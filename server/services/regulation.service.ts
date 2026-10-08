@@ -44,10 +44,6 @@ export interface RegulationJournalLine {
   accountName?: string;
   /** بيان السطر — تُستخرج منه الكلمات المفتاحية للقواعد التخصصية */
   description?: string;
-  /** عدد ليالي المأمورية؛ يلزم حتى يمكن مقارنة بدل السفر بحد الليلة */
-  travelNights?: number;
-  /** يتيح تطبيق استثناء المادة 40 على عضو هيئة المكتب عند تسجيله صراحةً */
-  boardMember?: boolean;
   debit: number;
   credit: number;
 }
@@ -114,8 +110,7 @@ export class RegulationService {
       process.env.SQL_HOST ||
       process.env.PGHOST ||
       process.env.SQL_DB_NAME ||
-      process.env.PGDATABASE ||
-      process.env.DATABASE_URL
+      process.env.PGDATABASE
     );
   }
 
@@ -177,20 +172,6 @@ export class RegulationService {
     if (this.storageInitialized || !this.hasDatabaseConfiguration()) return;
     try {
       await this.ensureStorageTable();
-      // Persist every regulation default exactly once so article (2) and the other
-      // source-activated values are enabled in SQL as well as in the in-memory engine.
-      // onConflictDoNothing preserves any later, explicitly configured SQL value.
-      for (const config of REGULATION_ACTIVATED_RULES) {
-        await db.insert(dbSchema.regulationRules).values({
-          ruleId: config.ruleId,
-          value: String(config.value),
-          valueType: typeof config.value === 'number' ? 'number' : 'string',
-          articleNo: config.articleNo,
-          enabled: true,
-          severity: config.severity ?? 'WARN',
-          updatedAt: new Date(),
-        }).onConflictDoNothing();
-      }
       const storedRules = await db.select().from(dbSchema.regulationRules);
       for (const stored of storedRules) {
         const rule = liveRules.find((candidate) => candidate.ruleId === stored.ruleId);
@@ -260,9 +241,7 @@ export class RegulationService {
     linesCount: number;
     attachmentIds?: string[];
     type?: string;
-    /** تصنيف الجهة اللازمة لاختيار حدود النقابة العامة أو اللجان المنصوص عليها في المواد 6 و9 و37 و61. */
-    entityLevel?: 'GENERAL_UNION' | 'COMMITTEE' | 'OTHER';
-    /** سطور القيد — تُستخدم للقواعد التخصصية (الصرف النقدي / البدلات / الهدايا / المشتريات). */
+    /** سطور القيد — تُستخدم للقواعد التخصصية (الصرف النقدي / البدلات / الهدايا / المشتريات) */
     lines?: RegulationJournalLine[];
   }): RegulationViolation[] {
     const violations: RegulationViolation[] = [];
@@ -292,13 +271,11 @@ export class RegulationService {
     const isCashAccount = (line: RegulationJournalLine) =>
       line.accountCode === '1101' || (line.accountName ?? '').includes('خزينة');
 
-    // مادة 9: مجموع الصرف النقدي في الغرض الواحد؛ حد اللجنة يختلف عن النقابة العامة.
-    const cashCeiling = input.entityLevel === 'OTHER'
-      ? undefined
-      : this.getRule(input.entityLevel === 'COMMITTEE' ? 'CASH_PAYMENT_CEILING_BRANCH' : 'CASH_PAYMENT_CEILING');
+    // مادة 9: مجموع الصرف النقدي في الغرض الواحد
+    const cashCeiling = this.getRule('CASH_PAYMENT_CEILING');
     const cashOut = lines.filter(isCashAccount).reduce((sum, l) => sum + (l.credit || 0), 0);
     if (this.active(cashCeiling) && cashOut > Number(cashCeiling.value)) {
-      violations.push(this.violate(cashCeiling, `إجمالي الصرف النقدي في القيد الحالي للغرض المسجل (${cashOut.toLocaleString()} ج.م) يتجاوز حد المادة 9 (${Number(cashCeiling.value).toLocaleString()} ج.م). يجوز للرئيس الموافقة على الزيادة بأسباب موضحة؛ يلزم التحقق من الاستثناء ومستنداته.`));
+      violations.push(this.violate(cashCeiling, `إجمالي الصرف نقداً من الخزينة في هذا الغرض (${cashOut.toLocaleString()} ج.م) يتجاوز سقف الصرف النقدي (${Number(cashCeiling.value).toLocaleString()} ج.م) — يُصرف ما زاد بشيك/تحويل باسم المستحق.`));
     }
 
     for (const line of lines) {
@@ -306,20 +283,17 @@ export class RegulationService {
       if (amount <= 0) continue;
       const desc = `${line.description ?? ''} ${line.accountName ?? ''}`;
 
-      // مادة 37: القيمة في السطر قد تجمع عدة ليالٍ؛ لا تُقارن بحد الليلة إلا عند توفير عدد الليالي صراحةً.
-      if (keywordHit(desc, ['سفر', 'مأمورية', 'مدة سفر']) && Number.isInteger(line.travelNights) && (line.travelNights ?? 0) > 0) {
-        const floor = input.entityLevel === 'OTHER'
-          ? undefined
-          : this.getRule(input.entityLevel === 'COMMITTEE' ? 'TRAVEL_ALLOWANCE_DAILY_CAP_BRANCH' : 'TRAVEL_ALLOWANCE_DAILY_CAP');
-        const nightlyAmount = amount / Number(line.travelNights);
-        if (this.active(floor) && nightlyAmount < Number(floor.value)) {
-          violations.push(this.violate(floor, `متوسط بدل السفر عن الليلة (${nightlyAmount.toLocaleString()} ج.م) أقل من الحد الأدنى المقرر (${Number(floor.value).toLocaleString()} ج.م) وفق المادة 37.`));
+      // مادة 37: بدل السفر (حد أدنى للقيمة عن الليلة + أقصى زيادة عن الحد الأدنى)
+      if (keywordHit(desc, ['سفر', 'مأمورية', 'مدة سفر'])) {
+        const floor = this.getRule('TRAVEL_ALLOWANCE_DAILY_CAP');
+        if (this.active(floor) && amount < Number(floor.value)) {
+          violations.push(this.violate(floor, `قيمة بدل السفر (${amount.toLocaleString()} ج.م) أقل من الحد الأدنى المقرر (${Number(floor.value).toLocaleString()} ج.م عن الليلة) وفق اللائحة.`));
         }
         const incPct = this.getRule('TRAVEL_ALLOWANCE_MAX_INCREASE_PCT');
         if (this.active(floor) && this.active(incPct)) {
           const maxWithIncrease = Number(floor.value) * (1 + Number(incPct.value) / 100);
-          if (nightlyAmount > maxWithIncrease) {
-            violations.push(this.violate(incPct, `متوسط بدل السفر عن الليلة (${nightlyAmount.toLocaleString()} ج.م) يتجاوز الحد الأدنى (${Number(floor.value).toLocaleString()} ج.م) بنسبة تزيد على المسموح (${Number(incPct.value)}%) — الزيادة تتطلب مذكرة أسباب وقرار مجلس الإدارة.`));
+          if (amount > maxWithIncrease) {
+            violations.push(this.violate(incPct, `قيمة بدل السفر (${amount.toLocaleString()} ج.م) تتجاوز الحد الأدنى (${Number(floor.value).toLocaleString()} ج.م) بنسبة تزيد على المسموح (${Number(incPct.value)}%) — الزيادة تتطلب قرار مجلس الإدارة.`));
           }
         }
       }
@@ -332,39 +306,33 @@ export class RegulationService {
         }
       }
 
-      // مادة 40: يوجد استثناء صريح لأعضاء هيئة المكتب؛ لا يُفحص الحد إلا إذا عُرفت الصفة صراحةً بأنها ليست عضو هيئة مكتب.
-      if (keywordHit(desc, ['أعباء']) && line.boardMember === false) {
+      // مادة 40: بدل الأعباء الشهري
+      if (keywordHit(desc, ['أعباء'])) {
         const burden = this.getRule('MONTHLY_BURDEN_ALLOWANCE_CAP');
         if (this.active(burden) && amount > Number(burden.value)) {
-          violations.push(this.violate(burden, `بدل الأعباء (${amount.toLocaleString()} ج.م) يتجاوز الحد الشهري المقرر (${Number(burden.value).toLocaleString()} ج.م)؛ تحقّق من انطباق استثناء عضو هيئة المكتب بالمادة 40.`));
+          violations.push(this.violate(burden, `بدل الأعباء (${amount.toLocaleString()} ج.م) يتجاوز الحد الشهري المقرر (${Number(burden.value).toLocaleString()} ج.م) وفق اللائحة.`));
         }
       }
 
-      // مادة 50: الحد 5,000 جنيه للوفد؛ الاستثناء حتى القيمة المذكورة بالمادة بقرار رئيس المنظمة.
-      // صيغ المادة 51 الرقمية الملتبسة غير مفعلة ولا تُستخدم هنا.
+      // مادتا 50/51: هدايا الوفود
       if (keywordHit(desc, ['هدايا', 'وفود', 'ضيافة'])) {
         const exceptional = this.getRule('GIFTS_CEILING_EXCEPTIONAL');
         const regular = this.getRule('GIFTS_CEILING_REGULAR');
         if (this.active(exceptional) && amount > Number(exceptional.value)) {
-          violations.push(this.violate(exceptional, `قيمة الهدايا (${amount.toLocaleString()} ج.م) تتجاوز الحد الاستثنائي المطبوع في المادة 50 (${Number(exceptional.value).toLocaleString()} ج.م).`));
+          violations.push(this.violate(exceptional, `قيمة الهدايا (${amount.toLocaleString()} ج.م) تتجاوز الحد الاستثنائي (${Number(exceptional.value).toLocaleString()} ج.م) — ما فوقه يتطلب موافقة مجلس الإدارة.`));
         } else if (this.active(regular) && amount > Number(regular.value)) {
-          violations.push(this.violate(regular, `قيمة الهدايا (${amount.toLocaleString()} ج.م) تتجاوز حد 5,000 جنيه للوفد؛ يلزم قرار رئيس المنظمة وأسباب الحالة للتحقق من الاستثناء الوارد بالمادة 50.`));
+          violations.push(this.violate(regular, `قيمة الهدايا (${amount.toLocaleString()} ج.م) تتجاوز الحد العادي (${Number(regular.value).toLocaleString()} ج.م) — الجائز حتى الحد الاستثنائي بقرار من رئيس المنظمة.`));
         }
       }
 
-      // مادة 61: تمييز حدود اللجنة والنقابة العامة والتحقق من درجات الممارسة والمناقصات.
-      // قيمة سطر القيد ليست بديلاً عن قيمة العملية التقديرية؛ لذلك تصدر هذه القاعدة تحذيراً فقط.
-      if (input.entityLevel !== 'OTHER' && keywordHit(desc, ['شراء', 'توريد', 'مشتريات', 'لوازم', 'مهمات'])) {
-        const isCommittee = input.entityLevel === 'COMMITTEE';
-        const direct = this.getRule(isCommittee ? 'PROC_DIRECT_ORDER_CEILING_BRANCH' : 'PROC_DIRECT_ORDER_CEILING');
-        const practice = this.getRule(isCommittee ? 'PROC_TENDER_CEILING_BRANCH' : 'PROC_TENDER_CEILING');
-        const limited = this.getRule(isCommittee ? 'PROC_LIMITED_TENDER_CEILING_BRANCH' : 'PROC_LIMITED_TENDER_CEILING');
-        if (this.active(limited) && amount > Number(limited.value)) {
-          violations.push(this.violate(limited, `قيمة عملية الشراء المسجلة (${amount.toLocaleString()} ج.م) تتجاوز سقف المناقصة المحدودة (${Number(limited.value).toLocaleString()} ج.م)؛ راجع لزوم المناقصة العامة واستثناءات الشراء المباشر الواردة بالمادة 61.`));
-        } else if (this.active(practice) && amount > Number(practice.value)) {
-          violations.push(this.violate(practice, `قيمة عملية الشراء المسجلة (${amount.toLocaleString()} ج.م) تتجاوز سقف الممارسة (${Number(practice.value).toLocaleString()} ج.م)؛ راجع إجراءات المناقصة المحدودة بالمادة 61.`));
+      // مادة 61: طريقة الشراء تبعاً لقيمة العملية
+      if (keywordHit(desc, ['شراء', 'توريد', 'مشتريات', 'لوازم', 'مهمات'])) {
+        const tender = this.getRule('PROC_TENDER_CEILING');
+        const direct = this.getRule('PROC_DIRECT_ORDER_CEILING');
+        if (this.active(tender) && amount > Number(tender.value)) {
+          violations.push(this.violate(tender, `قيمة عملية الشراء/التوريد (${amount.toLocaleString()} ج.م) تتجاوز حد الممارسة (${Number(tender.value).toLocaleString()} ج.م) — تستلزم مناقصة/ممارسة حسب إجراءات اللائحة.`));
         } else if (this.active(direct) && amount > Number(direct.value)) {
-          violations.push(this.violate(direct, `قيمة عملية الشراء المسجلة (${amount.toLocaleString()} ج.م) تتجاوز سقف الأمر المباشر (${Number(direct.value).toLocaleString()} ج.م)؛ راجع إجراء الممارسة أو الاستثناءات بالمادة 61.`));
+          violations.push(this.violate(direct, `قيمة عملية الشراء (${amount.toLocaleString()} ج.م) تتجاوز حد الأمر المباشر (${Number(direct.value).toLocaleString()} ج.م) — يستلزم إجراء ممارسة/مزاد وفق اللائحة.`));
         }
       }
     }
@@ -393,8 +361,8 @@ export class RegulationService {
   }
 
   /**
-   * فحص نسب التوزيع مقابل لائحة الاشتراكات.
-   * يقبل معرفات حرفية أو لاحقة اختيارية مثل *committee؛ تُجمع النسب عند تعدد الجهات.
+   * فحص قاعدة توزيع إيراد مقابل نسب اللائحة الإلزامية (عند ترقيمها).
+   * النسبة enforce كـ JSON نصي {beneficiaryOrgId: percent} عند value.
    */
   public checkDistributionPercentages(lines: { beneficiaryOrgId: string; percentage: number }[]): RegulationViolation[] {
     const violations: RegulationViolation[] = [];
@@ -402,16 +370,10 @@ export class RegulationService {
     if (!this.active(mandate)) return violations;
     try {
       const mandated = JSON.parse(String(mandate.value)) as Record<string, number>;
-      for (const [orgPattern, pct] of Object.entries(mandated)) {
-        const isOptionalWildcard = orgPattern.startsWith('*');
-        const suffix = isOptionalWildcard ? orgPattern.slice(1).toLowerCase() : '';
-        const matchingLines = isOptionalWildcard
-          ? lines.filter((line) => line.beneficiaryOrgId.toLowerCase().endsWith(suffix))
-          : lines.filter((line) => line.beneficiaryOrgId === orgPattern);
-        if (isOptionalWildcard && matchingLines.length === 0) continue;
-        const actual = matchingLines.reduce((sum, line) => sum + line.percentage, 0);
+      for (const [orgId, pct] of Object.entries(mandated)) {
+        const actual = lines.find((l) => l.beneficiaryOrgId === orgId)?.percentage ?? 0;
         if (Math.abs(actual - pct) > 0.01) {
-          violations.push(this.violate(mandate, `نسبة الجهة/الفئة ${orgPattern} (${actual}%) تخالف النسبة المقررة باللائحة (${pct}%).`));
+          violations.push(this.violate(mandate, `نسبة الجهة ${orgId} (${actual}%) تخالف النسبة المقررة باللائحة (${pct}%).`));
         }
       }
     } catch {

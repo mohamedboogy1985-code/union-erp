@@ -680,19 +680,11 @@ export interface PredictiveAnalyticsResult {
 }
 
 export interface VoiceParsedTransaction {
-  /**
-   * UNPARSEABLE: لم يتمكن الخادم من استخلاص عملية صالحة من الإملاء — لا تُعرض مسودة
-   * ولا يُنفَّذ أي شيء (P0-1 في docs/AI_AGENT_AUDIT.md: لا مبالغ ولا أطراف مختلَقة).
-   */
-  intent: 'RECEIPT' | 'JOURNAL_ENTRY' | 'UNPARSEABLE';
+  intent: 'RECEIPT' | 'JOURNAL_ENTRY';
   confidence: number;
   rawSpeech: string;
   structuredData: any;
   summary: string;
-  /** مصدر النتيجة: نموذج متصل، قواعد حتمية محلية، أو تعذّر الإنتاج */
-  provenance?: 'MODEL' | 'DETERMINISTIC' | 'UNAVAILABLE';
-  /** سطور أسقطها الخادم لأن حساباتها غير موجودة في الدليل النشط */
-  unresolved?: { line: number; accountCode: string; reason: string }[];
 }
 
 // ----------------------------------------------------
@@ -906,8 +898,6 @@ export interface UserSecurityState {
 export interface Employee {
   id: string;
   employeeCode: string; // EMP-001
-  /** Tenant owning this employee record; required for server-side HR isolation. */
-  organizationId: string;
   fullName: string;
   jobTitle?: string;
   department?: string;
@@ -948,8 +938,6 @@ export const EMPLOYEE_AFFAIR_TYPES_AR: Record<EmployeeAffairType, string> = {
 
 export interface EmployeeAffair {
   id: string;
-  /** Tenant copied from the referenced employee for direct, durable isolation. */
-  organizationId: string;
   employeeId: string;
   employeeName: string;
   type: EmployeeAffairType;
@@ -976,8 +964,6 @@ export interface EmployeeAdvancePayment {
 
 export interface EmployeeAdvance {
   id: string;
-  /** Tenant copied from the referenced employee for direct, durable isolation. */
-  organizationId: string;
   employeeId: string;
   employeeName: string;
   amount: number; // إجمالي السلفة
@@ -1102,8 +1088,6 @@ export interface AttendanceSettings {
 
 export interface AttendanceRecord {
   id: string;
-  /** Tenant copied from the referenced employee; legacy rows are resolved fail-closed. */
-  organizationId: string;
   employeeId: string;
   employeeCode: string;
   employeeName: string;
@@ -1204,10 +1188,6 @@ export interface LedgerChainVerificationResult {
   totalEntries: number;
   verifiedCount: number;
   tamperedCount: number;
-  /** تجزئات بترميز قديم غير مُوسَّمة (قابلة للترقية بإعادة ختم صريحة، لا تُعدّ تلاعباً) */
-  legacyFormatCount: number;
-  /** إصدار ترميز التجزئة الحالي (v2) */
-  hashVersion: string;
   chainValid: boolean;
   tamperedEntries: {
     id: string;
@@ -1328,143 +1308,3 @@ export interface EtaDocumentInput {
 
 
 
-
-// =====================================================
-// نظام المهارات الموحد — Skills Unified System
-// يغطي: HR, Training, AI Agent, Accounting Procedures
-// متاح في كل البوابات (ALL)
-// (استُعيد من PR #24/#26 — راجع docs/CLOSED_PR_REVIEW.md)
-// =====================================================
-export type SkillCategory = 'HR' | 'TRAINING' | 'AI_AGENT' | 'ACCOUNTING';
-export type SkillLevel = 'BEGINNER' | 'INTERMEDIATE' | 'ADVANCED' | 'EXPERT';
-
-export const SKILL_CATEGORY_AR: Record<SkillCategory, string> = {
-  HR: 'مهارات الموظفين',
-  TRAINING: 'مهارات تدريبية',
-  AI_AGENT: 'مهارات المساعد الذكي',
-  ACCOUNTING: 'إجراءات محاسبية',
-};
-
-export const SKILL_LEVEL_AR: Record<SkillLevel, string> = {
-  BEGINNER: 'مبتدئ',
-  INTERMEDIATE: 'متوسط',
-  ADVANCED: 'متقدم',
-  EXPERT: 'خبير',
-};
-
-export interface Skill {
-  id: string;
-  code: string; // SKL-001
-  name: string;
-  nameEn?: string;
-  description: string;
-  category: SkillCategory;
-  level: SkillLevel;
-  icon?: string; // اسم أيقونة lucide
-  color?: string; // صنف لون tailwind
-  isActive: boolean;
-  prerequisites?: string[]; // معرّفات المهارات المتطلبة
-  estimatedHours?: number;
-  organizationId?: string;
-  createdAt: string;
-  updatedAt: string;
-}
-
-export interface EmployeeSkill {
-  id: string;
-  employeeId: string;
-  employeeName: string;
-  skillId: string;
-  skillName: string;
-  skillCategory: SkillCategory;
-  level: SkillLevel;
-  proficiency: number; // 0-100
-  acquiredDate: string;
-  expiryDate?: string;
-  verified: boolean;
-  verifiedBy?: string;
-  certificateUrl?: string;
-  notes?: string;
-  createdAt: string;
-}
-
-export interface TrainingProgram {
-  id: string;
-  code: string;
-  title: string;
-  description: string;
-  category: SkillCategory;
-  durationHours: number;
-  maxParticipants: number;
-  instructor?: string;
-  location?: string;
-  startDate?: string;
-  endDate?: string;
-  status: 'DRAFT' | 'OPEN' | 'IN_PROGRESS' | 'COMPLETED' | 'CANCELLED';
-  skillsGranted: string[]; // معرّفات المهارات المكتسبة
-  organizationId: string;
-  createdAt: string;
-}
-
-export interface TrainingEnrollment {
-  id: string;
-  programId: string;
-  programTitle: string;
-  employeeId: string;
-  employeeName: string;
-  status: 'ENROLLED' | 'IN_PROGRESS' | 'COMPLETED' | 'FAILED' | 'DROPPED';
-  progress: number; // 0-100
-  score?: number;
-  enrolledAt: string;
-  completedAt?: string;
-}
-
-export interface AiAgentSkill {
-  id: string;
-  skillId: string;
-  skillName: string;
-  agentName: string; // مثل: «المحاسب الذكي»، «المدقق الذكي»
-  capability: string;
-  promptTemplate?: string;
-  isEnabled: boolean;
-  usageCount: number;
-  successRate: number; // 0-100
-  config?: Record<string, unknown>;
-  organizationId: string;
-  createdAt: string;
-}
-
-export interface AccountingProcedure {
-  id: string;
-  skillId: string;
-  skillName: string;
-  procedureCode: string; // PROC-001
-  title: string;
-  description: string;
-  category: 'CLOSING' | 'RECONCILIATION' | 'DEPRECIATION' | 'BUDGET' | 'AUDIT' | 'REPORT' | 'OTHER';
-  steps: {
-    order: number;
-    title: string;
-    description: string;
-    accountCode?: string;
-    automated: boolean;
-  }[];
-  estimatedMinutes: number;
-  isAutomated: boolean;
-  templateJournalId?: string; // مرتبط بقيود النماذج
-  organizationId: string;
-  createdAt: string;
-  updatedAt: string;
-}
-
-export interface SkillsSummary {
-  totalSkills: number;
-  byCategory: Record<SkillCategory, number>;
-  totalEmployeeSkills: number;
-  totalTrainingPrograms: number;
-  totalEnrollments: number;
-  totalAiSkills: number;
-  totalProcedures: number;
-  topSkills: { skillId: string; skillName: string; count: number }[];
-  expiringSoon: EmployeeSkill[];
-}

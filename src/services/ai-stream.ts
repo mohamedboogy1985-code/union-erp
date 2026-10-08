@@ -10,14 +10,6 @@ export interface AiStreamDoneEvent {
   actionIntent?: any;
   confidence?: number;
   sources?: { type?: string; reference?: string }[];
-  /** P0-1: مصدر النتيجة — MODEL (نموذج) / DETERMINISTIC (قواعد محلية) / UNAVAILABLE (تعذّر) */
-  provenance?: string;
-  /** P0-2: رمز تأكيد موقّع أحادي الاستخدام صادر من الخادم — لازم لتنفيذ المسودة */
-  draftToken?: string;
-  draftId?: string;
-  /** طابع انتهاء صلاحية الرمز (ms منذ Epoch) */
-  draftExpiresAt?: number;
-  draftError?: string;
 }
 
 export interface AiStreamHandlers {
@@ -74,11 +66,6 @@ export async function streamGlobalAiChat(
           actionIntent: evt.actionIntent,
           confidence: evt.confidence,
           sources: evt.sources,
-          provenance: evt.provenance,
-          draftToken: evt.draftToken,
-          draftId: evt.draftId,
-          draftExpiresAt: evt.draftExpiresAt,
-          draftError: evt.draftError,
         };
         handlers.onDone?.(finalEvent);
       }

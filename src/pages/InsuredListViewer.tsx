@@ -31,7 +31,7 @@ export const InsuredListViewer: React.FC<InsuredListViewerProps> = ({
   const loadMembers = async (q: string) => {
     setLoading(true);
     try {
-      const data = await api.getInsuredList(organizationId, q);
+      const data = await api.getInsuredList(q);
       setMembers(data);
     } catch (err) {
       console.error('Failed to load insured list:', err);

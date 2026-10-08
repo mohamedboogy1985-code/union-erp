@@ -252,32 +252,12 @@ export class AccountingService {
       throw new Error(`القيد غير متوازن! إجمالي المدين (${totalDebit.toLocaleString()} ج.م) لا يساوي إجمالي الدائن (${totalCredit.toLocaleString()} ج.م). الفارق: ${diff.toLocaleString()} ج.م.`);
     }
 
-    const org = erpStore.organizations.find((o) => o.id === dto.organizationId);
-    let regulationEntityLevel: 'GENERAL_UNION' | 'COMMITTEE' | 'OTHER' = 'OTHER';
-    let scopeOrganization = org;
-    const visitedOrganizationIds = new Set<string>();
-    while (scopeOrganization && !visitedOrganizationIds.has(scopeOrganization.id)) {
-      visitedOrganizationIds.add(scopeOrganization.id);
-      if (scopeOrganization.type === 'GENERAL_UNION') {
-        regulationEntityLevel = 'GENERAL_UNION';
-        break;
-      }
-      if (scopeOrganization.type === 'PROFESSIONAL_COMMITTEE' || scopeOrganization.type === 'COMPANY_COMMITTEE') {
-        regulationEntityLevel = 'COMMITTEE';
-        break;
-      }
-      scopeOrganization = scopeOrganization.parentId
-        ? erpStore.organizations.find((o) => o.id === scopeOrganization?.parentId)
-        : undefined;
-    }
-
-    // ===== اللائحة المالية: فحص قواعد الإنفاذ مع تمرير نوع الجهة القانوني =====
+    // ===== اللائحة المالية: فحص قواعد الإنفاذ النافذة (خاملة حتى ترقيم مواد اللائحة) =====
     const regViolations = regulationService.checkJournalEntry({
       totalDebit,
       linesCount: processedLines.length,
       attachmentIds: dto.sourceDocumentId ? [dto.sourceDocumentId] : [],
       type: dto.type || 'MANUAL',
-      entityLevel: regulationEntityLevel,
       lines: processedLines,
     });
     const blocking = regViolations.find((v) => v.severity === 'BLOCK');
@@ -285,6 +265,8 @@ export class AccountingService {
       throw new Error(`مخالفة اللائحة المالية: ${blocking.message}`);
     }
     for (const v of regViolations) warnings.push(v.message);
+
+    const org = erpStore.organizations.find((o) => o.id === dto.organizationId);
 
     // ===== التصنيف الحكومي (بند الموازنة) =====
     // أولوية: بند صريح من المستخدم، وإلا خريطة تلقائية من أول حساب في القيد لأقرب بند موازنة

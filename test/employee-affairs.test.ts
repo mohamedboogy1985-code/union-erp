@@ -28,7 +28,6 @@ function runTests() {
 
   const first = erpStore.employees[0];
   assert.strictEqual(first.fullName, 'حنان عاطف محمود');
-  assert.strictEqual(first.organizationId, 'org-training-center', 'CSV الخاص بالموارد البشرية يُسند لمركز التدريب');
   assert.strictEqual(first.totalSalary, 8286.4);
   assert.strictEqual(first.insuranceSalary, 8100);
   assert.ok(first.employeeCode.startsWith('EMP-'), 'توليد كود العامل تلقائياً');
@@ -38,7 +37,7 @@ function runTests() {
   // Test 2: البحث في العاملين
   // -------------------------------------------------------------
   console.log('\n🔹 Test 2: Employee search');
-  const results = employeeAffairsService.listEmployees('org-training-center', 'هشام');
+  const results = employeeAffairsService.listEmployees('هشام');
   assert.ok(results.length >= 1, 'البحث بالاسم العربي يجب أن يجد نتائج');
   assert.ok(results.some((e) => e.fullName.includes('هشام')));
   console.log(`  ✅ Passed: Arabic name search returned ${results.length} match(es).`);
@@ -78,7 +77,7 @@ function runTests() {
     reason: 'إجازة سنوية',
   });
   employeeAffairsService.decideAffair(manager, affair2.id, 'REJECTED');
-  assert.strictEqual(employeeAffairsService.listAffairs('org-training-center', { status: 'PENDING' }).length, 0);
+  assert.strictEqual(employeeAffairsService.listAffairs({ status: 'PENDING' }).length, 0);
   console.log('  ✅ Passed: reject flow works, pending filter accurate.');
 
   // -------------------------------------------------------------
@@ -113,7 +112,7 @@ function runTests() {
 
   employeeAffairsService.payInstallment(manager, advance.id, { amount: 500, date: '2026-08-31' });
   employeeAffairsService.payInstallment(manager, advance.id, { amount: 500, date: '2026-09-30' });
-  const after2 = employeeAffairsService.listAdvances('org-training-center', advance.employeeId).find((a) => a.id === advance.id)!;
+  const after2 = employeeAffairsService.listAdvances(advance.employeeId).find((a) => a.id === advance.id)!;
   assert.strictEqual(after2.paidAmount, 1000);
   assert.strictEqual(after2.status, 'ACTIVE', 'ما زالت قائمة حتى السداد الكامل');
 
@@ -134,7 +133,7 @@ function runTests() {
   // Test 6: الملخص الإحصائي وفجوة التحصيل
   // -------------------------------------------------------------
   console.log('\n🔹 Test 6: Summary & union-share collection gap');
-  const summary = employeeAffairsService.getSummary('org-training-center');
+  const summary = employeeAffairsService.getSummary();
   assert.strictEqual(summary.employeesCount, erpStore.employees.length);
   assert.ok(summary.totalSalaries > 250000, 'إجمالي الأجور الشاملة من البيانات الحقيقية');
   assert.ok(

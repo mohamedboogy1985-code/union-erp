@@ -10,17 +10,12 @@ import path from 'path';
 import os from 'os';
 import { execFileSync } from 'child_process';
 import { createRequire } from 'module';
-import {
-  callerModuleDir,
-  MODELS_DIR_NAME,
-  resolveModelsDir as resolveModelsDirPath,
-} from '../utils/data-paths.js';
+import { moduleDir, resolveFirst } from '../utils/runtime-paths.js';
 import * as modelsCrypto from './models-crypto.service.js';
 
 const _require = createRequire(typeof __filename !== 'undefined' ? __filename : import.meta.url);
 
-export const MODELS_MODULE_DIR = callerModuleDir(typeof import.meta !== 'undefined' ? import.meta.url : undefined);
-const MODULE_DIR = MODELS_MODULE_DIR;
+const MODULE_DIR = moduleDir(typeof import.meta !== 'undefined' ? import.meta.url : undefined) || process.cwd();
 
 export type ModelKind = 'image' | 'pdf' | 'office' | 'text' | 'archive' | 'other';
 
@@ -32,18 +27,20 @@ export interface ModelFileInfo {
   kind: ModelKind;
 }
 
-/**
- * مجلد النماذج الذي تُدار منه الملفات — يُحلّ من `server/utils/data-paths.ts`
- * (نفس الدالة التي يعرضها مؤشّر «مجلد البيانات»، فلا يفترق المساران).
- * الفرق الوحيد هنا: الخدمة **تنشئ** المجلد عند غيابه لأنها ستكتب فيه، بينما
- * المؤشّر يعلنه `MISSING` ولا ينشئ شيئاً (قراءة صرفة).
- */
+/** مجلد النماذج الذي تُدار منه الملفات (المسار المحدَّد) */
 export function resolveModelsDir(): string {
-  const resolved = resolveModelsDirPath(MODULE_DIR);
-  if (fs.existsSync(resolved.path)) return resolved.path;
+  const candidates = [
+    process.env.UNION_MODELS_DIR,
+    path.join(process.cwd(), 'نماذج'),
+    process.resourcesPath ? path.join(process.resourcesPath, 'نماذج') : null,
+    path.join(MODULE_DIR, '..', '..', 'نماذج'),
+  ].filter(Boolean) as string[];
 
-  // لا شيء موجود (حالة نادرة): أنشئ المجلد بجانب بيانات الخادم قبل الاستخدام
-  const fallback = path.join(process.cwd(), MODELS_DIR_NAME);
+  const existing = resolveFirst(candidates);
+  if (existing) return existing;
+
+  // إن لم يوجد أي مسار (حالة نادرة)، أنشئ المجلد بجانب بيانات الخادم
+  const fallback = path.join(process.cwd(), 'نماذج');
   try {
     fs.mkdirSync(fallback, { recursive: true });
   } catch {
@@ -167,7 +164,7 @@ export function probeFirstEncrypted(): Buffer | null {
 /** حفظ/استبدال محتوى ملف من base64 (يُشفَّر عند التفعيل بقفل المكتبة) */
 export function writeModel(name: string, contentBase64: string): ModelFileInfo {
   const p = safeModelPath(name);
-  let buffer: Buffer = Buffer.from(contentBase64 || '', 'base64');
+  let buffer = Buffer.from(contentBase64 || '', 'base64');
   const pw = modelsCrypto.getSessionPassword();
   if (pw) {
     // المكتبة مقفلة: كُل الملفات المرسلة تُخزَّن مشفّرة

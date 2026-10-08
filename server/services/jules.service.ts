@@ -16,13 +16,7 @@ import type {
 
 // Not configurable from requests or environment: prevents SSRF and credential redirects.
 const API_URL = 'https://jules.googleapis.com/v1alpha';
-/**
- * Hard cap for a single upstream response body, in bytes. Jules returns complete activity
- * logs (plans, patches, test output) in one response, so the ceiling has to fit the largest
- * legitimate history: 16 MiB. Anything beyond it is treated as an invalid response and the
- * stream is cancelled immediately, so a hostile or broken upstream cannot exhaust memory.
- */
-export const JULES_MAX_RESPONSE_BYTES = 16 * 1024 * 1024;
+const MAX_RESPONSE_BYTES = 4 * 1024 * 1024;
 const MAX_PAGES = 20;
 const SOURCE_NAME = /^sources\/[A-Za-z0-9_-]+(?:\/[A-Za-z0-9_.-]+)*$/;
 const SESSION_ID = /^[A-Za-z0-9_-]{1,200}$/;
@@ -321,7 +315,7 @@ export class JulesService {
         const { value, done } = await reader.read();
         if (done) break;
         length += value.byteLength;
-        if (length > JULES_MAX_RESPONSE_BYTES) {
+        if (length > MAX_RESPONSE_BYTES) {
           await reader.cancel();
           invalidResponse();
         }

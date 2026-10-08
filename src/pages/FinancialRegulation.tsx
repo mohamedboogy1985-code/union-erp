@@ -13,8 +13,7 @@ import {
   Award,
   RefreshCw,
 } from 'lucide-react';
-import { api, ApiError, downloadAuthenticatedFile } from '../services/api.js';
-import { AuthenticatedApiFrame } from '../components/AuthenticatedApiFrame.js';
+import { api, ApiError } from '../services/api.js';
 import { User } from '../types/erp.js';
 import { Combobox } from '../components/Combobox.js';
 
@@ -38,11 +37,6 @@ interface RegulationArticle {
 
 interface RegulationData {
   document: string;
-  gazetteReference?: {
-    referenceAr: string;
-    noteAr: string;
-    verificationStatus: string;
-  };
   articles: RegulationArticle[];
   status: {
     articlesCount: number;
@@ -130,13 +124,6 @@ export const FinancialRegulation: React.FC<FinancialRegulationProps> = ({
 
   const downloadRegulation = () => {
     if (!regulationDoc || !regulationPreviewSrc) return;
-    if (regulationDoc.fileUrl) {
-      void downloadAuthenticatedFile(
-        regulationDoc.fileUrl,
-        regulationDoc.fileName || 'لائحة_النظام_الاساسي.pdf',
-      ).catch((err: any) => onShowToast('error', err?.message || 'تعذّر تنزيل اللائحة.'));
-      return;
-    }
     const a = document.createElement('a');
     a.href = regulationPreviewSrc;
     a.download = regulationDoc.fileName || 'لائحة_النظام_الاساسي.pdf';
@@ -228,16 +215,6 @@ export const FinancialRegulation: React.FC<FinancialRegulationProps> = ({
         </button>
       </div>
 
-      {data?.gazetteReference && (
-        <div role="note" className="flex items-start gap-3 rounded-xl border border-sky-500/25 bg-sky-500/5 p-3 text-[11px] text-sky-100">
-          <FileText className="mt-0.5 h-4 w-4 shrink-0 text-sky-300" />
-          <div>
-            <strong className="block text-sky-200">مرجع الوقائع المصرية المقدم من المستخدم: {data.gazetteReference.referenceAr}</strong>
-            <span className="text-slate-400">{data.gazetteReference.noteAr}</span>
-          </div>
-        </div>
-      )}
-
       {regulationError && (
         <div className="bg-rose-950/30 border border-rose-800/60 rounded-2xl p-4 flex items-start justify-between gap-4" role="alert">
           <div className="flex items-start gap-3">
@@ -254,14 +231,7 @@ export const FinancialRegulation: React.FC<FinancialRegulationProps> = ({
       )}
 
       {/* لائحة النظام الأساسي المؤرشفة */}
-      {regulationDoc?.archived === false && (
-        <div className="bg-slate-900/90 border border-slate-800 rounded-2xl p-4 text-[11px] text-slate-400 flex items-start gap-2">
-          <FileText className="w-4 h-4 text-slate-500 mt-0.5" />
-          <span>{regulationDoc.noteAr}</span>
-        </div>
-      )}
-
-      {regulationDoc && regulationDoc.archived !== false && (
+      {regulationDoc && (
         <div className="bg-slate-900/90 border border-indigo-800/50 rounded-2xl p-5 shadow-lg overflow-hidden">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div className="flex items-center gap-3">
@@ -316,19 +286,11 @@ export const FinancialRegulation: React.FC<FinancialRegulationProps> = ({
 
           {showDoc && (
             <div className="mt-4 border-t border-slate-800 pt-4">
-              {regulationDoc.fileUrl ? (
-                <AuthenticatedApiFrame
-                  src={regulationDoc.fileUrl}
-                  className="w-full h-[78vh] min-h-[640px] rounded-xl border border-slate-800 bg-white"
-                  title="لائحة النظام الأساسي"
-                />
-              ) : (
-                <iframe
-                  src={regulationPreviewSrc}
-                  className="w-full h-[78vh] min-h-[640px] rounded-xl border border-slate-800 bg-white"
-                  title="لائحة النظام الأساسي"
-                />
-              )}
+              <iframe
+                src={regulationPreviewSrc}
+                className="w-full h-[78vh] min-h-[640px] rounded-xl border border-slate-800 bg-white"
+                title="لائحة النظام الأساسي"
+              />
               <p className="text-[10px] text-slate-500 mt-2 flex items-center gap-1.5">
                 <Award className="w-3.5 h-3.5 text-amber-400" />
                 {regulationDoc.source === 'bundled'

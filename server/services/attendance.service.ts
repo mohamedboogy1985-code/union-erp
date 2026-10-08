@@ -1,5 +1,4 @@
 import { erpStore } from '../db/store.js';
-import { employeeDataBelongsToOrganization } from './hr-organization-data.js';
 import type {
   AttendanceDevice,
   AttendanceMonthlySummary,
@@ -122,12 +121,7 @@ export class AttendanceService {
     if (Number.isNaN(ts.getTime())) throw new Error('توقيت البصمة غير صالح.');
     const date = ts.toISOString().split('T')[0];
 
-    let record = erpStore.attendanceRecords.find(
-      (candidate) =>
-        candidate.employeeId === employee.id &&
-        candidate.date === date &&
-        employeeDataBelongsToOrganization(candidate.employeeId, employee.organizationId, candidate.organizationId),
-    );
+    let record = erpStore.attendanceRecords.find((r) => r.employeeId === employee.id && r.date === date);
 
     // لا يصح انصراف بدون حضور
     const direction: 'IN' | 'OUT' = data.direction || (!record || !record.checkIn ? 'IN' : record.checkOut ? 'IN' : 'OUT');
@@ -145,7 +139,6 @@ export class AttendanceService {
     if (!record) {
       record = {
         id: `att-${Date.now()}-${Math.floor(Math.random() * 10000)}`,
-        organizationId: employee.organizationId,
         employeeId: employee.id,
         employeeCode: employee.employeeCode,
         employeeName: employee.fullName,
@@ -157,7 +150,6 @@ export class AttendanceService {
       };
       erpStore.attendanceRecords.push(record);
     }
-    if (!record.organizationId) record.organizationId = employee.organizationId;
 
     if (direction === 'IN') {
       if (record.checkIn) throw new Error(`تم تسجيل حضور ${employee.fullName} اليوم بالفعل — استخدم التعديل اليدوي.`);
@@ -220,28 +212,14 @@ export class AttendanceService {
 
   // ------------------------- العرض والتعديل والحذف -------------------------
 
-  public listRecords(params: {
-    organizationId: string;
-    employeeId?: string;
-    date?: string;
-    from?: string;
-    to?: string;
-  }): AttendanceRecord[] {
-    if (!params.organizationId) return [];
-    const employeeIds = new Set(
-      erpStore.employees
-        .filter((employee) => employee.organizationId === params.organizationId)
-        .map((employee) => employee.id),
-    );
+  public listRecords(params: { employeeId?: string; date?: string; from?: string; to?: string } = {}): AttendanceRecord[] {
     return erpStore.attendanceRecords
       .filter(
-        (record) =>
-          employeeIds.has(record.employeeId) &&
-          employeeDataBelongsToOrganization(record.employeeId, params.organizationId, record.organizationId) &&
-          (!params.employeeId || record.employeeId === params.employeeId) &&
-          (!params.date || record.date === params.date) &&
-          (!params.from || record.date >= params.from) &&
-          (!params.to || record.date <= params.to)
+        (r) =>
+          (!params.employeeId || r.employeeId === params.employeeId) &&
+          (!params.date || r.date === params.date) &&
+          (!params.from || r.date >= params.from) &&
+          (!params.to || r.date <= params.to)
       )
       .sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : a.employeeCode.localeCompare(b.employeeCode)));
   }
@@ -313,16 +291,10 @@ export class AttendanceService {
     if (data.status === 'PRESENT') throw new Error('الحضور يُثبت بالبصمة فقط.');
     if (!/^\d{4}-\d{2}-\d{2}$/.test(data.date)) throw new Error('صيغة التاريخ غير صالحة (YYYY-MM-DD).');
 
-    let record = erpStore.attendanceRecords.find(
-      (candidate) =>
-        candidate.employeeId === employee.id &&
-        candidate.date === data.date &&
-        employeeDataBelongsToOrganization(candidate.employeeId, employee.organizationId, candidate.organizationId),
-    );
+    let record = erpStore.attendanceRecords.find((r) => r.employeeId === employee.id && r.date === data.date);
     if (!record) {
       record = {
         id: `att-${Date.now()}-${Math.floor(Math.random() * 10000)}`,
-        organizationId: employee.organizationId,
         employeeId: employee.id,
         employeeCode: employee.employeeCode,
         employeeName: employee.fullName,
@@ -334,7 +306,6 @@ export class AttendanceService {
       };
       erpStore.attendanceRecords.push(record);
     } else {
-      if (!record.organizationId) record.organizationId = employee.organizationId;
       record.status = data.status;
       record.updatedAt = new Date().toISOString();
       this.recomputeDerived(record);
@@ -361,19 +332,13 @@ export class AttendanceService {
       try {
         const employee = this.resolveEmployee(undefined, row.employeeCode);
         if (!employee) throw new Error(`كود عامل غير معروف: ${row.employeeCode}`);
-        const existing = erpStore.attendanceRecords.find(
-          (record) =>
-            record.employeeId === employee.id &&
-            record.date === row.date &&
-            employeeDataBelongsToOrganization(record.employeeId, employee.organizationId, record.organizationId),
-        );
+        const existing = erpStore.attendanceRecords.find((r) => r.employeeId === employee.id && r.date === row.date);
         if (existing) {
           skipped++;
           return;
         }
         const record: AttendanceRecord = {
           id: `att-${Date.now()}-${i}-${Math.floor(Math.random() * 1000)}`,
-          organizationId: employee.organizationId,
           employeeId: employee.id,
           employeeCode: employee.employeeCode,
           employeeName: employee.fullName,
@@ -420,15 +385,14 @@ export class AttendanceService {
   }
 
   /** أيام الإجازات المعتمدة (سنوية/مرضية/عارضة) للعامل داخل الشهر (تُحتسب أيام عمل فقط) */
-  private approvedLeaveDays(employee: Employee, year: number, month: number, uptoDay?: number): number {
+  private approvedLeaveDays(employeeId: string, year: number, month: number, uptoDay?: number): number {
     const s = erpStore.attendanceSettings;
     const prefix = `${year}-${String(month).padStart(2, '0')}`;
     const daysInMonth = new Date(Date.UTC(year, month, 0)).getUTCDate();
     const lastDay = Math.min(uptoDay ?? daysInMonth, daysInMonth);
     const leaves = erpStore.employeeAffairs.filter(
       (a) =>
-        a.employeeId === employee.id &&
-        employeeDataBelongsToOrganization(a.employeeId, employee.organizationId, a.organizationId) &&
+        a.employeeId === employeeId &&
         a.status === 'APPROVED' &&
         ['ANNUAL_LEAVE', 'SICK_LEAVE', 'CASUAL_LEAVE'].includes(a.type)
     );
@@ -445,10 +409,7 @@ export class AttendanceService {
   public getMonthlySummary(employee: Employee, year: number, month: number): AttendanceMonthlySummary {
     const prefix = `${year}-${String(month).padStart(2, '0')}`;
     const records = erpStore.attendanceRecords.filter(
-      (record) =>
-        record.employeeId === employee.id &&
-        employeeDataBelongsToOrganization(record.employeeId, employee.organizationId, record.organizationId) &&
-        record.date.startsWith(prefix)
+      (r) => r.employeeId === employee.id && r.date.startsWith(prefix)
     );
     // للشهر الجاري لا تُخصم أيام المستقبل: الغياب يُحتسب حتى يومنا الحالي فقط
     const nowU = new Date();
@@ -459,7 +420,7 @@ export class AttendanceService {
     }
     const workingDays = this.countWorkingDays(year, month, uptoDay);
     const presentDays = records.filter((r) => r.status === 'PRESENT' && Number(r.date.slice(8, 10)) <= uptoDay).length;
-    const leaveDays = this.approvedLeaveDays(employee, year, month, uptoDay);
+    const leaveDays = this.approvedLeaveDays(employee.id, year, month, uptoDay);
     const absentDays = Math.max(0, workingDays - presentDays - leaveDays);
     const s = erpStore.attendanceSettings;
     const attendanceDeduction = ROUND2((employee.totalSalary / s.daySalaryDivisor) * absentDays);
@@ -483,11 +444,10 @@ export class AttendanceService {
   }
 
   /** ملخصات كل العاملين النشطين لشهر معين — المصدر المباشر لشاشة المرتبات */
-  public getMonthSummaries(year: number, month: number, organizationId: string): AttendanceMonthlySummary[] {
-    if (!organizationId) return [];
+  public getMonthSummaries(year: number, month: number): AttendanceMonthlySummary[] {
     return erpStore.employees
-      .filter((employee) => employee.organizationId === organizationId && employee.status === 'ACTIVE')
-      .map((employee) => this.getMonthlySummary(employee, year, month));
+      .filter((e) => e.status === 'ACTIVE')
+      .map((e) => this.getMonthlySummary(e, year, month));
   }
 
   // ------------------------- بذر عرض توضيحي -------------------------
@@ -522,7 +482,6 @@ export class AttendanceService {
         const isFace = idx % 3 === 0;
         const record: AttendanceRecord = {
           id: `att-seed-${emp.id}-${date}`,
-          organizationId: emp.organizationId,
           employeeId: emp.id,
           employeeCode: emp.employeeCode,
           employeeName: emp.fullName,

@@ -43,42 +43,15 @@ const CATEGORY_KEYWORDS: CategoryKeyword[] = [
   { category: 'TECHNICAL_SUPPORT', keywords: ['خطأ', 'مشكلة', 'لا يعمل', 'عطل', 'فشل', 'مرفوض', 'يرفض', 'غير متوازن', 'رسالة النظام'], weight: 3 },
 ];
 
-/**
- * قاموس مترادفات محاسبي عربي موسّع (استُعيد من PR #24 — المرحلة P3)
- * 25 مجموعة و154 مرادفاً فريداً، ويُوسِّع الاستعلام قبل تقييمه على قاعدة المعرفة
- * المحلية بلا أي نموذج خارجي — لا يخترع إجابات، فقط يزيد فرص المطابقة.
- */
+/** قاموس مترادفات محاسبي عربي مبسّط لتحسين الاسترجاع دون الاعتماد على نموذج خارجي */
 const SYNONYM_GROUPS: { group: string; words: string[] }[] = [
-  { group: 'مصروفات', words: ['مصاريف', 'مصروف', 'انفاق', 'إنفاق', 'صرف', 'دفع', 'تكاليف', 'نفقات', 'مصروفات عمومية', 'مصاريف إدارية'] },
-  { group: 'مشتريات', words: ['شراء', 'توريد', 'توريدات', 'مستلزمات', 'قرطاسية', 'مطبوعات', 'مشترى', 'اقتناء'] },
-  { group: 'مدينون', words: ['مديونية', 'مديونيات', 'ديون', 'مستحق', 'مستحقات', 'ذمم مدينة', 'عملاء', 'مدين'] },
-  { group: 'دائنون', words: ['دائنية', 'دائنيات', 'موردون', 'مورد', 'ذمم دائنة', 'التزامات', 'مستحق للدفع'] },
-  { group: 'اشتراكات', words: ['اشتراك', 'عضوية', 'رسوم', 'مقابل', 'مساهمة', 'اشتراك سنوي', 'تجديد عضوية'] },
-  { group: 'رواتب', words: ['أجور', 'اجور', 'مرتب', 'مرتبات', 'مسير', 'كشف رواتب', 'استحقاقات', 'أجور ومرتبات'] },
-  { group: 'معاشات', words: ['مكافآت', 'مكافاة', 'منحة', 'منح', 'معاش', 'تقاعد', 'مكافأة نهاية خدمة'] },
-  { group: 'إيرادات', words: ['ايرادات', 'دخل', 'تحصيل', 'إيراد', 'متحصلات', 'عوائد', 'مقبوضات'] },
-  { group: 'خزينة', words: ['خزنة', 'نقدية', 'صندوق', 'كاش', 'نقدي', 'سيولة'] },
-  { group: 'بنك', words: ['مصرف', 'حساب بنكي', 'شيك', 'تحويل بنكي', 'ايداع', 'سحب'] },
-  { group: 'ميزان مراجعة', words: ['ميزان', 'تجميعي', 'أرصدة', 'ارصدة الحسابات', 'trial balance'] },
-  { group: 'قيد يومية', words: ['قيد', 'قيود', 'يومية', 'قيد محاسبي', 'حركة محاسبية', 'تسوية'] },
-  { group: 'موازنة', words: ['ميزانية تقديرية', 'موازنة تقديرية', 'budget', 'اعتماد', 'مخصص'] },
-  { group: 'إهلاك', words: ['استهلاك', 'اندثار', 'اهلاك أصول', 'قسط اهلاك'] },
-  { group: 'أصول ثابتة', words: ['أصول', 'ممتلكات', 'معدات', 'آلات', 'أثاث', 'سيارات'] },
-  { group: 'سلف', words: ['سلفة', 'سلف عاملين', 'قرض', 'سلفة مؤقتة', 'عهدة'] },
-  { group: 'حضور', words: ['انصراف', 'بصمة', 'دوام', 'غياب', 'تأخير', 'إجازة'] },
-  { group: 'لائحة', words: ['قانون', 'نظام مالي', 'قواعد', 'تعليمات', 'ضوابط', 'لائحة مالية'] },
-  { group: 'فاتورة', words: ['فاتوره', 'إيصال', 'سند', 'مستند', 'وثيقة', 'مرفق'] },
-  { group: 'اعتماد', words: ['موافقة', 'تصديق', 'ترحيل', 'posted', 'approved', 'تأكيد'] },
-  { group: 'إيجار', words: ['ايجار', 'كراء', 'إيجار مقر', 'إيجار مكتب', 'سكن'] },
-  { group: 'صيانة', words: ['اصلاح', 'تصليح', 'ترميم', 'صيانة دورية', 'خدمات صيانة'] },
-  { group: 'بدل', words: ['انتقال', 'سفر', 'بدل سفر', 'مأمورية', 'تنقلات'] },
-  { group: 'هدايا', words: ['هبة', 'إكرامية', 'مكافأة', 'هدية', 'تبرع'] },
-  { group: 'ضريبة', words: ['ضرائب', 'قيمة مضافة', 'خصم منبع', 'ضريبة كسب عمل', 'تأمينات'] },
+  { group: 'مصروفات', words: ['مصاريف', 'مصروف', 'انفاق', 'إنفاق', 'صرف', 'دفع', 'تكاليف'] },
+  { group: 'مشتريات', words: ['شراء', 'توريد', 'توريدات', 'مستلزمات', 'قرطاسية', 'مطبوعات'] },
+  { group: 'مدينون', words: ['مديونية', 'مديونيات', 'ديون', 'مستحق', 'مستحقات'] },
+  { group: 'اشتراكات', words: ['اشتراك', 'عضوية', 'رسوم', 'مقابل'] },
+  { group: 'رواتب', words: ['أجور', 'اجور', 'مرتب', 'مرتبات', 'مسير'] },
+  { group: 'معاشات', words: ['مكافآت', 'مكافاة', 'منحة', 'منح'] },
 ];
-
-export function expandArabicQueryForTest(question: string): string {
-  return expandArabicQuery(question);
-}
 
 function expandArabicQuery(question: string): string {
   let expanded = normalizeArabicText(question);
@@ -156,7 +129,7 @@ export class SmartAgentEnhancer {
 
     // عدد مواد اللائحة عند السؤال مباشرة
     if (/عدد|كم مادة|عدد المواد|كم عدد|عدد مواد/.test(question)) {
-      parts.push(`اللائحة المالية النافذة عندك ${FINANCIAL_REGULATION_ARTICLES.length} مادة مسجّلة في النظام، وأي مادة تحتاجها أقدر أجيب لك نصها.`);
+      parts.push(`عدد مواد اللائحة المالية النافذة: ${FINANCIAL_REGULATION_ARTICLES.length} مادة.`);
       sources.push({ type: 'FINANCIAL_REGULATION_ARTICLE', reference: 'فهرس مواد اللائحة المالية', excerpt: `${FINANCIAL_REGULATION_ARTICLES.length} مادة نافذة` });
       confidence = Math.max(confidence, 0.85);
     }
@@ -170,10 +143,10 @@ export class SmartAgentEnhancer {
         const info = accountQueryService.getAccount1301Balance(organizationId);
         dataContext = { account1301: info };
         parts.push(
-          `رصيد حساب [1301 - ${info.accountName}] دلوقتي ${info.currentBalance.toLocaleString()} ج.م موزّع على ${info.partiesCount} حساب أستاذ مساعد، وأكبر المدينين: ${info.topDebtors
+          `رصيد حساب [1301 - ${info.accountName}] الحالي: ${info.currentBalance.toLocaleString()} ج.م عبر ${info.partiesCount} حساب أستاذ مساعد. أكبر المدينين: ${info.topDebtors
             .slice(0, 3)
             .map((d) => `${d.name} (${d.currentBalance.toLocaleString()} ج.م)`)
-            .join('، ')}.`
+            .join('، ')}`
         );
         sources.push({ type: 'DATABASE', reference: 'حساب 1301 - الأستاذ المساعد', excerpt: `الرصيد الجاري: ${info.currentBalance}` });
         confidence = Math.max(confidence, 0.9);
@@ -196,7 +169,7 @@ export class SmartAgentEnhancer {
     if (/اعتماد|معتمد|معلق|انتظار/.test(question)) {
       const pending = accountQueryService.getPendingEntries(organizationId);
       dataContext = { ...(dataContext || {}), pendingEntries: pending };
-      parts.push(`عندك ${pending.count} قيد مستني الاعتماد بإجمالي ${pending.totalValue.toLocaleString()} ج.م — تحب أراجعهم معاك واحد واحد؟`);
+      parts.push(`القيود بانتظار الاعتماد حالياً: ${pending.count} قيداً بإجمالي ${pending.totalValue.toLocaleString()} ج.م.`);
       sources.push({ type: 'DATABASE', reference: 'قيود بانتظار الاعتماد' });
     }
 
@@ -205,7 +178,7 @@ export class SmartAgentEnhancer {
       const receipts = accountQueryService.getLatestReceipts(organizationId, 5);
       if (receipts.length > 0) {
         parts.push(
-          `آخر الإيصالات المسجّلة: ${receipts.map((r) => `${r.receiptNumber} بقيمة ${r.amount.toLocaleString()} ج.م من ${r.payerName}`).join('؛ ')}`
+          `آخر الإيصالات: ${receipts.map((r) => `${r.receiptNumber} بقيمة ${r.amount.toLocaleString()} ج.م من ${r.payerName}`).join('؛ ')}`
         );
         dataContext = { ...(dataContext || {}), latestReceipts: receipts };
       }
@@ -216,7 +189,7 @@ export class SmartAgentEnhancer {
       const template = this.matchJournalTemplate(question);
       if (template) {
         parts.push(
-          `القيد ده أسهل طريقة له قالب جاهز عندنا: [${template.nameAr}] — مدين: ${template.debitAccountCode} / دائن: ${template.creditAccountCode} (${template.description}). لو مناسبك اضغط إنشاء قيد من القالب وأنا أكمّل معاك.`
+          `قالب مقترح: [${template.nameAr}] — مدين: ${template.debitAccountCode} / دائن: ${template.creditAccountCode} (${template.description})`
         );
         suggestedActions.push({ label: `إنشاء قيد من قالب ${template.nameAr}`, action: 'CREATE_ENTRY_FROM_TEMPLATE', params: { templateId: template.id } });
       }
@@ -225,7 +198,7 @@ export class SmartAgentEnhancer {
     const answer =
       parts.length > 0
         ? parts.join('\n\n')
-        : 'معلش، مش لاقي إجابة مباشرة على السؤال ده في بيانات النظام. جرّب تعيد صياغته بجملة تانية، أو حدد الشاشة أو الحساب المقصود وأنا أدور عليه.';
+        : 'لم يتم العثور على إجابة مباشرة. يمكنك إعادة صياغة السؤال أو التواصل مع الدعم الفني.';
 
     if (subQuestions.length > 1) {
       confidence = Math.max(0.5, confidence - 0.05 * (subQuestions.length - 1)); // أسئلة مركبة تقلل الثقة قليلاً

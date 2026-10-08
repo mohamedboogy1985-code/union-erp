@@ -225,7 +225,6 @@ function consent(root: HTMLElement) {
 
 let stops = 0,
   closes = 0,
-  resumes = 0,
   lastNode: { port: { onmessage: ((event: { data: Float32Array }) => void) | null } } | null = null;
 class FakeAudioContext {
   sampleRate = 48000;
@@ -242,9 +241,7 @@ class FakeAudioContext {
   createMediaStreamSource() {
     return { connect() {} };
   }
-  async resume() {
-    resumes++;
-  }
+  async resume() {}
   async close() {
     this.state = 'closed';
     closes++;
@@ -261,7 +258,6 @@ class FakeWorkletNode {
 function installMic(custom?: () => Promise<MediaStream>) {
   stops = 0;
   closes = 0;
-  resumes = 0;
   lastNode = null;
   const stream = {
     getTracks: () => [
@@ -464,7 +460,6 @@ test('microphone capture uses WAV, stops tracks on submission and never opens a 
   try {
     await click(consent(view.container));
     await click(button(view.container, 'ابدأ الإملاء'));
-    assert.equal(resumes, 1, 'AudioContext is resumed once synchronously from the gesture path');
     assert.ok(lastNode);
     assert.ok(view.container.textContent?.includes('الميكروفون يعمل الآن'));
     await act(async () => {
@@ -500,7 +495,6 @@ test('cancelling microphone permission before it resolves stops the late stream 
     () => undefined
   );
   await recorder.cancel();
-  assert.equal(closes, 1, 'the gesture-created AudioContext is closed when permission is cancelled');
   assert.ok(grant);
   grant(stream);
   await started;

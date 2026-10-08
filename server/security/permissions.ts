@@ -29,7 +29,6 @@ export type Permission =
   | 'documents:manage'
   | 'periods:manage'
   | 'import:execute'
-  | 'audit:read'
   | 'system:admin';
 
 export interface RoleDefinition {
@@ -93,9 +92,8 @@ export const ROLE_DEFINITIONS: Record<string, RoleDefinition> = {
   INTERNAL_AUDITOR: {
     role: 'INTERNAL_AUDITOR',
     labelAr: 'مدقق داخلي',
-    // audit:read: قراءة سجل التدقيق وفحص سلامة السلسلتين — صلاحية مستقلة عن النظام
-    permissions: ['view:all', 'search:all', 'print:all', 'audit:read'],
-    descriptionAr: 'دور تجريبي داخلي — اطلاع وتدقيق وقراءة سجل التدقيق وفحص السلسلة',
+    permissions: ['view:all', 'search:all', 'print:all'],
+    descriptionAr: 'دور تجريبي داخلي — اطلاع وتدقيق',
   },
 };
 

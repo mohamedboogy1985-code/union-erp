@@ -57,7 +57,7 @@ nsis:
   installerHeaderIcon: assets/icon.png
 
 portable:
-  artifactName: UnionERP-Portable-${version}-${arch}.${ext}
+  artifactName: UnionERP-Portable-${version}.${ext}
 
 # توجيه builder مباشرة إلى electron المثبت محلياً في node_modules/electron/dist
 # لتجنب خطأ EPERM عند استخراج/إعادة تسمية أرشيف electron أثناء فحص Windows Defender

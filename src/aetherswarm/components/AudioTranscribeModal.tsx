@@ -1,5 +1,4 @@
 import { swarmFetch } from '../erpFetch';
-import { SWARM_AI_MODEL } from '../model';
 import React, { useState, useRef, useEffect } from 'react';
 import {
   Mic,
@@ -169,7 +168,7 @@ export const AudioTranscribeModal: React.FC<AudioTranscribeModalProps> = ({
               <h3 className="text-sm font-bold text-white flex items-center gap-2">
                 نسخ الصوت بواسطة Gemini
                 <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-cyan-950 text-cyan-300 border border-cyan-800">
-                  {SWARM_AI_MODEL}
+                  gemini-3.5-transcribe
                 </span>
               </h3>
               <p className="text-[11px] text-slate-400">
@@ -212,7 +211,7 @@ export const AudioTranscribeModal: React.FC<AudioTranscribeModalProps> = ({
               {isRecording
                 ? `جاري التسجيل... 00:${recordingSeconds.toString().padStart(2, '0')}`
                 : isLoading
-                ? `جاري نسخ الصوت بدقة عبر ${SWARM_AI_MODEL}...`
+                ? 'جاري نسخ الصوت بدقة عبر gemini-3.5-transcribe...'
                 : 'انقر على الميكروفون للتحدث وتسجيل أمر صوتي'}
             </span>
             <p className="text-[11px] text-slate-500">

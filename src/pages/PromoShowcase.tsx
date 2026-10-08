@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { ExternalLink, Film, LoaderCircle, RefreshCw, Terminal, Download } from 'lucide-react';
+import { ExternalLink, Film, LoaderCircle, RefreshCw, Terminal } from 'lucide-react';
 
 const VIDEO_URL = '/assets/promo/video/union-promo-wide.mp4';
 const ANIMATED_PROMO_URL = '/assets/promo/index.html';
@@ -90,7 +90,6 @@ export const PromoShowcase: React.FC = () => {
         )}
 
         {videoStatus === 'available' && (
-          <div className="space-y-2">
           <div className="overflow-hidden rounded border border-[#334155] bg-black shadow-lg">
             <video
               ref={videoRef}
@@ -106,17 +105,6 @@ export const PromoShowcase: React.FC = () => {
               <source src={VIDEO_URL} type="video/mp4" />
               متصفحك لا يدعم تشغيل فيديو MP4.
             </video>
-          </div>
-          <div className="flex justify-end">
-            <a
-              href={VIDEO_URL}
-              download="union-promo-wide.mp4"
-              className="inline-flex items-center gap-1.5 rounded border border-[#334155] bg-slate-900 px-3 py-1.5 text-xs font-medium text-slate-300 transition-colors hover:border-sky-500/50 hover:text-sky-300"
-            >
-              <Download className="h-3.5 w-3.5" />
-              تحميل الفيديو (MP4)
-            </a>
-          </div>
           </div>
         )}
 

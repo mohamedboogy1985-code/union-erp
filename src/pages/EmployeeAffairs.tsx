@@ -78,9 +78,9 @@ export const EmployeeAffairs: React.FC<EmployeeAffairsProps> = ({
     setLoading(true);
     try {
       const [sum, emps, affs] = await Promise.all([
-        api.getEmployeeAffairsSummary(organizationId),
-        api.getEmployees(organizationId),
-        api.getEmployeeAffairs({ organizationId }),
+        api.getEmployeeAffairsSummary(),
+        api.getEmployees(),
+        api.getEmployeeAffairs(),
       ]);
       setSummary(sum);
       setEmployees(emps);

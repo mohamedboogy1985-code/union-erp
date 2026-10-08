@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { hasPerm, isReadOnly } from '../utils/permissions.js';
 import {
+  ShieldCheck,
   Bot,
   ChevronDown,
   Sparkles,
@@ -14,11 +15,7 @@ import {
   UserCheck,
   UsersRound,
   Scale,
-  CalendarDays,
-  Clock3,
-  MapPin,
-  Radio,
-  BadgePercent,
+  Calculator,
 } from 'lucide-react';
 import { Organization, User, SyncStatus } from '../types/erp.js';
 import { api, setCurrentUserId } from '../services/api.js';
@@ -33,19 +30,6 @@ import type { AssistantScreen } from '../types/operator-assistant.js';
 import { ErrorBoundary } from './ErrorBoundary.js';
 import { GlobalAiWidget } from './GlobalAiWidget.js';
 
-const CAIRO_TIME_ZONE = 'Africa/Cairo';
-const formatCairoDateTime = (
-  date: Date,
-  locale: string,
-  options: Intl.DateTimeFormatOptions,
-): string => new Intl.DateTimeFormat(locale, { ...options, timeZone: CAIRO_TIME_ZONE }).format(date);
-
-const TRAINING_HR_TABS = new Set([
-  'hrs', 'employees', 'payroll', 'attendance', 'biometric', 'biometric-attendance',
-  'advances', 'taxes', 'payroll-tax', 'business-tax', 'income-tax', 'income-tax-law',
-  'einvoicing', 'e-invoicing', 'actuarial', 'insured-list', 'insured-actuarial',
-]);
-
 interface LayoutProps {
   currentTab: string;
   onTabChange: (tab: string) => void;
@@ -55,8 +39,6 @@ interface LayoutProps {
   currentUser: User | null;
   onUserChange: (user: User | null) => void;
   onAssistantNavigate: (target: AssistantScreen) => void;
-  /** يفتح HR في سياق مركز التدريب مع تثبيت معرّف المؤسسة الخاص به. */
-  onOpenTrainingHr: (initialTab?: 'employees' | 'taxes') => void;
   children: React.ReactNode;
 }
 
@@ -69,7 +51,6 @@ export const Layout: React.FC<LayoutProps> = ({
   currentUser,
   onUserChange,
   onAssistantNavigate,
-  onOpenTrainingHr,
   children,
 }) => {
   const [organizations, setOrganizations] = useState<Organization[]>([]);
@@ -83,37 +64,6 @@ export const Layout: React.FC<LayoutProps> = ({
   const [isDocsModalOpen, setIsDocsModalOpen] = useState(false);
   const [syncStatus, setSyncStatus] = useState<SyncStatus>(offlineSync.getStatus());
   const [pendingSyncCount, setPendingSyncCount] = useState(offlineSync.getPendingCount());
-  const [tickerNow, setTickerNow] = useState(() => new Date());
-
-  useEffect(() => {
-    const timer = window.setInterval(() => setTickerNow(new Date()), 1000);
-    return () => window.clearInterval(timer);
-  }, []);
-
-  const tickerItems = [
-    {
-      label: 'ميلادي',
-      value: formatCairoDateTime(tickerNow, 'ar-EG-u-ca-gregory', {
-        day: '2-digit', month: 'long', year: 'numeric',
-      }),
-      icon: CalendarDays,
-    },
-    {
-      label: 'هجري',
-      value: formatCairoDateTime(tickerNow, 'ar-EG-u-ca-islamic-umalqura', {
-        day: '2-digit', month: 'long', year: 'numeric',
-      }),
-      icon: CalendarDays,
-    },
-    {
-      label: 'الوقت',
-      value: formatCairoDateTime(tickerNow, 'ar-EG', {
-        hour: '2-digit', minute: '2-digit', second: '2-digit', hourCycle: 'h23',
-      }),
-      icon: Clock3,
-    },
-    { label: 'الموقع', value: 'القاهرة، مصر · توقيت القاهرة', icon: MapPin },
-  ];
 
   useEffect(() => {
     loadData();
@@ -144,28 +94,23 @@ export const Layout: React.FC<LayoutProps> = ({
     icon: React.ComponentType<{ className?: string }>;
     isAi?: boolean;
     badge?: string;
-    action?: 'open-training-hr' | 'open-training-taxes';
   }
 
-  // محاور موحّدة بقوائم فرعية. HR نفسها تبقى في بوابة التدريب فقط؛ الرابط
-  // الموجود تحت المحاسبة ينقل المستخدم إلى سياق التدريب ولا يمرر بيانات النقابة.
-  const governanceTabs = [
-    'regulation', 'regulations-library', 'regulation-assistant', 'budgets',
-    'statute', 'statutory', 'financial-core', 'accounting-core', 'statutory-check',
-    'statutory-distribution', 'distribution', 'audit', 'audit-settings', 'settings',
-  ];
+  // الوحدات المدمجة: كل شاشة تابعة تُعرض داخل بند رئيسي واحد كالسابق (المحاسبة والمالية، العضوية، الموارد البشرية)
+  // «الرقابة والإعدادات» تُدمج في بوابة النقابة فقط؛ في بوابات التدريب واللجان تبقى الإعدادات منفصلة.
   const HUB_DEFS = selectedGateway === 'syndicate'
     ? [
-        { id: 'accounting', label: 'المحاسبة والمالية', icon: Layers, tabs: ['journals', 'reports', 'balance-sheet', 'assets', 'subledgers', 'accounts', 'banking', 'procurement', 'journal-2024'] },
+        { id: 'accounting', label: 'المحاسبة والمالية', icon: Layers, tabs: ['journals', 'reports', 'subledgers', 'accounts', 'banking', 'procurement', 'journal-2024'] },
         { id: 'membership', label: 'العضوية والتحصيل واللجان', icon: UserCheck, tabs: ['members', 'receipts'] },
-        { id: 'regulation-budgets', label: 'الرقابة المالية واللوائح المنظمة والموازنات', icon: Scale, tabs: governanceTabs },
+        { id: 'hrs', label: 'الموارد البشرية والعاملين', icon: UsersRound, tabs: ['employees', 'payroll', 'attendance', 'advances'] },
+        { id: 'regulation-budgets', label: 'الرقابة المالية والموازنات', icon: Scale, tabs: ['regulation', 'budgets'] },
+        { id: 'audit-settings', label: 'الرقابة والإعدادات', icon: ShieldCheck, tabs: ['audit', 'settings'] },
+        { id: 'insured-actuarial', label: 'الصندوق الإكتواري', icon: Calculator, tabs: ['insured-list', 'actuarial'] },
       ]
     : [
-        { id: 'accounting', label: 'المحاسبة والمالية', icon: Layers, tabs: ['journals', 'reports', 'balance-sheet', 'assets', 'subledgers', 'accounts', 'banking', 'procurement'] },
+        { id: 'accounting', label: 'المحاسبة والمالية', icon: Layers, tabs: ['journals', 'reports', 'subledgers', 'accounts', 'banking', 'procurement'] },
         { id: 'membership', label: 'العضوية والتحصيل', icon: UserCheck, tabs: ['members', 'receipts'] },
-        { id: 'hrs', label: 'الموارد البشرية والعاملين', icon: UsersRound, tabs: ['employees', 'payroll', 'attendance', 'biometric', 'advances', 'insured-list', 'actuarial'] },
-        { id: 'taxes', label: 'الضرائب وكسب العمل', icon: BadgePercent, tabs: ['taxes'] },
-        { id: 'regulation-budgets', label: 'الرقابة المالية واللوائح المنظمة والموازنات', icon: Scale, tabs: ['statutory', 'financial-core', 'accounting-core', 'statutory-check', 'statutory-distribution', 'distribution'] },
+        { id: 'hrs', label: 'الموارد البشرية والعاملين', icon: UsersRound, tabs: ['employees', 'payroll', 'attendance', 'advances'] },
       ];
 
   const activePortalMeta = getGatewayMeta(selectedGateway);
@@ -175,6 +120,7 @@ export const Layout: React.FC<LayoutProps> = ({
     { id: 'portals', label: 'البوابات الرئيسية', icon: Globe, badge: '3 بوابات' },
   ];
 
+  const foldedTabs = new Set(HUB_DEFS.flatMap((h) => h.tabs));
   const addedHubs = new Set<string>();
 
   for (const s of portalScreens) {
@@ -188,7 +134,7 @@ export const Layout: React.FC<LayoutProps> = ({
           id: hub.id,
           label: hub.label,
           icon: hub.icon,
-          badge: hub.id === 'taxes' ? '4 وحدات' : `${visibleTabs.length} وحدات`,
+          badge: `${visibleTabs.length} وحدات`,
         });
         addedHubs.add(hub.id);
       }
@@ -202,49 +148,6 @@ export const Layout: React.FC<LayoutProps> = ({
     });
   }
 
-  // تظهر وصلتا HR والضرائب تحت المحاسبة في بوابة النقابة، لكنهما تبدّلان السياق
-  // صراحة إلى مركز التدريب ولا تعرضان بيانات التدريب داخل مؤسسة النقابة العامة.
-  if (selectedGateway === 'syndicate') {
-    const accountingIndex = navItems.findIndex((item) => item.id === 'accounting');
-    const trainingShortcuts: NavItem[] = [
-      {
-        id: 'hr-training-shortcut',
-        label: 'الموارد البشرية — بوابة التدريب',
-        icon: UsersRound,
-        badge: 'مركز التدريب',
-        action: 'open-training-hr',
-      },
-      {
-        id: 'tax-training-shortcut',
-        label: 'الضرائب وكسب العمل — بوابة التدريب',
-        icon: BadgePercent,
-        badge: 'مركز التدريب',
-        action: 'open-training-taxes',
-      },
-    ];
-    navItems.splice(accountingIndex >= 0 ? accountingIndex + 1 : navItems.length, 0, ...trainingShortcuts);
-  }
-
-  // بوابة اللجان لا تحتوي HR/ضرائب داخل نطاقها؛ توفر وصلات واضحة تتحول إلى مركز التدريب.
-  if (selectedGateway === 'committees') {
-    navItems.push(
-      {
-        id: 'hr-training-shortcut',
-        label: 'الموارد البشرية — بوابة التدريب',
-        icon: UsersRound,
-        badge: 'سياق منفصل',
-        action: 'open-training-hr',
-      },
-      {
-        id: 'tax-training-shortcut',
-        label: 'الضرائب وكسب العمل — بوابة التدريب',
-        icon: BadgePercent,
-        badge: 'سياق منفصل',
-        action: 'open-training-taxes',
-      },
-    );
-  }
-
   // الوحدات القديمة كان لها معرفات مستقلة — نحولها إلى الشاشة المجمّعة الصحيحة
   // حتى لا ينكسر أي تنقل قديم، ويبقى التظليل في الشريط الجانبي دقيقاً.
   const TAB_TARGETS: Record<string, string> = {
@@ -256,79 +159,33 @@ export const Layout: React.FC<LayoutProps> = ({
     banking: 'accounting',
     procurement: 'accounting',
     'journal-2024': 'accounting',
-    'balance-sheet': 'accounting',
-    balanceSheet: 'accounting',
-    assets: 'accounting',
-    'fixed-assets': 'accounting',
-    'fixed-asset': 'accounting',
-    depreciation: 'accounting',
+    'balance-sheet': 'balance-sheet',
+    balanceSheet: 'balance-sheet',
     membership: 'membership',
     members: 'membership',
     receipts: 'membership',
     committees: selectedGateway === 'syndicate' ? 'membership' : 'committees',
-    models: 'models',
-    'committee-data': 'models',
     hrs: 'hrs',
     employees: 'hrs',
     payroll: 'hrs',
     attendance: 'hrs',
-    biometric: 'hrs',
-    'biometric-attendance': 'hrs',
     advances: 'hrs',
-    taxes: 'taxes',
-    'payroll-tax': 'taxes',
-    'business-tax': 'taxes',
-    'income-tax': 'taxes',
-    'income-tax-law': 'taxes',
-    einvoicing: 'taxes',
-    'e-invoicing': 'taxes',
-    'insured-actuarial': 'hrs',
-    'insured-list': 'hrs',
-    actuarial: 'hrs',
     'regulation-budgets': 'regulation-budgets',
     regulation: 'regulation-budgets',
-    'regulations-library': 'regulation-budgets',
-    'regulation-assistant': 'regulation-budgets',
     budgets: 'regulation-budgets',
-    statute: 'regulation-budgets',
-    statutory: 'regulation-budgets',
-    'financial-core': 'regulation-budgets',
-    'accounting-core': 'regulation-budgets',
-    'statutory-check': 'regulation-budgets',
-    'statutory-distribution': 'regulation-budgets',
-    distribution: 'regulation-budgets',
-    'audit-settings': 'regulation-budgets',
-    audit: 'regulation-budgets',
-    settings: selectedGateway === 'syndicate' ? 'regulation-budgets' : 'settings',
-    ai: 'aetherswarm',
-    aihub: 'aetherswarm',
-    aiHub: 'aetherswarm',
-    liveagent: 'aetherswarm',
-    accountant: 'aetherswarm',
-    customagent: 'aetherswarm',
-    swarm: 'aetherswarm',
+    'audit-settings': 'audit-settings',
+    audit: 'audit-settings',
+    settings: selectedGateway === 'syndicate' ? 'audit-settings' : 'settings',
+    'insured-actuarial': 'insured-actuarial',
+    'insured-list': 'insured-actuarial',
+    actuarial: 'insured-actuarial',
+    ai: 'aihub',
+    aiHub: 'aihub',
+    liveagent: 'aihub',
   };
   const effectiveTab = TAB_TARGETS[currentTab] || (currentTab === 'ai' ? 'aihub' : currentTab);
 
-  const visibleOrganizations = organizations.filter((organization) =>
-    organization.isActive && Boolean(currentUser && (
-      currentUser.organizationId === organization.id ||
-      currentUser.allowedOrgIds?.includes(organization.id) ||
-      hasPerm(currentUser, 'system:admin')
-    )),
-  );
-  const trainingOrganizationId = getGatewayMeta('training')?.organizationId;
-  const isTrainingHrTab = TRAINING_HR_TABS.has(currentTab);
-  const selectableOrganizations = isTrainingHrTab && trainingOrganizationId
-    ? visibleOrganizations.filter((organization) => organization.id === trainingOrganizationId)
-    : visibleOrganizations;
-  const currentOrg = selectableOrganizations.find((organization) => organization.id === selectedOrgId) || selectableOrganizations[0];
-
-  useEffect(() => {
-    if (isTrainingHrTab && trainingOrganizationId && selectedOrgId !== trainingOrganizationId) {
-      onOrgChange(trainingOrganizationId);
-    }
-  }, [isTrainingHrTab, onOrgChange, selectedOrgId, trainingOrganizationId]);
+  const currentOrg = organizations.find((o) => o.id === selectedOrgId) || organizations[0];
 
   return (
     <div className="flex h-screen bg-slate-950 text-slate-100 font-sans antialiased overflow-hidden dir-rtl" dir="rtl">
@@ -378,21 +235,11 @@ export const Layout: React.FC<LayoutProps> = ({
         <nav className="flex-1 px-2 py-2 space-y-0.5 overflow-y-auto">
           {navItems.map((item) => {
             const Icon = item.icon;
-            const isActive = item.action
-              ? false
-              : item.id === 'portals'
-                ? currentTab === 'portals'
-                : effectiveTab === item.id;
+            const isActive = item.id === 'portals' ? currentTab === 'portals' : effectiveTab === item.id;
             return (
               <button
                 key={item.id}
-                onClick={() => {
-                  if (item.action === 'open-training-hr' || item.action === 'open-training-taxes') {
-                    onOpenTrainingHr(item.action === 'open-training-taxes' ? 'taxes' : 'employees');
-                    return;
-                  }
-                  onTabChange(item.id);
-                }}
+                onClick={() => onTabChange(item.id)}
                 className={`w-full flex items-center justify-between px-3 py-1.5 rounded text-xs transition-colors ${
                   isActive
                     ? item.isAi
@@ -451,14 +298,14 @@ export const Layout: React.FC<LayoutProps> = ({
                 className="flex items-center gap-2 px-2.5 py-1 bg-slate-900 border border-[#334155] hover:border-sky-500/50 rounded text-xs font-medium text-slate-200 shadow-xs transition-colors"
               >
                 <Building className="w-3.5 h-3.5 text-sky-400" />
-                <span>{currentOrg?.name || (isTrainingHrTab ? 'مركز التدريب' : activePortalMeta?.title || 'لا توجد مؤسسة متاحة')}</span>
+                <span>{currentOrg?.name || 'النقابة العامة'}</span>
                 <ChevronDown className="w-3 h-3 text-slate-400" />
               </button>
 
               {isOrgDropdownOpen && (
                 <div className="absolute top-full right-0 mt-1 w-64 bg-[#1e293b] border border-[#334155] rounded shadow-xl z-50 p-1 space-y-0.5">
                   <div className="text-[10px] font-bold text-slate-400 px-2 py-1 font-mono uppercase">Select Entity / Committee</div>
-                  {selectableOrganizations.map((org) => (
+                  {organizations.map((org) => (
                     <button
                       key={org.id}
                       onClick={() => {
@@ -593,42 +440,6 @@ export const Layout: React.FC<LayoutProps> = ({
             </div>
           </div>
         </header>
-
-        {/* شريط الوقت والموقع ثابت بين الشاشات ويتحرك كتذييل أخبار، مع احترام تفضيل تقليل الحركة. */}
-        <section
-          data-print-hidden
-          className="erp-news-ticker flex h-10 shrink-0 items-center gap-3 border-b border-sky-900/50 bg-slate-950/90 px-3 text-[10px] sm:text-[11px]"
-          aria-label="التاريخ والوقت والموقع الحالي"
-        >
-          <span className="inline-flex shrink-0 items-center gap-1.5 rounded-full border border-sky-500/30 bg-sky-500/10 px-2.5 py-1 font-bold text-sky-300">
-            <Radio className="h-3.5 w-3.5" />
-            مباشر
-          </span>
-          <div className="erp-news-ticker__viewport flex min-w-0 flex-1 overflow-hidden">
-            <div className="erp-news-ticker__track" aria-hidden="true">
-              {[0, 1].map((copy) => (
-                <div className="erp-news-ticker__group" key={copy}>
-                  {tickerItems.map((item) => {
-                    const Icon = item.icon;
-                    return (
-                      <span className="inline-flex shrink-0 items-center gap-1.5 text-slate-300" key={item.label}>
-                        <Icon className="h-3.5 w-3.5 text-sky-400" />
-                        <span className="text-slate-500">{item.label}:</span>
-                        <strong className="font-semibold text-slate-100">{item.value}</strong>
-                      </span>
-                    );
-                  })}
-                </div>
-              ))}
-            </div>
-          </div>
-          <span className="hidden shrink-0 rounded border border-slate-800 px-2 py-1 text-[9px] text-slate-500 sm:inline-flex">
-            Africa/Cairo
-          </span>
-          <span className="sr-only">
-            {tickerItems.map((item) => `${item.label}: ${item.value}`).join('؛ ')}
-          </span>
-        </section>
 
         {/* Dynamic View Canvas */}
         <main className="flex-1 overflow-y-auto p-4 bg-[#0f172a]">
