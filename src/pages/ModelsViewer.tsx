@@ -26,7 +26,8 @@ import {
   LockIcon,
   LockOpenIcon,
 } from 'lucide-react';
-import { api } from '../services/api.js';
+import { api, downloadAuthenticatedFile } from '../services/api.js';
+import { AuthenticatedApiFrame } from '../components/AuthenticatedApiFrame.js';
 import { streamGlobalAiChat } from '../services/ai-stream.js';
 import { createVoiceCapture } from '../utils/voiceCapture.js';
 import { CommitteeDataViewer } from './CommitteeDataViewer.js';
@@ -36,7 +37,14 @@ import type { User } from '../types/erp.js';
 interface ModelsViewerProps {
   organizationId: string;
   currentUser: User | null;
-  onShowToast: (type: 'success' | 'error' | 'warning' | 'info', msg: string) => void;
+  onShowToast: (
+    type: 'success' | 'error' | 'warning' | 'info',
+    msg: string,
+  ) => void;
+  /** التبويب المفتوح عند الوصول: مكتبة النماذج أو بيان اللجان والمكاتب */
+  initialTab?: ModelsTabId;
+  /** مكتبة النماذج تظل مقصورة على بوابة النقابة العامة؛ بوابة اللجان تعرض بياناتها فقط. */
+  showModelsLibrary?: boolean;
 }
 
 interface ModelFile {
@@ -52,13 +60,51 @@ interface ChatMsg {
   text: string;
 }
 
-const KIND_META: Record<string, { label: string; icon: React.ComponentType<{ className?: string }>; color: string; bg: string }> = {
-  image: { label: 'صورة', icon: ImageIcon, color: 'text-emerald-400', bg: 'bg-emerald-500/10 border-emerald-500/30' },
-  pdf: { label: 'PDF', icon: FileText, color: 'text-rose-400', bg: 'bg-rose-500/10 border-rose-500/30' },
-  office: { label: 'مستند Office', icon: FileSpreadsheet, color: 'text-sky-400', bg: 'bg-sky-500/10 border-sky-500/30' },
-  text: { label: 'نص', icon: FileText, color: 'text-amber-400', bg: 'bg-amber-500/10 border-amber-500/30' },
-  archive: { label: 'أرشيف مضغوط', icon: FileIcon, color: 'text-violet-400', bg: 'bg-violet-500/10 border-violet-500/30' },
-  other: { label: 'ملف', icon: FileIcon, color: 'text-slate-400', bg: 'bg-slate-500/10 border-slate-500/30' },
+const KIND_META: Record<
+  string,
+  {
+    label: string;
+    icon: React.ComponentType<{ className?: string }>;
+    color: string;
+    bg: string;
+  }
+> = {
+  image: {
+    label: 'صورة',
+    icon: ImageIcon,
+    color: 'text-emerald-400',
+    bg: 'bg-emerald-500/10 border-emerald-500/30',
+  },
+  pdf: {
+    label: 'PDF',
+    icon: FileText,
+    color: 'text-rose-400',
+    bg: 'bg-rose-500/10 border-rose-500/30',
+  },
+  office: {
+    label: 'مستند Office',
+    icon: FileSpreadsheet,
+    color: 'text-sky-400',
+    bg: 'bg-sky-500/10 border-sky-500/30',
+  },
+  text: {
+    label: 'نص',
+    icon: FileText,
+    color: 'text-amber-400',
+    bg: 'bg-amber-500/10 border-amber-500/30',
+  },
+  archive: {
+    label: 'أرشيف مضغوط',
+    icon: FileIcon,
+    color: 'text-violet-400',
+    bg: 'bg-violet-500/10 border-violet-500/30',
+  },
+  other: {
+    label: 'ملف',
+    icon: FileIcon,
+    color: 'text-slate-400',
+    bg: 'bg-slate-500/10 border-slate-500/30',
+  },
 };
 
 function formatSize(bytes: number): string {
@@ -68,9 +114,14 @@ function formatSize(bytes: number): string {
   return `${(kb / 1024).toFixed(2)} MB`;
 }
 
-const isPreviewable = (kind: string) => kind === 'image' || kind === 'pdf' || kind === 'office' || kind === 'text';
+const isPreviewable = (kind: string) =>
+  kind === 'image' || kind === 'pdf' || kind === 'office' || kind === 'text';
 
-const ModelsLibraryView: React.FC<ModelsViewerProps> = ({ organizationId, currentUser, onShowToast }) => {
+const ModelsLibraryView: React.FC<ModelsViewerProps> = ({
+  organizationId,
+  currentUser,
+  onShowToast,
+}) => {
   const [files, setFiles] = useState<ModelFile[]>([]);
   const [directory, setDirectory] = useState('');
   const [loading, setLoading] = useState(true);
@@ -85,7 +136,7 @@ const ModelsLibraryView: React.FC<ModelsViewerProps> = ({ organizationId, curren
 
   // In-App Direct Text Editor state
   const [inAppEditFile, setInAppEditFile] = useState<ModelFile | null>(null);
-  const [inAppText, setInAppText] = useState("");
+  const [inAppText, setInAppText] = useState('');
   const [loadingText, setLoadingText] = useState(false);
   const [savingText, setSavingText] = useState(false);
 
@@ -114,23 +165,26 @@ const ModelsLibraryView: React.FC<ModelsViewerProps> = ({ organizationId, curren
   const [unlockError, setUnlockError] = useState<string | null>(null);
   const [unlocking, setUnlocking] = useState(false);
 
-  const loadData = useCallback(async (silent = false) => {
-    if (!silent) setLoading(true);
-    try {
-      const data = await api.getModels();
-      setFiles(data.files);
-      setDirectory(data.directory);
-      const isLockedNow = !!data.locked;
-      setLocked(isLockedNow);
-      if (isLockedNow && !showUnlock) setShowUnlock(true);
-      else if (!isLockedNow) setShowUnlock(false);
-    } catch (err) {
-      console.error('Failed to load models:', err);
-      onShowToast('error', 'تعذر تحميل ملفات النماذج');
-    } finally {
-      setLoading(false);
-    }
-  }, [onShowToast, showUnlock]);
+  const loadData = useCallback(
+    async (silent = false) => {
+      if (!silent) setLoading(true);
+      try {
+        const data = await api.getModels();
+        setFiles(data.files);
+        setDirectory(data.directory);
+        const isLockedNow = !!data.locked;
+        setLocked(isLockedNow);
+        if (isLockedNow && !showUnlock) setShowUnlock(true);
+        else if (!isLockedNow) setShowUnlock(false);
+      } catch (err) {
+        console.error('Failed to load models:', err);
+        onShowToast('error', 'تعذر تحميل ملفات النماذج');
+      } finally {
+        setLoading(false);
+      }
+    },
+    [onShowToast, showUnlock],
+  );
 
   // عند فتح القفل نمنع إساءة الحالة (إن فتح المستخدم يدوياً دون إعادة تحميل)
   useEffect(() => {
@@ -163,16 +217,18 @@ const ModelsLibraryView: React.FC<ModelsViewerProps> = ({ organizationId, curren
   }, [loadData]);
 
   useEffect(() => {
-    if (aiBodyRef.current) aiBodyRef.current.scrollTop = aiBodyRef.current.scrollHeight;
+    if (aiBodyRef.current)
+      aiBodyRef.current.scrollTop = aiBodyRef.current.scrollHeight;
   }, [aiMessages, aiLoading]);
 
   // الترحيب بلوحة الذكاء عند فتحها لأول مرة
   useEffect(() => {
     if (!aiOpen) return;
     if (aiMessages.length === 0) {
-      const greeting = files.length > 0
-        ? `أهلاً بك في لوحة ذكاء مكتبة النماذج. يوجد حالياً ${files.length} ملفاً في المكتبة. اطلب مني مثلاً: «اشرح لي ما هذه النماذج»، أو «ما أفضل نموذج لتقديم استمارة تأمين؟».`
-        : `أهلاً بك في لوحة ذكاء مكتبة النماذج. المكتبة فارغة حالياً — يمكنك رفع ملفات بالضغط على زر «إضافة نموذج».`;
+      const greeting =
+        files.length > 0
+          ? `أهلاً بك في لوحة ذكاء مكتبة النماذج. يوجد حالياً ${files.length} ملفاً في المكتبة. اطلب مني مثلاً: «اشرح لي ما هذه النماذج»، أو «ما أفضل نموذج لتقديم استمارة تأمين؟».`
+          : `أهلاً بك في لوحة ذكاء مكتبة النماذج. المكتبة فارغة حالياً — يمكنك رفع ملفات بالضغط على زر «إضافة نموذج».`;
       setAiMessages([{ role: 'assistant', text: greeting }]);
     }
   }, [aiOpen, files.length, aiMessages.length]);
@@ -190,7 +246,10 @@ const ModelsLibraryView: React.FC<ModelsViewerProps> = ({ organizationId, curren
   const filtered = files.filter((f) => {
     if (!searchQuery.trim()) return true;
     const q = searchQuery.trim().toLowerCase();
-    return f.name.toLowerCase().includes(q) || KIND_META[f.kind]?.label.toLowerCase().includes(q);
+    return (
+      f.name.toLowerCase().includes(q) ||
+      KIND_META[f.kind]?.label.toLowerCase().includes(q)
+    );
   });
 
   // ===== الملف والتعديل والحذف =====
@@ -205,20 +264,39 @@ const ModelsLibraryView: React.FC<ModelsViewerProps> = ({ organizationId, curren
   }, [locked, onShowToast]);
 
   /** فتح المعاينة - مع توجيه إلى فتح القفل إن كانت المكتبة مغلقة */
-  const openPreview = useCallback((f: ModelFile) => {
-    if (!guardUnlock()) return;
-    setPreviewFile(f);
-  }, [guardUnlock]);
+  const openPreview = useCallback(
+    (f: ModelFile) => {
+      if (!guardUnlock()) return;
+      setPreviewFile(f);
+    },
+    [guardUnlock],
+  );
 
-  const openPrint = useCallback((f: ModelFile) => {
-    if (!guardUnlock()) return;
-    setPrintFile(f);
-  }, [guardUnlock]);
+  const openPrint = useCallback(
+    (f: ModelFile) => {
+      if (!guardUnlock()) return;
+      setPrintFile(f);
+    },
+    [guardUnlock],
+  );
 
-  const openDownload = useCallback((f: ModelFile) => {
-    if (!guardUnlock()) return;
-    window.open(api.modelDownloadUrl(f.name), '_blank');
-  }, [guardUnlock]);
+  const downloadModelFile = useCallback(async (file: ModelFile): Promise<boolean> => {
+    try {
+      await downloadAuthenticatedFile(api.modelDownloadUrl(file.name), file.name);
+      return true;
+    } catch (err: any) {
+      onShowToast('error', err?.message || 'تعذّر تنزيل الملف.');
+      return false;
+    }
+  }, [onShowToast]);
+
+  const openDownload = useCallback(
+    (f: ModelFile) => {
+      if (!guardUnlock()) return;
+      void downloadModelFile(f);
+    },
+    [guardUnlock, downloadModelFile],
+  );
 
   const handleUploadFile = async (file: File) => {
     if (!guardUnlock()) return;
@@ -258,9 +336,9 @@ const ModelsLibraryView: React.FC<ModelsViewerProps> = ({ organizationId, curren
     setLoadingText(true);
     try {
       const data = await api.getModelText(f.name);
-      setInAppText(data.content || "");
+      setInAppText(data.content || '');
     } catch (err: any) {
-      onShowToast("error", err?.message || "تعذر قراءة محتوى الملف للنص");
+      onShowToast('error', err?.message || 'تعذر قراءة محتوى الملف للنص');
       setInAppEditFile(null);
     } finally {
       setLoadingText(false);
@@ -273,17 +351,20 @@ const ModelsLibraryView: React.FC<ModelsViewerProps> = ({ organizationId, curren
     try {
       // utf-8 to base64
       const utf8Bytes = new TextEncoder().encode(inAppText);
-      let binary = "";
+      let binary = '';
       for (let i = 0; i < utf8Bytes.byteLength; i++) {
         binary += String.fromCharCode(utf8Bytes[i]);
       }
       const base64 = btoa(binary);
       await api.replaceModelContent(inAppEditFile.name, base64);
-      onShowToast("success", `تم حفظ التعديلات على «${inAppEditFile.name}» بنجاح`);
+      onShowToast(
+        'success',
+        `تم حفظ التعديلات على «${inAppEditFile.name}» بنجاح`,
+      );
       setInAppEditFile(null);
       loadData(true);
     } catch (err: any) {
-      onShowToast("error", err?.message || "تعذر حفظ التعديلات");
+      onShowToast('error', err?.message || 'تعذر حفظ التعديلات');
     } finally {
       setSavingText(false);
     }
@@ -328,11 +409,15 @@ const ModelsLibraryView: React.FC<ModelsViewerProps> = ({ organizationId, curren
       if (res.opened) {
         onShowToast('info', `تم فتح «${file.name}» بالبرنامج الافتراضي`);
       } else if (res.fallback === 'download') {
-        // في وضع المتصفح: ننزّل الملف ليفتحه المستخدم
-        window.open(api.modelDownloadUrl(file.name), '_blank');
-        onShowToast('info', 'جارٍ تنزيل الملف لفتحه وطباعته ببرنامجه');
+        // في وضع المتصفح: نطلب الملف بهوية ERP ثم ننزّله، فالتنقل المباشر لا يحمل الترويسة.
+        if (await downloadModelFile(file)) {
+          onShowToast('info', 'تم تنزيل الملف لفتحه وطباعته ببرنامجه');
+        }
       } else if (res.temp) {
-        onShowToast('info', 'الملف جاهز في مكان مؤقت — التعديل لا يُحفظ إلا عبر رفع نسخة محدثة');
+        onShowToast(
+          'info',
+          'الملف جاهز في مكان مؤقت — التعديل لا يُحفظ إلا عبر رفع نسخة محدثة',
+        );
       }
     } catch (err: any) {
       if (err?.status === 423) {
@@ -361,12 +446,22 @@ const ModelsLibraryView: React.FC<ModelsViewerProps> = ({ organizationId, curren
             .join('، ')}.`
         : 'مكتبة النماذج فارغة حالياً.';
       const assistantText = await streamGlobalAiChat(
-        { message: `${contextNote}\n\nسؤال المستخدم: ${bodyText}`, organizationId: organizationId || undefined, history },
-        {}
+        {
+          message: `${contextNote}\n\nسؤال المستخدم: ${bodyText}`,
+          organizationId: organizationId || undefined,
+          history,
+        },
+        {},
       );
-      setAiMessages((m) => [...m, { role: 'assistant', text: assistantText || 'تمت المعالجة.' }]);
+      setAiMessages((m) => [
+        ...m,
+        { role: 'assistant', text: assistantText || 'تمت المعالجة.' },
+      ]);
     } catch (err: any) {
-      setAiMessages((m) => [...m, { role: 'assistant', text: `حدث خطأ: ${err.message || 'غير معروف'}` }]);
+      setAiMessages((m) => [
+        ...m,
+        { role: 'assistant', text: `حدث   طأ: ${err.message || 'غير معروف'}` },
+      ]);
     } finally {
       setAiLoading(false);
     }
@@ -404,7 +499,9 @@ const ModelsLibraryView: React.FC<ModelsViewerProps> = ({ organizationId, curren
             <FolderOpen className="h-6 w-6 text-indigo-400" />
           </div>
           <div>
-            <h1 className="text-2xl font-bold text-white">مكتبة النماذج والمستندات</h1>
+            <h1 className="text-2xl font-bold text-white">
+              مكتبة النماذج والمستندات
+            </h1>
             <p className="text-sm text-slate-400">
               ملفات مجلد «نماذج» — عرض، طباعة، تعديل، وحذف مع مساعد ذكي مدمج
             </p>
@@ -435,7 +532,11 @@ const ModelsLibraryView: React.FC<ModelsViewerProps> = ({ organizationId, curren
                 : 'bg-slate-800 hover:bg-slate-700 border-slate-700 text-slate-300'
             }`}
           >
-            {locked ? <LockIcon className="w-4 h-4" /> : <LockOpenIcon className="w-4 h-4" />}
+            {locked ? (
+              <LockIcon className="w-4 h-4" />
+            ) : (
+              <LockOpenIcon className="w-4 h-4" />
+            )}
             {locked ? 'مقفلة' : 'قفل المكتبة'}
           </button>
           <button
@@ -476,11 +577,15 @@ const ModelsLibraryView: React.FC<ModelsViewerProps> = ({ organizationId, curren
       {/* Stats */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         <div className="rounded-xl bg-slate-900 border border-slate-800 px-4 py-3">
-          <div className="text-2xl font-bold text-indigo-300 font-mono">{files.length}</div>
+          <div className="text-2xl font-bold text-indigo-300 font-mono">
+            {files.length}
+          </div>
           <div className="text-[11px] text-slate-400">ملفاً في المكتبة</div>
         </div>
         <div className="rounded-xl bg-slate-900 border border-slate-800 px-4 py-3">
-          <div className="text-2xl font-bold text-sky-300 font-mono">{formatSize(totalSize)}</div>
+          <div className="text-2xl font-bold text-sky-300 font-mono">
+            {formatSize(totalSize)}
+          </div>
           <div className="text-[11px] text-slate-400">الحجم الإجمالي</div>
         </div>
         <div className="rounded-xl bg-slate-900 border border-slate-800 px-4 py-3">
@@ -489,8 +594,13 @@ const ModelsLibraryView: React.FC<ModelsViewerProps> = ({ organizationId, curren
           </div>
           <div className="text-[11px] text-slate-400">مستندات Office</div>
         </div>
-        <div className="rounded-xl bg-slate-900 border border-slate-800 px-4 py-3 cursor-default" title={directory}>
-          <div className="text-[13px] font-bold text-amber-300 truncate">{directory.split(/[\\/]/).slice(-2).join('/') || directory}</div>
+        <div
+          className="rounded-xl bg-slate-900 border border-slate-800 px-4 py-3 cursor-default"
+          title={directory}
+        >
+          <div className="text-[13px] font-bold text-amber-300 truncate">
+            {directory.split(/[\\/]/).slice(-2).join('/') || directory}
+          </div>
           <div className="text-[11px] text-slate-400">المسار المصدر</div>
         </div>
       </div>
@@ -509,7 +619,9 @@ const ModelsLibraryView: React.FC<ModelsViewerProps> = ({ organizationId, curren
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 items-start">
         {/* Main list */}
         <div className="lg:col-span-2 space-y-3">
-          <div className="text-[11px] text-slate-400 font-mono">{filtered.length} من أصل {files.length} ملفاً</div>
+          <div className="text-[11px] text-slate-400 font-mono">
+            {filtered.length} من أصل {files.length} ملفاً
+          </div>
           {loading ? (
             <div className="flex items-center justify-center py-20">
               <div className="animate-spin h-8 w-8 border-2 border-indigo-500 border-t-transparent rounded-full" />
@@ -517,7 +629,11 @@ const ModelsLibraryView: React.FC<ModelsViewerProps> = ({ organizationId, curren
           ) : filtered.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-16 text-center bg-slate-900/50 border border-slate-800 rounded-xl">
               <FolderOpen className="h-12 w-12 text-slate-700 mb-3" />
-              <p className="text-slate-400">{files.length === 0 ? 'المكتبة فارغة — أضف أول نموذج' : 'لا توجد نتائج مطابقة'}</p>
+              <p className="text-slate-400">
+                {files.length === 0
+                  ? 'المكتبة فارغة — أضف أول نموذج'
+                  : 'لا توجد نتائج مطابقة'}
+              </p>
             </div>
           ) : (
             <div className="rounded-xl bg-slate-900 border border-slate-800 overflow-hidden">
@@ -525,9 +641,15 @@ const ModelsLibraryView: React.FC<ModelsViewerProps> = ({ organizationId, curren
                 <thead className="bg-[#1e293b] text-[11px] text-slate-400 font-mono uppercase">
                   <tr>
                     <th className="px-4 py-2.5 font-semibold">الملف</th>
-                    <th className="px-3 py-2.5 font-semibold hidden md:table-cell">الحجم</th>
-                    <th className="px-3 py-2.5 font-semibold hidden sm:table-cell">آخر تعديل</th>
-                    <th className="px-3 py-2.5 font-semibold text-left">إجراءات</th>
+                    <th className="px-3 py-2.5 font-semibold hidden md:table-cell">
+                      الحجم
+                    </th>
+                    <th className="px-3 py-2.5 font-semibold hidden sm:table-cell">
+                      آخر تعديل
+                    </th>
+                    <th className="px-3 py-2.5 font-semibold text-left">
+                      إجراءات
+                    </th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-800">
@@ -535,21 +657,32 @@ const ModelsLibraryView: React.FC<ModelsViewerProps> = ({ organizationId, curren
                     const meta = KIND_META[f.kind] || KIND_META.other;
                     const Icon = meta.icon;
                     return (
-                      <tr key={f.name} className="hover:bg-slate-800/40 transition">
+                      <tr
+                        key={f.name}
+                        className="hover:bg-slate-800/40 transition"
+                      >
                         <td className="px-4 py-2.5">
                           <div className="flex items-center gap-2.5">
-                            <div className={`h-9 w-9 rounded-lg border flex items-center justify-center shrink-0 ${meta.bg}`}>
+                            <div
+                              className={`h-9 w-9 rounded-lg border flex items-center justify-center shrink-0 ${meta.bg}`}
+                            >
                               <Icon className={`h-4.5 w-4.5 ${meta.color}`} />
                             </div>
                             <div className="min-w-0">
-                              <div className="text-[13px] font-semibold text-slate-100 truncate max-w-[260px]">{f.name}</div>
-                              <span className={`text-[9px] font-mono text-slate-400 bg-slate-800 px-1 py-px rounded`}>
+                              <div className="text-[13px] font-semibold text-slate-100 truncate max-w-[260px]">
+                                {f.name}
+                              </div>
+                              <span
+                                className={`text-[9px] font-mono text-slate-400 bg-slate-800 px-1 py-px rounded`}
+                              >
                                 .{f.ext || 'file'} · {meta.label}
                               </span>
                             </div>
                           </div>
                         </td>
-                        <td className="px-3 py-2.5 text-[12px] font-mono text-slate-400 hidden md:table-cell">{formatSize(f.size)}</td>
+                        <td className="px-3 py-2.5 text-[12px] font-mono text-slate-400 hidden md:table-cell">
+                          {formatSize(f.size)}
+                        </td>
                         <td className="px-3 py-2.5 text-[11px] text-slate-400 hidden sm:table-cell">
                           {new Date(f.modifiedAt).toLocaleDateString('ar-EG')}
                         </td>
@@ -620,18 +753,31 @@ const ModelsLibraryView: React.FC<ModelsViewerProps> = ({ organizationId, curren
                   <Sparkles className="w-4 h-4" />
                 </div>
                 <div>
-                  <h4 className="text-xs font-bold text-slate-100">مساعد مكتبة النماذج</h4>
-                  <span className="text-[10px] text-slate-400">يساعدك في عرض واختيار النماذج الذكية</span>
+                  <h4 className="text-xs font-bold text-slate-100">
+                    مساعد مكتبة النماذج
+                  </h4>
+                  <span className="text-[10px] text-slate-400">
+                    يساعدك في عرض واختيار النماذج الذكية
+                  </span>
                 </div>
               </div>
-              <button onClick={() => setAiOpen(false)} className="p-1 text-slate-400 hover:text-white rounded">
+              <button
+                onClick={() => setAiOpen(false)}
+                className="p-1 text-slate-400 hover:text-white rounded"
+              >
                 <X className="w-4 h-4" />
               </button>
             </div>
 
-            <div ref={aiBodyRef} className="max-h-[420px] overflow-y-auto p-3 space-y-2.5 bg-[#151321]">
+            <div
+              ref={aiBodyRef}
+              className="max-h-[420px] overflow-y-auto p-3 space-y-2.5 bg-[#151321]"
+            >
               {aiMessages.map((m, i) => (
-                <div key={i} className={`flex ${m.role === 'user' ? 'justify-start' : 'justify-end'}`}>
+                <div
+                  key={i}
+                  className={`flex ${m.role === 'user' ? 'justify-start' : 'justify-end'}`}
+                >
                   <div
                     className={`max-w-[90%] px-3 py-2 rounded-xl text-xs whitespace-pre-wrap ${
                       m.role === 'user'
@@ -661,7 +807,9 @@ const ModelsLibraryView: React.FC<ModelsViewerProps> = ({ organizationId, curren
                   onKeyDown={(e) => {
                     if (e.key === 'Enter') sendAi();
                   }}
-                  placeholder={isListening ? 'أستمع إليك...' : 'اسأل عن النماذج...'}
+                  placeholder={
+                    isListening ? 'أستمع إليك...' : 'اسأل عن النماذج...'
+                  }
                   disabled={aiLoading || isListening}
                   className="flex-1 px-3 py-2 rounded-lg bg-[#151321] border border-purple-900/50 focus:border-purple-500/60 focus:outline-none text-xs text-slate-200 placeholder:text-slate-500 disabled:opacity-50"
                 />
@@ -676,7 +824,11 @@ const ModelsLibraryView: React.FC<ModelsViewerProps> = ({ organizationId, curren
                       : 'bg-slate-800 border-[#334155] hover:border-rose-500/50 text-slate-300 hover:text-rose-300'
                   } disabled:opacity-40 disabled:cursor-not-allowed`}
                 >
-                  {isListening ? <Square className="w-4 h-4" /> : <Mic className="w-4 h-4" />}
+                  {isListening ? (
+                    <Square className="w-4 h-4" />
+                  ) : (
+                    <Mic className="w-4 h-4" />
+                  )}
                 </button>
                 <button
                   type="button"
@@ -693,7 +845,11 @@ const ModelsLibraryView: React.FC<ModelsViewerProps> = ({ organizationId, curren
                   جارٍ الاستماع... تحدث ثم اضغط ◼️
                 </p>
               )}
-              {voiceError && !isListening && <p className="mt-1.5 text-[10px] text-rose-400 text-center">{voiceError}</p>}
+              {voiceError && !isListening && (
+                <p className="mt-1.5 text-[10px] text-rose-400 text-center">
+                  {voiceError}
+                </p>
+              )}
             </div>
           </aside>
         )}
@@ -708,8 +864,12 @@ const ModelsLibraryView: React.FC<ModelsViewerProps> = ({ organizationId, curren
                 <LockIcon className="h-5 w-5 text-indigo-400" />
               </div>
               <div>
-                <h3 className="text-sm font-bold text-slate-100">مكتبة النماذج مقفلة</h3>
-                <p className="text-[11px] text-slate-400">أدخل كلمة المرور لعرض ومعاينة الملفات</p>
+                <h3 className="text-sm font-bold text-slate-100">
+                  مكتبة النماذج مقفلة
+                </h3>
+                <p className="text-[11px] text-slate-400">
+                  أدخل كلمة المرور لعرض ومعاينة الملفات
+                </p>
               </div>
             </div>
             <div className="space-y-1.5">
@@ -737,7 +897,11 @@ const ModelsLibraryView: React.FC<ModelsViewerProps> = ({ organizationId, curren
                 disabled={unlocking || !password.trim()}
                 className="flex-1 flex items-center justify-center gap-2 px-3 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 disabled:opacity-40 disabled:cursor-not-allowed text-xs font-bold text-white"
               >
-                {unlocking ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <LockOpenIcon className="w-3.5 h-3.5" />}
+                {unlocking ? (
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                ) : (
+                  <LockOpenIcon className="w-3.5 h-3.5" />
+                )}
                 فتح المكتبة
               </button>
               <button
@@ -749,13 +913,14 @@ const ModelsLibraryView: React.FC<ModelsViewerProps> = ({ organizationId, curren
               </button>
             </div>
             <p className="text-[10px] text-slate-500 leading-relaxed">
-              كلمة المرور تُستخدم لفك تشفير الملفات أثناء العرض ولا تُخزَّن أو تُرفع مع المشروع على GitHub.
+              كلمة المرور تُستخدم لفك تشفير الملفات أثناء العرض ولا تُخزَّن أو
+              تُرفع مع المشروع على GitHub.
             </p>
           </div>
         </div>
       )}
 
-            {/* In-App Direct Text/Document Editor Modal */}
+      {/* In-App Direct Text/Document Editor Modal */}
       {inAppEditFile && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-3 bg-black/75 backdrop-blur-xs overflow-y-auto">
           <div className="relative w-full max-w-4xl bg-[#1e293b] border border-emerald-500/40 text-slate-100 rounded-2xl shadow-2xl overflow-hidden my-4">
@@ -765,8 +930,12 @@ const ModelsLibraryView: React.FC<ModelsViewerProps> = ({ organizationId, curren
                   <Pencil className="w-4 h-4" />
                 </div>
                 <div>
-                  <h3 className="text-sm font-bold text-slate-100">تعديل النموذج داخل التطبيق: {inAppEditFile.name}</h3>
-                  <p className="text-[11px] text-slate-400">محرر داخلي مدمج — يمكنك تعديل النص وحفظ التغييرات مباشرة</p>
+                  <h3 className="text-sm font-bold text-slate-100">
+                    تعديل النموذج داخل التطبيق: {inAppEditFile.name}
+                  </h3>
+                  <p className="text-[11px] text-slate-400">
+                    محرر داخلي مدمج — يمكنك تعديل النص وحفظ التغييرات مباشرة
+                  </p>
                 </div>
               </div>
               <button
@@ -781,13 +950,17 @@ const ModelsLibraryView: React.FC<ModelsViewerProps> = ({ organizationId, curren
               {loadingText ? (
                 <div className="flex flex-col items-center justify-center py-20 gap-3">
                   <Loader2 className="w-8 h-8 text-emerald-400 animate-spin" />
-                  <p className="text-xs text-slate-400">جارٍ قراءة محتوى الملف للنص...</p>
+                  <p className="text-xs text-slate-400">
+                    جارٍ قراءة محتوى الملف للنص...
+                  </p>
                 </div>
               ) : (
                 <div className="space-y-2">
                   <div className="flex items-center justify-between text-xs text-slate-400">
                     <span>محتوى الملف النصي/المستند:</span>
-                    <span className="font-mono text-[10px] text-emerald-400">حفظ مباشر إلى مجلد «نماذج»</span>
+                    <span className="font-mono text-[10px] text-emerald-400">
+                      حفظ مباشر إلى مجلد «نماذج»
+                    </span>
                   </div>
                   <textarea
                     value={inAppText}
@@ -814,7 +987,11 @@ const ModelsLibraryView: React.FC<ModelsViewerProps> = ({ organizationId, curren
                 disabled={savingText || loadingText}
                 className="inline-flex items-center gap-2 px-5 py-2 text-xs font-bold rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white disabled:opacity-40 disabled:cursor-not-allowed transition"
               >
-                {savingText ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle2 className="w-4 h-4" />}
+                {savingText ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <CheckCircle2 className="w-4 h-4" />
+                )}
                 حفظ التعديلات في النموذج
               </button>
             </div>
@@ -828,9 +1005,13 @@ const ModelsLibraryView: React.FC<ModelsViewerProps> = ({ organizationId, curren
           <div className="relative w-full max-w-4xl bg-[#1e293b] border border-[#334155] text-slate-100 rounded shadow-2xl overflow-hidden my-4">
             <div className="flex items-center justify-between px-4 py-2.5 border-b border-[#334155] bg-[#1e293b]">
               <div>
-                <h3 className="text-sm font-bold text-slate-100">{previewFile.name}</h3>
+                <h3 className="text-sm font-bold text-slate-100">
+                  {previewFile.name}
+                </h3>
                 <p className="text-[11px] text-slate-400 mt-0.5">
-                  {KIND_META[previewFile.kind]?.label} · {formatSize(previewFile.size)} · {new Date(previewFile.modifiedAt).toLocaleDateString('ar-EG')}
+                  {KIND_META[previewFile.kind]?.label} ·{' '}
+                  {formatSize(previewFile.size)} ·{' '}
+                  {new Date(previewFile.modifiedAt).toLocaleDateString('ar-EG')}
                 </p>
               </div>
               <button
@@ -843,22 +1024,27 @@ const ModelsLibraryView: React.FC<ModelsViewerProps> = ({ organizationId, curren
             <div className="p-4 bg-[#0f172a] max-h-[75vh] overflow-auto">
               {isPreviewable(previewFile.kind) ? (
                 <>
-                  <iframe
+                  <AuthenticatedApiFrame
                     src={api.modelViewUrl(previewFile.name)}
                     title={previewFile.name}
                     className="w-full h-[60vh] bg-white rounded border border-slate-700"
                   />
                   {previewFile.kind === 'office' && (
                     <p className="mt-2 text-[11px] text-slate-400 text-center">
-                      يُعرض النموذج معرّباً كـ PDF. لتحرير النسخة الأصلية (Word/Excel) اضغط «فتح للتحرير».
+                      يُعرض النموذج معرّباً كـ PDF. لتحرير النسخة الأصلية
+                      (Word/Excel) اضغط «فتح للتحرير».
                     </p>
                   )}
                 </>
               ) : (
                 <div className="py-16 flex flex-col items-center gap-3 text-center">
                   <FilePlus2 className="h-12 w-12 text-slate-600" />
-                  <p className="text-sm text-slate-300">هذا النوع ({previewFile.ext}) لا يُعرض داخل الشاشة.</p>
-                  <p className="text-xs text-slate-400">نزّله أو افتحه بالبرنامج الافتراضي للمعاينة والطباعة.</p>
+                  <p className="text-sm text-slate-300">
+                    هذا النوع ({previewFile.ext}) لا يُعرض داخل الشاشة.
+                  </p>
+                  <p className="text-xs text-slate-400">
+                    نزّله أو افتحه بالبرنامج الافتراضي للمعاينة والطباعة.
+                  </p>
                   <div className="flex items-center gap-2 mt-1">
                     <button
                       onClick={() => setPrintFile(previewFile)}
@@ -867,7 +1053,7 @@ const ModelsLibraryView: React.FC<ModelsViewerProps> = ({ organizationId, curren
                       <Printer className="w-4 h-4" /> طباعة / فتح
                     </button>
                     <button
-                      onClick={() => window.open(api.modelDownloadUrl(previewFile.name), '_blank')}
+                      onClick={() => void downloadModelFile(previewFile)}
                       className="inline-flex items-center gap-2 px-4 py-2 text-xs rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-200"
                     >
                       <Download className="w-4 h-4" /> تنزيل
@@ -879,7 +1065,7 @@ const ModelsLibraryView: React.FC<ModelsViewerProps> = ({ organizationId, curren
             {isPreviewable(previewFile.kind) && (
               <div className="flex flex-wrap items-center justify-center gap-2 px-4 py-3 border-t border-[#334155] bg-[#1e293b]">
                 <button
-                  onClick={() => window.open(api.modelDownloadUrl(previewFile.name), '_blank')}
+                  onClick={() => void downloadModelFile(previewFile)}
                   className="inline-flex items-center gap-2 px-4 py-2 text-xs rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-200"
                 >
                   <Download className="w-4 h-4" /> تنزيل
@@ -915,7 +1101,8 @@ const ModelsLibraryView: React.FC<ModelsViewerProps> = ({ organizationId, curren
                   طباعة {printFile.name}
                 </h3>
                 <p className="text-[11px] text-slate-400 mt-0.5">
-                  يفتح الملف بالبرنامج الافتراضي (Word/Excel/PDF) حيث يمكن الطباعة أو التعديل
+                  يفتح الملف بالبرنامج الافتراضي (Word/Excel/PDF) حيث يمكن
+                  الطباعة أو التعديل
                 </p>
               </div>
               <button
@@ -927,7 +1114,7 @@ const ModelsLibraryView: React.FC<ModelsViewerProps> = ({ organizationId, curren
             </div>
             <div className="p-4 bg-[#0f172a] max-h-[72vh] overflow-auto">
               {isPreviewable(printFile.kind) ? (
-                <iframe
+                <AuthenticatedApiFrame
                   src={api.modelViewUrl(printFile.name)}
                   title={printFile.name}
                   className="w-full h-[54vh] bg-white rounded border border-slate-700"
@@ -935,8 +1122,13 @@ const ModelsLibraryView: React.FC<ModelsViewerProps> = ({ organizationId, curren
               ) : (
                 <div className="py-12 flex flex-col items-center gap-2 text-center">
                   <FileIcon className="h-12 w-12 text-slate-600" />
-                  <p className="text-sm text-slate-300">سيُفتح الملف ببرنامجه الافتراضي في نظام التشغيل.</p>
-                  <p className="text-xs text-slate-400">انتقل منه إلى قائمة الطباعة (Ctrl+P) لطباعته أو عدّله واحفظه.</p>
+                  <p className="text-sm text-slate-300">
+                    سيُفتح الملف ببرنامجه الافتراضي في نظام التشغيل.
+                  </p>
+                  <p className="text-xs text-slate-400">
+                    انتقل منه إلى قائمة الطباعة (Ctrl+P) لطباعته أو عدّله
+                    واحفظه.
+                  </p>
                 </div>
               )}
             </div>
@@ -949,7 +1141,7 @@ const ModelsLibraryView: React.FC<ModelsViewerProps> = ({ organizationId, curren
               </button>
               <div className="flex items-center gap-2">
                 <button
-                  onClick={() => window.open(api.modelDownloadUrl(printFile.name), '_blank')}
+                  onClick={() => void downloadModelFile(printFile)}
                   className="inline-flex items-center gap-2 px-4 py-2 text-xs rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-200"
                 >
                   <Download className="w-4 h-4" /> تنزيل
@@ -976,7 +1168,9 @@ const ModelsLibraryView: React.FC<ModelsViewerProps> = ({ organizationId, curren
                   <Pencil className="w-4 h-4 text-purple-400" />
                   تعديل {editFile.name}
                 </h3>
-                <p className="text-[11px] text-slate-400 mt-0.5">إعادة تسمية أو استبدال المحتوى</p>
+                <p className="text-[11px] text-slate-400 mt-0.5">
+                  إعادة تسمية أو استبدال المحتوى
+                </p>
               </div>
               <button
                 onClick={() => setEditFile(null)}
@@ -989,7 +1183,9 @@ const ModelsLibraryView: React.FC<ModelsViewerProps> = ({ organizationId, curren
             <div className="p-4 bg-[#0f172a] space-y-4">
               {/* Rename */}
               <div className="space-y-1.5">
-                <label className="text-[11px] font-mono text-slate-400 uppercase">إعادة التسمية</label>
+                <label className="text-[11px] font-mono text-slate-400 uppercase">
+                  إعادة التسمية
+                </label>
                 <input
                   value={newName}
                   onChange={(e) => setNewName(e.target.value)}
@@ -997,18 +1193,30 @@ const ModelsLibraryView: React.FC<ModelsViewerProps> = ({ organizationId, curren
                 />
                 <button
                   onClick={handleRename}
-                  disabled={renaming || !newName.trim() || newName.trim() === editFile.name}
+                  disabled={
+                    renaming ||
+                    !newName.trim() ||
+                    newName.trim() === editFile.name
+                  }
                   className="w-full inline-flex items-center justify-center gap-2 px-4 py-2 text-xs rounded-lg bg-purple-600 hover:bg-purple-500 disabled:opacity-40 disabled:cursor-not-allowed text-white"
                 >
-                  {renaming ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Pencil className="w-3.5 h-3.5" />}
+                  {renaming ? (
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                  ) : (
+                    <Pencil className="w-3.5 h-3.5" />
+                  )}
                   حفظ الاسم الجديد
                 </button>
               </div>
 
               {/* Replace content */}
               <div className="space-y-1.5 border-t border-slate-800 pt-4">
-                <label className="text-[11px] font-mono text-slate-400 uppercase">استبدال محتوى الملف</label>
-                <p className="text-[11px] text-slate-400">اختر نسخة محدّثة من الملف لاستبدال المحتوى الحالي.</p>
+                <label className="text-[11px] font-mono text-slate-400 uppercase">
+                  استبدال محتوى الملف
+                </label>
+                <p className="text-[11px] text-slate-400">
+                  اختر نسخة محدّثة من الملف لاستبدال المحتوى الحالي.
+                </p>
                 <input
                   ref={contentInputRef}
                   type="file"
@@ -1034,7 +1242,8 @@ const ModelsLibraryView: React.FC<ModelsViewerProps> = ({ organizationId, curren
               تأكيد حذف النموذج
             </div>
             <p className="text-xs text-slate-200">
-              سيُحذف الملف <b className="text-rose-300">{deleteFile.name}</b> نهائياً من مكتبة النماذج. لا يمكن التراجع.
+              سيُحذف الملف <b className="text-rose-300">{deleteFile.name}</b>{' '}
+              نهائياً من مكتبة النماذج. لا يمكن التراجع.
             </p>
             <div className="flex items-center gap-2 pt-1">
               <button
@@ -1042,7 +1251,11 @@ const ModelsLibraryView: React.FC<ModelsViewerProps> = ({ organizationId, curren
                 disabled={deleting}
                 className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg bg-rose-600 hover:bg-rose-500 disabled:opacity-40 disabled:cursor-not-allowed text-xs font-bold text-white"
               >
-                {deleting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />}
+                {deleting ? (
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                ) : (
+                  <Trash2 className="w-3.5 h-3.5" />
+                )}
                 نعم، احذف
               </button>
               <button
@@ -1083,19 +1296,41 @@ async function fileToBase64(file: File): Promise<string> {
 
 export type ModelsTabId = 'library' | 'committees';
 
-/** تبويبات الوحدة الموحدة: مكتبة النماذج + بيان اللجان والمكاتب (دمج شاشة بيان اللجان داخل شاشة النماذج) */
+/** تبويبات المدخل الموحد: مكتبة النماذج وبيان اللجان والمكاتب. */
 const MODELS_TABS: ModuleTabDef<ModelsTabId>[] = [
-  { id: 'library', label: 'مكتبة النماذج والمستندات', icon: FolderOpen, badge: 'نماذج' },
-  { id: 'committees', label: 'بيان اللجان والمكاتب', icon: FileSpreadsheet, badge: 'بيانات.xlsx' },
+  {
+    id: 'library',
+    label: 'مكتبة النماذج والمستندات',
+    icon: FolderOpen,
+    badge: 'نماذج',
+  },
+  {
+    id: 'committees',
+    label: 'بيان اللجان والمكاتب',
+    icon: FileSpreadsheet,
+    badge: 'بيانات.xlsx',
+  },
 ];
 
 export const ModelsViewer: React.FC<ModelsViewerProps> = (props) => {
-  const [activeTab, setActiveTab] = useState<ModelsTabId>('library');
+  const [activeTab, setActiveTab] = useState<ModelsTabId>(
+    props.initialTab ?? 'library',
+  );
+
+  if (props.showModelsLibrary === false) {
+    return (
+      <CommitteeDataViewer
+        organizationId={props.organizationId}
+        currentUser={props.currentUser}
+        onShowToast={props.onShowToast}
+      />
+    );
+  }
 
   return (
     <div className="space-y-4">
       <ModuleTabs
-        title="النماذج وبيان اللجان — وحدة موحدة"
+        title="بيانات اللجان والمكاتب والنماذج — وحدة موحدة"
         tabs={MODELS_TABS}
         activeId={activeTab}
         onChange={setActiveTab}

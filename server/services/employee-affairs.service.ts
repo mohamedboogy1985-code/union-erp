@@ -2,8 +2,9 @@ import fs from 'fs';
 import path from 'path';
 import { erpStore } from '../db/store.js';
 import { regulationService } from './regulation.service.js';
+import { employeeDataBelongsToOrganization } from './hr-organization-data.js';
 import { parseCsv } from '../utils/csv.js';
-import { moduleDir, resolveFirst } from '../utils/runtime-paths.js';
+import { callerModuleDir, resolveUnionDataDir } from '../utils/data-paths.js';
 import type {
   Employee,
   EmployeeAffair,
@@ -21,19 +22,17 @@ import type {
  * - ملخص إحصائي: فجوة تحصيل حصة النقابة بين استمارة 2 والمستقطع الفعلي
  */
 
-const MODULE_DIR = moduleDir(typeof import.meta !== 'undefined' ? import.meta.url : undefined) || process.cwd();
+const MODULE_DIR = callerModuleDir(typeof import.meta !== 'undefined' ? import.meta.url : undefined);
 
-export const EMPLOYEE_DATA_DIR =
-  resolveFirst([
-    process.env.UNION_DATA_DIR,
-    path.join(process.cwd(), 'server', 'data'),
-    path.join(MODULE_DIR, '..', 'data'),
-    path.join(MODULE_DIR, 'server', 'data'),
-    path.join(MODULE_DIR, '..', 'server', 'data'),
-    path.join(MODULE_DIR, '..', '..', 'server', 'data'),
-  ]) || path.join(process.cwd(), 'server', 'data');
+/**
+ * مجلد بيانات العاملين: نفس حلّ `CSV_DATA_DIR` من `server/utils/data-paths.ts`
+ * حتى يقرأ المؤشّر والخدمتان المجلد نفسه حرفياً (`UNION_DATA_DIR` ← `cwd/server/data`).
+ */
+export const EMPLOYEE_DATA_DIR = resolveUnionDataDir(MODULE_DIR, { allowFileTarget: true }).path;
 
 const INSURANCE_FORM2_FILE = 'استمارة_2_تأمينات.csv';
+/** ملف استمارة 2 المحمّل هنا خاص بموظفي مركز التدريب، لا بموظفي النقابة العامة. */
+export const EMPLOYEE_DATA_ORGANIZATION_ID = 'org-training-center';
 
 const num = (v: string | undefined): number => {
   if (!v) return 0;
@@ -67,6 +66,7 @@ export class EmployeeAffairsService {
         const employee: Employee = {
           id: `emp-${String(index + 1).padStart(3, '0')}`,
           employeeCode: `EMP-${String(index + 1).padStart(3, '0')}`,
+          organizationId: EMPLOYEE_DATA_ORGANIZATION_ID,
           fullName: row[0].trim(),
           totalSalary: num(row[1]),
           insuranceSalary: num(row[2]),
@@ -88,12 +88,13 @@ export class EmployeeAffairsService {
     }
   }
 
-  public listEmployees(search?: string): Employee[] {
-    let list = erpStore.employees;
+  public listEmployees(organizationId: string, search?: string): Employee[] {
+    if (!organizationId) return [];
+    let list = erpStore.employees.filter((employee) => employee.organizationId === organizationId);
     if (search && search.trim()) {
       const q = search.trim().toLowerCase();
       list = list.filter(
-        (e) => e.fullName.toLowerCase().includes(q) || e.employeeCode.toLowerCase().includes(q)
+        (employee) => employee.fullName.toLowerCase().includes(q) || employee.employeeCode.toLowerCase().includes(q)
       );
     }
     return list;
@@ -105,12 +106,23 @@ export class EmployeeAffairsService {
 
   // ================= الشئون الإدارية =================
 
-  public listAffairs(params: { employeeId?: string; type?: EmployeeAffairType; status?: string } = {}): EmployeeAffair[] {
+  public listAffairs(
+    organizationId: string,
+    params: { employeeId?: string; type?: EmployeeAffairType; status?: string } = {},
+  ): EmployeeAffair[] {
+    if (!organizationId) return [];
+    const employeeIds = new Set(
+      erpStore.employees
+        .filter((employee) => employee.organizationId === organizationId)
+        .map((employee) => employee.id),
+    );
     return erpStore.employeeAffairs.filter(
-      (a) =>
-        (!params.employeeId || a.employeeId === params.employeeId) &&
-        (!params.type || a.type === params.type) &&
-        (!params.status || a.status === params.status)
+      (affair) =>
+        employeeIds.has(affair.employeeId) &&
+        employeeDataBelongsToOrganization(affair.employeeId, organizationId, affair.organizationId) &&
+        (!params.employeeId || affair.employeeId === params.employeeId) &&
+        (!params.type || affair.type === params.type) &&
+        (!params.status || affair.status === params.status)
     );
   }
 
@@ -136,6 +148,7 @@ export class EmployeeAffairsService {
 
     const affair: EmployeeAffair = {
       id: `aff-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+      organizationId: employee.organizationId,
       employeeId: employee.id,
       employeeName: employee.fullName,
       type: data.type,
@@ -224,8 +237,19 @@ export class EmployeeAffairsService {
 
   // ================= سلف العاملين =================
 
-  public listAdvances(employeeId?: string): EmployeeAdvance[] {
-    return erpStore.employeeAdvances.filter((a) => !employeeId || a.employeeId === employeeId);
+  public listAdvances(organizationId: string, employeeId?: string): EmployeeAdvance[] {
+    if (!organizationId) return [];
+    const employeeIds = new Set(
+      erpStore.employees
+        .filter((employee) => employee.organizationId === organizationId)
+        .map((employee) => employee.id),
+    );
+    return erpStore.employeeAdvances.filter(
+      (advance) =>
+        employeeIds.has(advance.employeeId) &&
+        employeeDataBelongsToOrganization(advance.employeeId, organizationId, advance.organizationId) &&
+        (!employeeId || advance.employeeId === employeeId),
+    );
   }
 
   public addAdvance(
@@ -267,6 +291,7 @@ export class EmployeeAffairsService {
 
     const advance: EmployeeAdvance = {
       id: `adv-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+      organizationId: employee.organizationId,
       employeeId: employee.id,
       employeeName: employee.fullName,
       amount,
@@ -374,26 +399,35 @@ export class EmployeeAffairsService {
 
   // ================= الملخص الإحصائي =================
 
-  public getSummary(): EmployeeAffairsSummary {
-    const employees = erpStore.employees;
-    const totalSalaries = employees.reduce((s, e) => s + e.totalSalary, 0);
-    const totalInsuranceSalaries = employees.reduce((s, e) => s + e.insuranceSalary, 0);
-    const totalUnionShareForm2 = employees.reduce((s, e) => s + e.unionShareForm2, 0);
-    const totalUnionShareDeducted = employees.reduce((s, e) => s + e.unionShareDeducted, 0);
+  public getSummary(organizationId: string): EmployeeAffairsSummary {
+    const employees = this.listEmployees(organizationId);
+    const employeeIds = new Set(employees.map((employee) => employee.id));
+    const totalSalaries = employees.reduce((sum, employee) => sum + employee.totalSalary, 0);
+    const totalInsuranceSalaries = employees.reduce((sum, employee) => sum + employee.insuranceSalary, 0);
+    const totalUnionShareForm2 = employees.reduce((sum, employee) => sum + employee.unionShareForm2, 0);
+    const totalUnionShareDeducted = employees.reduce((sum, employee) => sum + employee.unionShareDeducted, 0);
 
-    const affairs = erpStore.employeeAffairs;
+    const affairs = erpStore.employeeAffairs.filter(
+      (affair) =>
+        employeeIds.has(affair.employeeId) &&
+        employeeDataBelongsToOrganization(affair.employeeId, organizationId, affair.organizationId),
+    );
     const today = new Date().toISOString().split('T')[0];
     const onLeaveToday = affairs.filter(
-      (a) =>
-        a.status === 'APPROVED' &&
-        (a.type === 'ANNUAL_LEAVE' || a.type === 'SICK_LEAVE' || a.type === 'CASUAL_LEAVE') &&
-        a.startDate <= today &&
-        (!a.endDate || a.endDate >= today)
+      (affair) =>
+        affair.status === 'APPROVED' &&
+        (affair.type === 'ANNUAL_LEAVE' || affair.type === 'SICK_LEAVE' || affair.type === 'CASUAL_LEAVE') &&
+        affair.startDate <= today &&
+        (!affair.endDate || affair.endDate >= today)
     ).length;
 
-    const advances = erpStore.employeeAdvances;
-    const totalAdvanceAmount = advances.reduce((s, a) => s + a.amount, 0);
-    const totalPaid = advances.reduce((s, a) => s + a.paidAmount, 0);
+    const advances = erpStore.employeeAdvances.filter(
+      (advance) =>
+        employeeIds.has(advance.employeeId) &&
+        employeeDataBelongsToOrganization(advance.employeeId, organizationId, advance.organizationId),
+    );
+    const totalAdvanceAmount = advances.reduce((sum, advance) => sum + advance.amount, 0);
+    const totalPaid = advances.reduce((sum, advance) => sum + advance.paidAmount, 0);
 
     return {
       employeesCount: employees.length,
@@ -404,16 +438,16 @@ export class EmployeeAffairsService {
       collectionGap: totalUnionShareForm2 - totalUnionShareDeducted,
       affairs: {
         total: affairs.length,
-        pending: affairs.filter((a) => a.status === 'PENDING').length,
-        approved: affairs.filter((a) => a.status === 'APPROVED').length,
-        rejected: affairs.filter((a) => a.status === 'REJECTED').length,
+        pending: affairs.filter((affair) => affair.status === 'PENDING').length,
+        approved: affairs.filter((affair) => affair.status === 'APPROVED').length,
+        rejected: affairs.filter((affair) => affair.status === 'REJECTED').length,
         onLeaveToday,
       },
       advances: {
         totalAmount: totalAdvanceAmount,
         remaining: totalAdvanceAmount - totalPaid,
-        active: advances.filter((a) => a.status === 'ACTIVE').length,
-        settled: advances.filter((a) => a.status === 'SETTLED').length,
+        active: advances.filter((advance) => advance.status === 'ACTIVE').length,
+        settled: advances.filter((advance) => advance.status === 'SETTLED').length,
       },
     };
   }

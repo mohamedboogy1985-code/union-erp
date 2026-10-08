@@ -1,0 +1,236 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>تقرير مراجعة فنية وتطويرية — Union Financial ERP</title>
+<style>
+:root { color-scheme: dark; }
+* { box-sizing: border-box; }
+body { margin: 0; background: #0b1220; color: #e2e8f0; font-family: "Segoe UI", "Tahoma", "Arial", sans-serif; line-height: 1.95; }
+.wrap { max-width: 1100px; margin: 0 auto; padding: 32px 20px 80px; }
+header.hero { border: 1px solid #1e293b; background: linear-gradient(180deg, #0f172a 0%, #0b1220 100%); border-radius: 20px; padding: 26px 24px; margin-bottom: 26px; }
+header.hero h1 { margin: 0 0 8px; font-size: 26px; color: #f8fafc; }
+header.hero h2 { margin: 0; font-size: 15px; color: #93c5fd; font-weight: 600; }
+h1, h2, h3, h4 { color: #f1f5f9; line-height: 1.6; }
+h1 { font-size: 24px; margin-top: 40px; border-bottom: 2px solid #1e293b; padding-bottom: 10px; }
+h2 { font-size: 21px; margin-top: 36px; color: #bfdbfe; }
+h3 { font-size: 17px; margin-top: 28px; color: #fcd34d; }
+h4 { font-size: 15px; margin-top: 22px; color: #a5b4fc; }
+p { margin: 12px 0; font-size: 15px; }
+ul, ol { margin: 12px 0; padding-inline-start: 26px; font-size: 15px; }
+li { margin: 6px 0; }
+strong { color: #fef3c7; }
+em { color: #cbd5e1; }
+code { background: #111c2f; border: 1px solid #1e293b; border-radius: 6px; padding: 1px 6px; font-family: Consolas, "Courier New", monospace; font-size: 13px; color: #7dd3fc; direction: ltr; display: inline-block; }
+pre.code { background: #0a1322; border: 1px solid #1e293b; border-radius: 14px; padding: 16px; overflow-x: auto; direction: ltr; text-align: left; }
+pre.code code { background: none; border: 0; color: #cbd5e1; font-size: 13px; padding: 0; display: block; white-space: pre; }
+.table-wrap { overflow-x: auto; margin: 16px 0; border: 1px solid #1e293b; border-radius: 14px; }
+table { border-collapse: collapse; width: 100%; font-size: 14px; }
+th, td { border-bottom: 1px solid #1e293b; padding: 10px 12px; text-align: right; vertical-align: top; }
+th { background: #111c2f; color: #fcd34d; font-weight: 700; white-space: nowrap; }
+tr:nth-child(even) td { background: #0d1729; }
+blockquote { margin: 16px 0; padding: 12px 16px; border-inline-start: 4px solid #38bdf8; background: #0d1729; border-radius: 10px; color: #cbd5e1; }
+hr { border: 0; border-top: 1px solid #1e293b; margin: 30px 0; }
+nav.toc { border: 1px solid #1e293b; background: #0f172a; border-radius: 18px; padding: 18px 20px; margin-bottom: 28px; }
+nav.toc strong { display: block; margin-bottom: 10px; color: #fcd34d; }
+nav.toc ol { list-style: none; padding: 0; margin: 0; columns: 2; column-gap: 26px; font-size: 13px; }
+nav.toc li { margin: 4px 0; break-inside: avoid; }
+nav.toc a { color: #93c5fd; text-decoration: none; }
+nav.toc a:hover { color: #fef3c7; }
+nav.toc .lvl3 { padding-inline-start: 14px; color: #cbd5e1; }
+nav.toc .lvl4 { display: none; }
+footer { margin-top: 50px; border-top: 1px solid #1e293b; padding-top: 16px; color: #64748b; font-size: 13px; }
+@media (max-width: 800px) { nav.toc ol { columns: 1; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+<header class="hero">
+<h1>تقرير مراجعة فنية وتطويرية — Union Financial ERP</h1>
+<h2>برومت مشروع النقابة العامة + منظومة الوكلاء الصوتيين + لائحة النظام الأساسي الرسمية (v2.2)</h2>
+</header>
+<nav class="toc"><strong>فهرس المحتويات</strong><ol><li class="lvl2"><a href="#1-%D8%A7%D9%84%D9%85%D9%84%D8%AE%D8%B5-%D9%81%D9%8A-%D8%B3%D8%B7%D8%B1">1) الملخّص في سطر</a></li><li class="lvl2"><a href="#11-%D8%A7%D9%84%D9%88%D8%A7%D8%AC%D9%87%D8%A9-%D8%AA%D8%A8%D9%88%D9%8A%D8%A8%D8%A7%D8%AA-%D8%AF%D8%A7%D8%AE%D9%84-%D8%A8%D8%B1%D9%86%D8%A7%D9%85%D8%AC%D9%83-%D9%84%D8%A7-%D9%88%D8%A7%D8%AC%D9%87%D8%A9-%D9%85%D9%86%D9%81%D8%B5%D9%84%D8%A9">1.1) الواجهة: تبويبات داخل برنامجك (لا واجهة منفصلة)</a></li><li class="lvl2"><a href="#2-%D8%A7%D9%84%D9%85%D9%84%D9%81%D8%A7%D8%AA--49-%D9%85%D9%84%D9%81%D8%A7-40-%D8%AC%D8%AF%D9%8A%D8%AF%D8%A7--9-%D9%85%D8%B9%D8%AF%D9%84%D8%A9">2) الملفات — 49 ملفاً (40 جديداً + 9 معدَّلة)</a></li><li class="lvl3"><a href="#%D8%AC%D8%AF%D9%8A%D8%AF--%D8%A7%D9%84%D8%A8%D9%8A%D8%A7%D9%86%D8%A7%D8%AA">جديد — البيانات</a></li><li class="lvl3"><a href="#%D8%AC%D8%AF%D9%8A%D8%AF--%D8%A7%D9%84%D8%AE%D8%AF%D9%85%D8%A7%D8%AA">جديد — الخدمات</a></li><li class="lvl3"><a href="#%D8%AC%D8%AF%D9%8A%D8%AF--%D8%A7%D9%84%D9%85%D8%B3%D8%A7%D8%B1%D8%A7%D8%AA">جديد — المسارات</a></li><li class="lvl3"><a href="#%D8%AC%D8%AF%D9%8A%D8%AF--%D8%A7%D9%84%D9%88%D8%A7%D8%AC%D9%87%D8%A9-%D9%88%D8%A7%D9%84%D8%A3%D9%86%D9%88%D8%A7%D8%B9">جديد — الواجهة وال  نواع</a></li><li class="lvl3"><a href="#%D8%AC%D8%AF%D9%8A%D8%AF--%D8%A3%D8%AF%D9%88%D8%A7%D8%AA-%D8%A7%D9%84%D8%AA%D8%AD%D9%82%D9%82">جديد — أدوات التحقق</a></li><li class="lvl3"><a href="#%D9%85%D8%B9%D8%AF%D9%84-%D8%AA%D8%B9%D8%AF%D9%8A%D9%84-%D9%85%D8%AD%D8%AF%D9%88%D8%AF-%D9%88%D9%85%D9%82%D8%B5%D9%88%D8%AF">معدَّل (تعديل محدود ومقصود)</a></li><li class="lvl2"><a href="#3-%D8%A7%D9%84%D9%82%D9%8A%D9%85-%D8%A7%D9%84%D8%AA%D8%B3%D8%B9-%D8%A7%D9%84%D9%85%D8%B5%D8%AD%D8%AD%D8%A9-%D9%85%D9%86-%D8%A7%D9%84%D9%86%D8%B5-%D8%A7%D9%84%D8%B1%D8%B3%D9%85%D9%8A">3) القيم التسع المصحّحة (من النص الرسمي)</a></li><li class="lvl2"><a href="#4-%D8%A7%D9%84%D8%AA%D8%B4%D8%BA%D9%8A%D9%84-%D9%88%D8%A7%D9%84%D8%AA%D8%AD%D9%82%D9%82--%D8%A3%D8%B1%D8%A8%D8%B9%D8%A9-%D8%A3%D9%88%D8%A7%D9%85%D8%B1">4) التشغيل والتحقق — أربعة أوامر</a></li><li class="lvl2"><a href="#5-%D8%A5%D8%B5%D9%84%D8%A7%D8%AD-%D8%AC%D8%B0%D8%B1%D9%8A-%D8%A7%D9%83%D8%AA%D8%B4%D9%81%D8%AA%D9%87-%D8%A3%D8%AB%D9%86%D8%A7%D8%A1-%D8%A7%D9%84%D8%AF%D9%85%D8%AC-%D9%85%D9%87%D9%85-%D9%84%D9%83">5) إصلاح جذري اكتشفته أثناء الدمج (مهم لك)</a></li><li class="lvl2"><a href="#6-%D9%86%D8%AA%D8%A7%D8%A6%D8%AC-%D8%A7%D9%84%D8%A7%D8%AE%D8%AA%D8%A8%D8%A7%D8%B1-%D9%83%D9%84%D9%87%D8%A7-%D9%85%D9%86-%D9%87%D8%B0%D9%87-%D8%A7%D9%84%D8%A8%D9%8A%D8%A6%D8%A9-%D8%B9%D9%84%D9%89-%D9%86%D8%B3%D8%AE%D8%A9-%D8%A7%D9%84%D8%AF%D9%85%D8%AC">6) نتائج الاختبار (كلها من هذه البيئة، على نسخة الدمج)</a></li><li class="lvl2"><a href="#7-%D9%83%D9%8A%D9%81-%D8%AA%D8%B7%D8%A8%D9%82-%D9%87%D8%B0%D8%A7-%D8%B9%D9%84%D9%89-%D9%85%D8%B3%D8%AA%D9%88%D8%AF%D8%B9%D9%83">7) كيف تطبّق هذا على مستودعك</a></li><li class="lvl3"><a href="#%D8%A7%D9%84%D8%AE%D9%8A%D8%A7%D8%B1-%D8%A3--patch-%D8%A7%D9%84%D8%A3%D8%A8%D8%B3%D8%B7">الخيار (أ) — patch (الأبسط)</a></li><li class="lvl3"><a href="#%D8%A7%D9%84%D8%AE%D9%8A%D8%A7%D8%B1-%D8%A8--%D8%A7%D9%84%D8%AA%D8%B2%D8%A7%D9%85-%D8%AC%D8%A7%D9%87%D8%B2-cherry-pick">الخيار (ب) — التزام جاهز (cherry-pick)</a></li><li class="lvl3"><a href="#%D8%A7%D9%84%D8%AE%D9%8A%D8%A7%D8%B1-%D8%AC--%D9%86%D8%B3%D8%AE%D8%A9-%D9%83%D8%A7%D9%85%D9%84%D8%A9">الخيار (ج) — نسخة كاملة</a></li><li class="lvl2"><a href="#8-%D9%85%D8%A7-%D9%84%D9%85-%D9%8A%D9%84%D9%85%D8%B3">8) ما لم يُلمس</a></li><li class="lvl2"><a href="#9-%D9%86%D9%82%D8%A7%D8%B7-%D9%85%D9%81%D8%AA%D9%88%D8%AD%D8%A9-%D8%B9%D9%86%D8%AF%D9%83-%D9%83%D9%85%D8%A7-%D9%87%D9%8A">9) نقاط مفتوحة عندك (كما هي)</a></li><li class="lvl2"><a href="#10-%D8%A7%D9%84%D9%85%D9%84%D9%81%D8%A7%D8%AA-%D8%A7%D9%84%D9%85%D8%B1%D9%81%D9%82%D8%A9-%D9%81%D9%8A-%D9%87%D8%B0%D8%A7-%D8%A7%D9%84%D8%AA%D8%B3%D9%84%D9%8A%D9%85">10) الملفات المرفقة في هذا التسليم</a></li></ol></nav>
+<h1 id="%D8%AF%D9%85%D8%AC-%D9%88%D8%AD%D8%AF%D8%A7%D8%AA%D9%86%D8%A7-%D9%81%D9%8A-%D9%86%D8%B3%D8%AE%D8%A9-%D9%85%D9%86-%D9%85%D8%B4%D8%B1%D9%88%D8%B9%D9%83--%D8%AF%D9%84%D9%8A%D9%84-%D8%A7%D9%84%D8%AA%D8%B3%D9%84%D9%8A%D9%85">دمج وحداتنا في نسخة من مشروعك — دليل التسليم</h1>
+<p><strong>المستودع:</strong> <code>mohamedboogy1985-code/union-erp</code> — الفرع الأساسي <code>main</code> عند الالتزام <code>3869ba1</code> <strong>نسخة الدمج:</strong> <code>/home/user/union-erp-integrated</code> (فرع <code>feature/statutory-financial-accounting-modules</code>) <strong>مستودعك الأصلي لم يُلمس إطلاقاً</strong> — لا دفع (push) ولا تعديل عليه.</p>
+<hr />
+<h2 id="1-%D8%A7%D9%84%D9%85%D9%84%D8%AE%D8%B5-%D9%81%D9%8A-%D8%B3%D8%B7%D8%B1">1) الملخّص في سطر</h2>
+<p>برنامجك المحاسبي (<code>union-app</code>) يعمل كما هو، وأُضيفت إليه <strong>ثلاث وحدات</strong> عبر مسارات مستقلة، <strong>وصُحّحت 9 ق  م</strong> في محرك اللائحة الأصلية وفق النص الرسمي — كل ذلك في نسخة واحدة قابلة للتطبيق بـ<code>git apply</code> أو <code>git cherry-pick</code>.</p>
+<div class="table-wrap"><table>
+<thead><tr><th>الوحدة</th><th>المحتوى</th><th>الحالة</th></tr></thead>
+<tbody>
+<tr><td>النظام الأساسي</td><td>69 مادة / 113 قاعدة / 34 عتبة</td><td>جديدة كلياً (لم تكن في كودك)</td></tr>
+<tr><td>اللائحة المالية</td><td>90 قاعدة / 53 عتبة / 86 مادة</td><td>مضافة كطبقة ثانية</td></tr>
+<tr><td>النواة المحاسبية</td><td>118 حساباً / 9 أقسام / 32 حساباً مساعداً</td><td>مضافة إلى دليل حساباتك التجريبي</td></tr>
+<tr><td>محرك اللائحة الأصلي</td><td>18 قاعدة نافذة بعد التصحيح (كان 16)</td><td>مصحَّح من النص الرسمي</td></tr>
+</tbody></table></div>
+<hr />
+<h2 id="11-%D8%A7%D9%84%D9%88%D8%A7%D8%AC%D9%87%D8%A9-%D8%AA%D8%A8%D9%88%D9%8A%D8%A8%D8%A7%D8%AA-%D8%AF%D8%A7%D8%AE%D9%84-%D8%A8%D8%B1%D9%86%D8%A7%D9%85%D8%AC%D9%83-%D9%84%D8%A7-%D9%88%D8%A7%D8%AC%D9%87%D8%A9-%D9%85%D9%86%D9%81%D8%B5%D9%84%D8%A9">1.1) الواجهة: تبويبات داخل برنامجك (لا واجهة منفصلة)</h2>
+<div class="table-wrap"><table>
+<thead><tr><th>الملف</th><th>الدور</th></tr></thead>
+<tbody>
+<tr><td><code>server/data/account-guide-mapping.ts</code></td><td><strong>الدليل النشط والمعيّن المعتمد بين الدليلين + القرارات الثلاثة + البند المتبقي</strong></td></tr>
+<tr><td><code>src/pages/RegulationBudgetsHub.tsx</code></td><td><strong>شاشة «الرقابة المالية والموازنات» صارت ثلاثة تبويبات: اللائحة المالية والرقابة + لائحة النظام الأساسي + الموازنة التقديرية</strong></td></tr>
+<tr><td><code>src/pages/StatutoryHub.tsx</code></td><td>صفحة أصلية بثلاثة تبويبات (ModuleTabs) بنفس هوية البرنامج: اللائحة المالية + النواة المحاسبية + الفحص والحكامة</td></tr>
+<tr><td><code>src/features/statutory/StatuteBoard.tsx</code></td><td>شاشة النظام الأساسي: بحث في 69 مادة + نص المادة وقواعدها + خطة التفعيل + بنود مفتوحة</td></tr>
+<tr><td><code>src/features/statutory/FinancialRulesBoard.tsx</code></td><td>شاشة اللائحة: 90 قاعدة و53 عتبة وتغطية الأبواب</td></tr>
+<tr><td><code>src/features/statutory/AccountingCoreBoard.tsx</code></td><td>شاشة النواة: 118 حساباً وميزان المراجعة والأطراف التحليلية والسلسلة</td></tr>
+<tr><td><code>src/features/statutory/StatutoryCheckBoard.tsx</code></td><td>شاشة الفحص: قيد/إجراء حكامة + اختيار المرحلة + المخالفة والمادة والعلاج</td></tr>
+<tr><td><code>src/services/statutory-api.ts</code></td><td>عميل الأنواع الموصول بمسارات الوحدة</td></tr>
+<tr><td><code>src/components/Layout.tsx</code> + <code>src/config/portals.ts</code> + <code>src/App.tsx</code></td><td>الشاشة «النظام الأساسي (69 مادة)» داخل بند «الرقابة المالية والموازنات» + بند «النظام الأساسي والوحدات» للنواة والفحص + تحميل كسول وتحويلات</td></tr>
+<tr><td><code>src/config/operator-assistant-navigation.ts</code></td><td>إتاحة الوحدة للمساعد الصوتي في التنقل</td></tr>
+</tbody></table></div>
+<p><strong>نتيجة التجربة في متصفح حقيقي على تطبيقك: 21/21</strong> (فتح البرنامج • بندّا التنقّل • تبويبات شاشة الرقابة المالية الثلاثة • لوحة النظام الأساسي تعمل داخل شاشة الرقابة: 84 صفاً منها 69 مادة وتفصيل المادة • الموازنة واللائحة المالية تعملان بعد الدمج • تبويبات الوحدة • 153 صفاً لقواعد اللائحة • ميزان 119 حساباً • رصد 25,000 في SHADOW • منعها في ENFORCE بالمادة 9 والعلاج • منع إعلان جمعية بـ5 أيام بالمادة 16 • ظهور المعيّن المعتمد والدليل النشط وحسابي النقد • عرض القرارات الثلاثة محسومة • بلا أي خطأ JavaScript).</p>
+<p><strong>قرارات دليل الحسابات (2026-09-20):</strong> دمج 1111 • إضافة حساب الخزينة 1211 • اعتماد دليل البرنامج دليلاً نشطاً مع معيّن 1101↔1211 و1301↔1101 (البند المتبقي COA-OPEN-003 لمطابقة 11 كوداً تفصيلياً).</p>
+<blockquote>ملاحظة بيئية: <code>/api/regulation/document</code> يحتاج PostgreSQL (ملف اللائحة المؤرشف) ويعيد 404/500 في وضع الذاكرة — سلوك أصلي في برنامجك عند غياب قاعدة البيانات، ولا يؤثر على الشاشة.</blockquote>
+<h2 id="2-%D8%A7%D9%84%D9%85%D9%84%D9%81%D8%A7%D8%AA--49-%D9%85%D9%84%D9%81%D8%A7-40-%D8%AC%D8%AF%D9%8A%D8%AF%D8%A7--9-%D9%85%D8%B9%D8%AF%D9%84%D8%A9">2) الملفات — 49 ملفاً (40 جديداً + 9 معدَّلة)</h2>
+<h3 id="%D8%AC%D8%AF%D9%8A%D8%AF--%D8%A7%D9%84%D8%A8%D9%8A%D8%A7%D9%86%D8%A7%D8%AA">جديد — البيانات</h3>
+<div class="table-wrap"><table>
+<thead><tr><th>الملف</th><th>الوصف</th></tr></thead>
+<tbody>
+<tr><td><code>server/data/statute-articles.ts</code></td><td>الوثيقة: 69 مادة + 9 أبواب + 113 قاعدة بعتباتها</td></tr>
+<tr><td><code>server/data/financial-rules.ts</code></td><td>90 قاعدة مالية مسنودة بـ86 مادة (53 مانعة / 9 تحذير / 28 تدقيق)</td></tr>
+<tr><td><code>server/data/chart-of-accounts.ts</code></td><td>دليل الحسابات الموحّد: 118 حساباً مستخرجة من ملف CSV الرسمي</td></tr>
+</tbody></table></div>
+<h3 id="%D8%AC%D8%AF%D9%8A%D8%AF--%D8%A7%D9%84%D8%AE%D8%AF%D9%85%D8%A7%D8%AA">جديد — الخدمات</h3>
+<div class="table-wrap"><table>
+<thead><tr><th>الملف</th><th>الوصف</th></tr></thead>
+<tbody>
+<tr><td><code>server/services/statute.service.ts</code></td><td>البحث/الفحص/الحكامة والعضوية/خطة التفعيل بأربع مراحل</td></tr>
+<tr><td><code>server/services/financial.service.ts</code></td><td>محرّك الشروط (18 مشغّلاً) وفحص الإجراءات المالية</td></tr>
+<tr><td><code>server/services/accounting-core.service.ts</code></td><td>قيد مزدوج + ترحيل + عكس + ميزان + سلسلة SHA-256 + أطراف تحليلية</td></tr>
+</tbody></table></div>
+<h3 id="%D8%AC%D8%AF%D9%8A%D8%AF--%D8%A7%D9%84%D9%85%D8%B3%D8%A7%D8%B1%D8%A7%D8%AA">جديد — المسارات</h3>
+<div class="table-wrap"><table>
+<thead><tr><th>المسار</th><th>الوصف</th></tr></thead>
+<tbody>
+<tr><td><code>server/routes/statute.routes.ts</code></td><td><code>/api/statute</code> — فحص/تغطية/تفعيل/حكامة/عضوية</td></tr>
+<tr><td><code>server/routes/financial.routes.ts</code></td><td><code>/api/financial</code> — فحص/تغطية/معايرة</td></tr>
+<tr><td><code>server/routes/accounting.routes.ts</code></td><td><code>/api/accounting</code> — دليل/قيد/ترحيل/عكس/ميزان/سجل</td></tr>
+<tr><td><code>server/routes/statutory-ui.routes.ts</code></td><td><code>/api/statutory-ui</code> — مسار دعم صفحة الواجهة الجاهزة</td></tr>
+</tbody></table></div>
+<h3 id="%D8%AC%D8%AF%D9%8A%D8%AF--%D8%A7%D9%84%D9%88%D8%A7%D8%AC%D9%87%D8%A9-%D9%88%D8%A7%D9%84%D8%A3%D9%86%D9%88%D8%A7%D8%B9">جديد    الواجهة والأنواع</h3>
+<div class="table-wrap"><table>
+<thead><tr><th>الملف</th><th>الوصف</th></tr></thead>
+<tbody>
+<tr><td><code>assets/statutory-app.html</code></td><td>صفحة RTL مستقلة على <code>/statutory</code> (أداة إضافية بجانب الوحدة داخل التطبيق)</td></tr>
+<tr><td><code>src/types/erp.statute.ts</code> • <code>erp.financial.ts</code> • <code>erp.accounting.ts</code></td><td>عقود الأنواع</td></tr>
+<tr><td><code>src/features/statute/statutePayloadDefaults.ts</code> • <code>statuteViewModel.ts</code></td><td>حمولات المحاكيات وعرض النتائج</td></tr>
+<tr><td><code>src/utils/statutory-arabic.ts</code></td><td>تطبيع عربي (بلا تعارض مع <code>server/utils/arabic.ts</code> عندك)</td></tr>
+</tbody></table></div>
+<h3 id="%D8%AC%D8%AF%D9%8A%D8%AF--%D8%A3%D8%AF%D9%88%D8%A7%D8%AA-%D8%A7%D9%84%D8%AA%D8%AD%D9%82%D9%82">جديد — أدوات التحقق</h3>
+<div class="table-wrap"><table>
+<thead><tr><th>الملف</th><th>الوصف</th></tr></thead>
+<tbody>
+<tr><td><code>scripts/verify-statutory-integration.ts</code></td><td>50 فحصاً لوحداتنا داخل مستودعك (<code>npx tsx scripts/...</code>)</td></tr>
+<tr><td><code>scripts/live-integration-check.mjs</code></td><td>13 فحصاً حيّاً على الخادم العامل</td></tr>
+<tr><td><code>tsconfig.statutory.json</code></td><td>فحص أنواع معزول لوحداتنا = <strong>0 خطأ</strong></td></tr>
+</tbody></table></div>
+<h3 id="%D9%85%D8%B9%D8%AF%D9%84-%D8%AA%D8%B9%D8%AF%D9%8A%D9%84-%D9%85%D8%AD%D8%AF%D9%88%D8%AF-%D9%88%D9%85%D9%82%D8%B5%D9%88%D8%AF">معدَّل (تعديل محدود ومقصود)</h3>
+<div class="table-wrap"><table>
+<thead><tr><th>الملف</th><th>التعديل</th></tr></thead>
+<tbody>
+<tr><td><code>server.ts</code></td><td>استيراد + تركيب المسارات الأربعة وصفحة <code>/statutory</code> (62 سطراً، معزولة في كتلة واحدة)</td></tr>
+<tr><td><code>server/data/financial-regulation.ts</code></td><td>6 نصوص مواد + 4 عتبات + كتلة القواعد المفعّلة (تصحيح القيم)</td></tr>
+<tr><td><code>server/services/regulation.service.ts</code></td><td>دعم مفاتيح <code>*</code> في نسب ال  وزيع + ألا يُطالب بما لا وجود له</td></tr>
+<tr><td><code>server/services/csv-import.service.ts</code></td><td><strong>إصلاح جذري</strong> (تفصيله في §5)</td></tr>
+<tr><td><code>test/regulation.test.ts</code></td><td>تحديث التوقعات لتطابق القيم الرسمية المصحّحة</td></tr>
+</tbody></table></div>
+<hr />
+<h2 id="3-%D8%A7%D9%84%D9%82%D9%8A%D9%85-%D8%A7%D9%84%D8%AA%D8%B3%D8%B9-%D8%A7%D9%84%D9%85%D8%B5%D8%AD%D8%AD%D8%A9-%D9%85%D9%86-%D8%A7%D9%84%D9%86%D8%B5-%D8%A7%D9%84%D8%B1%D8%B3%D9%85%D9%8A">3) القيم التسع المصحّحة (من النص الرسمي)</h2>
+<div class="table-wrap"><table>
+<thead><tr><th>القاعدة</th><th>قبل</th><th>بعد</th><th>المادة</th><th>السند</th></tr></thead>
+<tbody>
+<tr><td><code>TRAVEL_ALLOWANCE_DAILY_CAP</code></td><td>200</td><td><strong>2,000</strong></td><td>م37</td><td>«حد أدنى 2000.00 جنيه» لبدل المبيت</td></tr>
+<tr><td><code>TRAVEL_ALLOWANCE_DAILY_CAP_BRANCH</code></td><td>—</td><td><strong>100</strong> (جديد)</td><td>م37</td><td>«100 جنيه للجان»</td></tr>
+<tr><td><code>MONTHLY_TRANSPORT_ALLOWANCE_CAP</code></td><td>300</td><td><strong>3,000</strong></td><td>م39</td><td>النص: 3000</td></tr>
+<tr><td><code>MONTHLY_BURDEN_ALLOWANCE_CAP</code></td><td>500</td><td><strong>5,000</strong></td><td>م40</td><td>النص: 5000</td></tr>
+<tr><td><code>REVENUE_DISTRIBUTION_MANDATE</code></td><td><code>{org-general: 20}</code></td><td><strong><code>{<em>federation:10, </em>committee:60, org-general:30}</code></strong></td><td>م2</td><td>10% اتحاد • 60% لجنة     30% نقابة</td></tr>
+<tr><td><code>PENALTY_CAP_PCT</code></td><td>15 منسوبة لم73</td><td><strong>15 منسوبة لم72</strong></td><td>م72</td><td>الغرامة على التوريد (م72)</td></tr>
+<tr><td><code>CONTRACT_WORKS_PROGRESS_PCT</code></td><td>—</td><td><strong>5%</strong> (جديد)</td><td>م72</td><td>5% من قيمة الأعمال المنفّذة</td></tr>
+<tr><td><code>CONTRACT_MATERIALS_SUPPLY_PCT</code></td><td>—</td><td><strong>75%</strong> (جديد)</td><td>م72</td><td>75% لمواد التشوينات</td></tr>
+<tr><td><code>SUBCONTRACTOR_CLEARANCE_REQUIRED</code></td><td>—</td><td><strong>1 / مُلزِم</strong> (جديد)</td><td>م73</td><td>شهادات التأمينات والقوى العاملة</td></tr>
+</tbody></table></div>
+<p><strong>وأُخرجت من التفعيل</strong> قاعدتان بلا سند رقمي في النص: <code>GIFTS_CEILING_EXCEPTIONAL</code> (10,000 — والنص يثبت 5,000) و<code>CONTRACT_PROGRESS_PAYMENT_PCT</code> (95 — ليست في النص، وأُبدلت بقاعدتَي م72 أعلاه). وحدّ الهدايا النظامي <code>GIFTS_CEILING_REGULAR</code> = 5,000 (م50) بقي نافذاً.</p>
+<p><strong>النتيجة:</strong> القواعد النافذة <strong>18</strong> (كانت 16) — والحصيلة: 6 نصوص مواد صحيحة + 4 عتبات مُضافة + 3 قواعد جديدة مُسنودة.</p>
+<hr />
+<h2 id="4-%D8%A7%D9%84%D8%AA%D8%B4%D8%BA%D9%8A%D9%84-%D9%88%D8%A7%D9%84%D8%AA%D8%AD%D9%82%D9%82--%D8%A3%D8%B1%D8%A8%D8%B9%D8%A9-%D8%A3%D9%88%D8%A7%D9%85%D8%B1">4) التشغيل والتحقق — أربعة أوامر</h2>
+<p>خادم التطوير (منفذ واحد يجمع البرنامج والوحدة):</p>
+<pre class="code" data-lang="powershell"><code>npm run dev</code></pre>
+<div class="table-wrap"><table>
+<thead><tr><th>العنوان</th><th>المحتوى</th></tr></thead>
+<tbody>
+<tr><td><code>http://localhost:3000/</code></td><td><strong>برنامجك المحاسبي كما هو</strong> (بلا أي تغيير في واجهاته)</td></tr>
+<tr><td><code>http://localhost:3000/statutory</code></td><td>صفحة الوحدة الجديدة (RTL، تعمل بلا إنترنت)</td></tr>
+<tr><td><code>http://localhost:3000/api/statute</code></td><td>النظام الأساسي</td></tr>
+<tr><td><code>http://localhost:3000/api/financial</code></td><td>اللائحة المالية (90 قاعدة)</td></tr>
+<tr><td><code>http://localhost:3000/api/accounting</code></td><td>النواة المحاسبية (118 حساباً)</td></tr>
+<tr><td><code>http://localhost:3000/api/regulation</code></td><td>محرك اللائحة الأصلي بعد التصحيح</td></tr>
+</tbody></table></div>
+<p>أوامر التحقق الثلاثة والفحوص الإضافية:</p>
+<pre class="code" data-lang="powershell"><code>npx tsc --noEmit -p tsconfig.statutory.json   # 0 خطأ في نطاق الوحدات المضافة
+npx tsx scripts/verify-statutory-integration.ts   # 50/50 فحصاً
+node scripts/live-integration-check.mjs           # 13/13 على خادم عامل</code></pre>
+<p><strong>مرحلة الإنفاذ:</strong> الافتراضي <code>SHADOW</code> (ترصد المخالفة ولا تمنع — لا تعطيل لعملك اليومي). لتغييرها:</p>
+<pre class="code" data-lang="powershell"><code>$env:STATUTE_ENFORCEMENT_STAGE = &quot;ENFORCE&quot;; npm run dev</code></pre>
+<p>السلّم: <code>SHADOW</code> → <code>AUDIT</code> → <code>WARN</code> → <code>ENFORCE</code>. ويمكن الفحص لطلب واحد بلا تغيير الإعداد: <code>?stage=ENFORCE</code>.</p>
+<hr />
+<h2 id="5-%D8%A5%D8%B5%D9%84%D8%A7%D8%AD-%D8%AC%D8%B0%D8%B1%D9%8A-%D8%A7%D9%83%D8%AA%D8%B4%D9%81%D8%AA%D9%87-%D8%A3%D8%AB%D9%86%D8%A7%D8%A1-%D8%A7%D9%84%D8%AF%D9%85%D8%AC-%D9%85%D9%87%D9%85-%D9%84%D9%83">5) إصلاح جذري اكتشفته أثناء الدمج (مهم لك)</h2>
+<p><strong>العَرَض:</strong> على هذا النظام حُمِّل الدليل <strong>0 حساباً</strong> و<strong>0 قيداً</strong>، وظهرت شاشة قيود اليومية فارغة — مع أن الملفات سليمة. <strong>السبب:</strong> محمّل CSV يبحث بنمط <code>/دليل_الحسابات|chart/i</code>، وهو يطابق أيضاً <code>تدريب_دليل_الحسابات_2024.csv</code>، ويأخذ <strong>أول</strong> نتيجة بحسب ترتيب <code>fs.readdirSync</code> — والترتيب <strong>يختلف بين الأنظمة</strong> (على Windows لديك يأتي الملف الرسمي أولاً فيعمل، وعلى أنظمة أخرى يُختار ملف التدريب فيفرغ الدليل وتفشل كل القيود). <strong>الإصلاح:</strong> تُقدَّم الملفات الرسمية على ملفات «تدريب_» (مع بقائها بديلاً عند غياب الرسمي). <strong>الدليل الحي بعد الإصلاح:</strong> <code>117 حساباً في 9 قسماً</code> + <code>3,083 قيداً بإجمالي 39,169,609.12 ج.م</code>. هذا يفسّر أي «فراغ مفاجئ» في البرنامج على أجهزة/أنظمة أخرى، ويستحق أن يكون أول ما تُثبّته.</p>
+<hr />
+<h2 id="6-%D9%86%D8%AA%D8%A7%D8%A6%D8%AC-%D8%A7%D9%84%D8%A7%D8%AE%D8%AA%D8%A8%D8%A7%D8%B1-%D9%83%D9%84%D9%87%D8%A7-%D9%85%D9%86-%D9%87%D8%B0%D9%87-%D8%A7%D9%84%D8%A8%D9%8A%D8%A6%D8%A9-%D8%B9%D9%84%D9%89-%D9%86%D8%B3%D8%AE%D8%A9-%D8%A7%D9%84%D8%AF%D9%85%D8%AC">6) نتائج الاختبار (كلها من هذه البيئة، على نسخة الدمج)</h2>
+<div class="table-wrap"><table>
+<thead><tr><th>المحموعة</th><th>النتيجة</th></tr></thead>
+<tbody>
+<tr><td>اختبارات مستودعك الأصلية</td><td>accounting <strong>8/8</strong> • improvements <strong>14/14</strong> • regulation <strong>8/8</strong> • employee-affairs ✅ • attendance ✅ • journal-delete ✅ • assistant-setup <strong>9/9</strong></td></tr>
+<tr><td>اختبارات واجهة (jules / operator-assistant)</td><td>27/28 و23/24 — الفشل الوحيد في كلٍّ خطأ بيئي (<code>jsdom</code>+<code>undici</code>) <strong>يحدث في نسختك النقية أيضاً</strong> ولا علاقة له بالدمج</td></tr>
+<tr><td>فحص أنواع وحداتنا</td><td><strong>0 خطأ</strong></td></tr>
+<tr><td>فحوص الوحدات</td><td><strong>50/50</strong></td></tr>
+<tr><td>فحوص حيّة على الخادم</td><td><strong>13/13</strong></td></tr>
+<tr><td>فحص حزمة الخادم بـesbuild</td><td>يبنى كاملاً بلا خطأ (9.19MB)</td></tr>
+</tbody></table></div>
+<hr />
+<h2 id="7-%D9%83%D9%8A%D9%81-%D8%AA%D8%B7%D8%A8%D9%82-%D9%87%D8%B0%D8%A7-%D8%B9%D9%84%D9%89-%D9%85%D8%B3%D8%AA%D9%88%D8%AF%D8%B9%D9%83">7) كيف تطبّق هذا على مستودعك</h2>
+<h3 id="%D8%A7%D9%84%D8%AE%D9%8A%D8%A7%D8%B1-%D8%A3--patch-%D8%A7%D9%84%D8%A3%D8%A8%D8%B3%D8%B7">الخيار (أ) — patch (الأبسط)</h3>
+<pre class="code" data-lang="powershell"><code>cd H:\...\union-erp          # نسخة نظيفة من مستودعك
+git checkout main
+git apply --check ..\union-erp-integration.patch    # فحص أولاً
+git apply ..\union-erp-integration.patch
+npm install
+npm run dev</code></pre>
+<h3 id="%D8%A7%D9%84%D8%AE%D9%8A%D8%A7%D8%B1-%D8%A8--%D8%A7%D9%84%D8%AA%D8%B2%D8%A7%D9%85-%D8%AC%D8%A7%D9%87%D8%B2-cherry-pick">الخيار (ب) — التزام جاهز (cherry-pick)</h3>
+<pre class="code" data-lang="powershell"><code>git remote add merged &lt;مسار نسخة الدمج&gt;
+git fetch merged feature/statutory-financial-accounting-modules
+git cherry-pick &lt;معرّف الالتزام&gt;       # يعطيك نفس النتيجة مع رسالة الالتزام كاملة</code></pre>
+<h3 id="%D8%A7%D9%84%D8%AE%D9%8A%D8%A7%D8%B1-%D8%AC--%D9%86%D8%B3%D8%AE%D8%A9-%D9%83%D8%A7%D9%85%D9%84%D8%A9">الخيار (ج) — نسخة ك  ملة</h3>
+<p>انسخ مجلد <code>/home/user/union-erp-integrated</code> كما هو (بعد <code>npm install</code>) — لا يحتاج أي خطوة git.</p>
+<p><strong>تراجع كامل في أي وقت:</strong> <code>git reset --hard main</code> (أو <code>git checkout .</code> قبل الالتزام) — لا يلمس هذا الدمج أي ملف بيانات ولا قاعدة بيانات.</p>
+<hr />
+<h2 id="8-%D9%85%D8%A7-%D9%84%D9%85-%D9%8A%D9%84%D9%85%D8%B3">8) ما لم يُلمس</h2>
+<ul>
+<li>واجهات برنامجك وصفحاته القائمة (41 صفحة) — <strong>صفر تعديل</strong>.</li>
+<li>قاعدة البيانات وPrisma وسلسلة التدقيق عندك — <strong>صفر تعديل</strong>.</li>
+<li>منطق الخادم المالي الأصلي: لا تغيير إلا في <strong>قيم</strong> القواعد الست المذكورة في §3 ومحرّك التوزيع.</li>
+<li>لا تعديل على مستودعك المرفوع: التسليم patch + فرع محلي.</li>
+</ul>
+<hr />
+<h2 id="9-%D9%86%D9%82%D8%A7%D8%B7-%D9%85%D9%81%D8%AA%D9%88%D8%AD%D8%A9-%D8%B9%D9%86%D8%AF%D9%83-%D9%83%D9%85%D8%A7-%D9%87%D9%8A">9) نقاط مفتوحة عندك (كما هي)</h2>
+<ol>
+<li><strong>تعديلات H: غير المرفوعة</strong> — شغّل <code>collect-program.ps1</code> وأرسل <code>program-inventory.txt</code> لأقارن نسخة GitHub بنسخة جهازك. (<code>.env</code> لا يُرسل أبداً.)</li>
+<li><strong>القرارات الثلاثة للدليل:</strong> دمج الكود المكرر <code>1111</code> وسند الحساب <code>1301</code> وحساب الخزينة <code>TREASURY_ACCOUNT_CODES</code>.</li>
+<li><strong>رقم محضر الإيداع ومرجع النسخة المعتمدة</strong> — بقي <code>null</code> في البيانات (بلا اختراع)، ودليل الاعتماد موصول ببصمة المسح <code>sha256=13e4d451…</code> وتاريخ 6/2018.</li>
+</ol>
+<hr />
+<h2 id="10-%D8%A7%D9%84%D9%85%D9%84%D9%81%D8%A7%D8%AA-%D8%A7%D9%84%D9%85%D8%B1%D9%81%D9%82%D8%A9-%D9%81%D9%8A-%D9%87%D8%B0%D8%A7-%D8%A7%D9%84%D8%AA%D8%B3%D9%84%D9%8A%D9%85">10) الملفات المرفقة في هذا التسليم</h2>
+<div class="table-wrap"><table>
+<thead><tr><th>الملف</th><th>المحتوى</th></tr></thead>
+<tbody>
+<tr><td><code>union-erp-integration.patch</code> (1,017,389 بايت)</td><td>الفرق الكامل (49 ملفاً) قابل للتطبيق بـ<code>git apply</code> — مختبر على نسخة نظيفة من مستودعك: يُطبَّق بلا أخطاء ثم تنجح الفحوص 50/50</td></tr>
+<tr><td><code>union-erp-integration-commit.patch</code></td><td>التزام جاهز (رسالة + فرق) للـ<code>cherry-pick</code></td></tr>
+<tr><td><code>دمج_الوحدات_في_union-erp.md</code> / <code>.html</code></td><td>هذا الدليل</td></tr>
+<tr><td><code>دمج_الوحدات_union-erp.zip</code></td><td>الحزمة: الـpatch + الدليل + سكربتا التحقق + <code>tsconfig.statutory.json</code></td></tr>
+</tbody></table></div>
+<footer>أُعيد إصدار هذا الملف آلياً من ملف Markdown بنفس المحتوى — بلا موارد خارجية، ويعمل بلا اتصال.</footer>
+</div>
+</body>
+</html>

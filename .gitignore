@@ -79,6 +79,19 @@ dist/
 # Runtime log files
 union-server.log
 
+# Local mutable invoice state is created by the app/tests; it is not source data or a fixture.
+/server/data/assistant-held-invoices.json
+/server/data/eta-documents.json
+
+# Local diagnostic scratch file
+/probe-acc.ts
+
+# ===== إعداد Firebase لسطح AetherSwarm (اختياري) =====
+# المفتاح لا يُودَع في Git: يُنسخ من firebase-applet-config.example.json إلى
+# firebase-applet-config.json محلياً فقط (أو يُضبط عبر متغيرات VITE_FIREBASE_*).
+firebase-applet-config.json
+src/aetherswarm/firebase-applet-config.json
+
 # Scripts with sensitive information
 fix-prisma.ps1
 fix-prisma-and-apply-changes.ps1

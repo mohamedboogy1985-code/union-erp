@@ -1,0 +1,13 @@
+{
+  "_comment": "قالب بلا أسرار — انسخه إلى firebase-applet-config.json محلياً (مستثنى من Git) أو استخدم متغيرات VITE_FIREBASE_* في .env. لا تودع مفتاحاً حقيقياً في Git.",
+  "projectId": "your-project-id",
+  "appId": "1:000000000000:web:0000000000000000000000",
+  "apiKey": "",
+  "authDomain": "your-project-id.firebaseapp.com",
+  "firestoreDatabaseId": "(default)",
+  "storageBucket": "your-project-id.firebasestorage.app",
+  "messagingSenderId": "000000000000",
+  "measurementId": "",
+  "oAuthClientId": "",
+  "recaptchaSiteKey": ""
+}

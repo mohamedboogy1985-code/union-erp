@@ -1,0 +1,15 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+# ملاحظة أمنية: كل نقاط /api تتطلب هوية صريحة (سياسة المشروع)، لذلك يحتاج Prometheus
+# إلى ترويسة تعريف. في وضع العرض التجريبي يكفي x-user-id لمستخدم موجود، وفي الإنتاج
+# استخدم Authorization: Bearer <JWT> لحساب بخدمة قراءة فقط (system:admin مطلوب للمقاييس).
+scrape_configs:
+  - job_name: 'union-erp'
+    metrics_path: '/api/system/metrics'
+    scrape_interval: 15s
+    static_configs:
+      - targets: ['host.docker.internal:3000']
+    headers:
+      x-user-id: 'usr-admin'

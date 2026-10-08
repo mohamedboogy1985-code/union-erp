@@ -1,14 +1,26 @@
 import assert from 'assert';
+import { createHash } from 'node:crypto';
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
+import {
+  FINANCIAL_REGULATION_ARTICLES,
+  FINANCIAL_REGULATION_SOURCE,
+  FINANCIAL_REGULATION_SOURCE_ISSUES,
+  FINANCIAL_REGULATION_TEXT_SOURCE,
+  REGULATION_ACTIVATED_RULES,
+} from '../server/data/financial-regulation.js';
 import { erpStore } from '../server/db/store.js';
 import { accountingService } from '../server/services/accounting.service.js';
 import { regulationService } from '../server/services/regulation.service.js';
 import { resolveBasicStatutePath } from '../server/services/regulation-documents.js';
+import { USER_PROVIDED_GAZETTE_REFERENCE } from '../server/data/gazette-reference.js';
+import { FINANCIAL_ANOMALIES } from '../server/data/financial-rules.js';
 import { smartAgentEnhancer } from '../server/services/smart-agent.service.js';
 
 /**
  * ===== اختبارات محرك اللائحة المالية (مفعَّل من نص الوثيقة — 86 مادة) =====
- * 1. حالة الإقلاع: 17 مادة مُعبأة + 16 قاعدة نافذة بقيم منقولة من الوثيقة
- * 2. القواعد المنقولة تعمل فوراً: بلوك للحدود المانعة / تحذير للحدود الإرشادية
+ * 1. بصمات ملفات المصادر والاقتباسات والقيم النشطة مطابقة لبيانات المراجعة
+ * 2. القواعد المنقولة تعمل مع تمييز الجهة، ولا تُفعّل النسب الملتبسة
  * 3. تكامل كامل: قاعدة مانعة تُسقط إنشاء قيد عبر خدمة المحاسبة نفسها
  */
 
@@ -16,18 +28,142 @@ console.log('🧪 Starting Financial Regulation Engine Test Suite...\n');
 
 function runTests() {
   // -------------------------------------------------------------
-  // Test 1: حالة الإقلاع — اللائحة مفعّلة بقيم منقولة من الوثيقة
+  // Test 1: مصدر اللائحة، القيم الفعّالة، والاقتباسات المصدرية
   // -------------------------------------------------------------
-  console.log('🔹 Test 1: Boot state — 17 articles filled, 16 rules activated from the document');
+  console.log('🔹 Test 1: Source fingerprints, citations, and active statutory values');
   const status0 = regulationService.getStatus();
-  assert.strictEqual(status0.articlesCount, 17, 'مواد اللائحة مُعبأة (17 مادة مترقمة من الوثيقة)');
-  assert.strictEqual(status0.activeRules.length, 16, '16 قاعدة نافذة منذ الإقلاع بالوثيقة');
+  assert.strictEqual(status0.articlesCount, 17, 'مواد اللائحة المعبأة');
+  assert.strictEqual(status0.activeRules.length, REGULATION_ACTIVATED_RULES.length, 'كل قاعدة فعّالة معلنة في ملف البيانات');
+  assert.strictEqual(status0.activeRules.length, 29, 'عدد القواعد المصدرية المفعلة');
   assert.strictEqual(status0.isEnforcing, true);
-  assert.ok(status0.pendingRules.length > 0, 'بقية القواعد بانتظار القيمة/الاعتماد');
-  // قيد إجمالي بدون بيانات سطور يمر دون تحذيرات تخصصية (لا نتائج كاذبة)
+  assert.ok(status0.pendingRules.length > 0, 'القواعد غير الموثقة/غير المرقمة تبقى معلقة');
+
+  const sha256 = (path: string) => createHash('sha256').update(readFileSync(resolve(process.cwd(), path))).digest('hex');
+  assert.strictEqual(FINANCIAL_REGULATION_SOURCE.verificationStatus, 'ATTACHED_COPY_NOT_AUTHENTICATED', 'لا يُدّعى اعتماد رسمي دون نسخة أولية قابلة للمطابقة');
+  assert.strictEqual(sha256(FINANCIAL_REGULATION_SOURCE.filePath), FINANCIAL_REGULATION_SOURCE.sha256, 'بصمة PDF المطابق للائحة المرفقة');
+  assert.strictEqual(sha256(FINANCIAL_REGULATION_TEXT_SOURCE.filePath), FINANCIAL_REGULATION_TEXT_SOURCE.sha256, 'بصمة نسخة DOCX النصية التي استُخرجت منها الاقتباسات');
+  const distributionIssue = FINANCIAL_REGULATION_SOURCE_ISSUES.find((issue) => issue.id === 'FR-SOURCE-CONFLICT-ARTICLE-2');
+  assert.ok(distributionIssue, 'يُسجل تعارض المادة 2 مع نموذج التحصيل كمسألة غير محسومة');
+  assert.strictEqual(sha256(distributionIssue!.sourcePath), distributionIssue!.sourceSha256, 'بصمة نموذج التحصيل التشغيلي');
+  const runtimeDistributionIssue = FINANCIAL_REGULATION_SOURCE_ISSUES.find((issue) => issue.id === 'FR-RUNTIME-DISTRIBUTION-MISMATCH');
+  assert.ok(runtimeDistributionIssue, 'يُسجل اختلاف قاعدة الإيصالات الحية عن نص المادة');
+  assert.strictEqual(sha256(runtimeDistributionIssue!.sourcePath), runtimeDistributionIssue!.sourceSha256, 'بصمة قاعدة التوزيع التشغيلية الحالية');
+  const printingBasisIssue = FINANCIAL_REGULATION_SOURCE_ISSUES.find((issue) => issue.id === 'FR-ARTICLE-2-PROFESSIONAL-PRINTING-BASIS');
+  assert.ok(printingBasisIssue, 'يبقى أساس نسبة المطبوعات المضافة في ملف اللجان المهنية معلّقاً');
+  assert.strictEqual(sha256(printingBasisIssue!.sourcePath), printingBasisIssue!.sourceSha256, 'بصمة ملف اللجان المهنية المحدث');
+  const article72GazetteIssue = FINANCIAL_REGULATION_SOURCE_ISSUES.find((issue) => issue.id === 'FR-GAZETTE-CROSSCHECK-ARTICLE-72');
+  assert.ok(article72GazetteIssue, 'يُسجل تعارض المادة 72 الذي ظهر عند مراجعة الوقائع المصرية');
+  assert.strictEqual(article72GazetteIssue!.status, 'INTERPRETATION_SELECTED_NOT_AUTHENTICATED');
+  assert.strictEqual(article72GazetteIssue!.sourcePath, USER_PROVIDED_GAZETTE_REFERENCE.sourceFilePath);
+  assert.strictEqual(article72GazetteIssue!.sourceSha256, USER_PROVIDED_GAZETTE_REFERENCE.sourceFileSha256);
+  assert.strictEqual(sha256(article72GazetteIssue!.sourcePath), article72GazetteIssue!.sourceSha256, 'بصمة نسخة الوقائع التي أظهرت التعارض');
+  assert.match(article72GazetteIssue!.descriptionAr, /95%[\s\S]*5% الباقية/);
+  const article72Anomaly = FINANCIAL_ANOMALIES.find((anomaly) => anomaly.id === 'FR-ANOM-006');
+  assert.ok(article72Anomaly, 'يظهر التعارض في تقرير الشذوذات المالية ولا يُخفى عن المستخدم');
+  assert.match(article72Anomaly!.evidenceAr, /الصفحة المطبوعة 41/);
+  const article2Note = FINANCIAL_REGULATION_ARTICLES.find((article) => article.articleNo === '2')?.sourceCitation?.noteAr || '';
+  assert.match(article2Note, /CSV النهائي 30\/10\/10\/50/);
+  assert.match(article2Note, /50\/30\/20/);
+  assert.match(article2Note, /المطبوعات 10% بلا قيم أو معادلات/);
+  const activeMembershipRule = erpStore.distributionRules.find((rule) => rule.ruleCode === 'DIST-MEMB-V1');
+  assert.deepStrictEqual(activeMembershipRule?.lines.map((line) => line.percentage), [50, 30, 20], 'يحافظ الاختبار على النموذج التشغيلي الحالي ولا يدّعي مطابقته للمادة 2');
+  const liveReceiptMismatch = regulationService.checkDistributionPercentages(
+    (activeMembershipRule?.lines ?? []).map((line) => ({ beneficiaryOrgId: line.beneficiaryOrgId, percentage: line.percentage }))
+  );
+  assert.strictEqual(liveReceiptMismatch.length, 2, 'يُظهر فاحص المادة 2 تعارض النموذج التشغيلي الحالي بدلاً من إخفائه');
+
+  const activeById = new Map(status0.activeRules.map((rule) => [rule.ruleId, rule] as const));
+  const expectedValues: Record<string, number | string> = {
+    PETTY_CASH_CEILING: 50_000,
+    PETTY_CASH_CEILING_BRANCH: 20_000,
+    CASH_PAYMENT_CEILING: 20_000,
+    CASH_PAYMENT_CEILING_BRANCH: 10_000,
+    TRAVEL_ALLOWANCE_DAILY_CAP: 2_000,
+    TRAVEL_ALLOWANCE_DAILY_CAP_BRANCH: 100,
+    MONTHLY_TRANSPORT_ALLOWANCE_CAP: 3_000,
+    MONTHLY_BURDEN_ALLOWANCE_CAP: 5_000,
+    GIFTS_CEILING_REGULAR: 5_000,
+    GIFTS_CEILING_EXCEPTIONAL: 100_000_000,
+    PROC_DIRECT_ORDER_CEILING: 50_000,
+    PROC_DIRECT_ORDER_CEILING_BRANCH: 20_000,
+    PROC_TENDER_CEILING: 200_000,
+    PROC_TENDER_CEILING_BRANCH: 100_000,
+    PROC_LIMITED_TENDER_CEILING: 500_000,
+    PROC_LIMITED_TENDER_CEILING_BRANCH: 250_000,
+    CONTRACT_ADVANCE_PCT: 25,
+    CONTRACT_WORKS_PROGRESS_PCT: 95,
+    CONTRACT_WORKS_GUARANTEED_REMAINDER_PCT: 5,
+    CONTRACT_MATERIALS_SUPPLY_PCT: 75,
+    CONTRACT_SUPPLY_VARIATION_PCT: 15,
+    CONTRACT_WORKS_VARIATION_PCT: 25,
+    CONTRACTOR_CLEARANCE_REQUIRED: 'true',
+    PENALTY_CAP_PCT: 15,
+    PENALTY_CAP_SUPPLY_PCT: 4,
+  };
+  for (const [ruleId, expected] of Object.entries(expectedValues)) {
+    assert.strictEqual(activeById.get(ruleId)?.value, expected, `قيمة ${ruleId} منقولة من المادة الصحيحة`);
+  }
+  const criticalArticleLinks: Record<string, string> = {
+    PETTY_CASH_CEILING_BRANCH: '6',
+    CASH_PAYMENT_CEILING_BRANCH: '9',
+    TRAVEL_ALLOWANCE_DAILY_CAP: '37',
+    TRAVEL_ALLOWANCE_DAILY_CAP_BRANCH: '37',
+    GIFTS_CEILING_EXCEPTIONAL: '50',
+    PROC_LIMITED_TENDER_CEILING_BRANCH: '61',
+    CONTRACT_WORKS_PROGRESS_PCT: '72',
+    CONTRACT_WORKS_GUARANTEED_REMAINDER_PCT: '72',
+    PENALTY_CAP_PCT: '73',
+    PENALTY_CAP_SUPPLY_PCT: '73',
+    REVENUE_DISTRIBUTION_MANDATE: '2',
+  };
+  for (const [ruleId, articleNo] of Object.entries(criticalArticleLinks)) {
+    assert.strictEqual(activeById.get(ruleId)?.articleNo, articleNo, `${ruleId} مرتبط بالمادة ${articleNo}`);
+  }
+  assert.strictEqual(activeById.has('CONTRACT_PROGRESS_PAYMENT_PCT'), false, 'حد الأعمال 95% يعمل عبر القاعدة التخصصية دون إنشاء حد إجمالي مكرر للدفعات تحت الحساب.');
+  assert.match(FINANCIAL_REGULATION_ARTICLES.find((article) => article.articleNo === '72')?.text || '', /اختيار المستخدم[\s\S]*95%[\s\S]*5%/);
+  assert.match(article72Anomaly!.resolutionAr, /اختار المستخدم[\s\S]*95%[\s\S]*5%/);
+  for (const config of REGULATION_ACTIVATED_RULES) {
+    const article = FINANCIAL_REGULATION_ARTICLES.find((candidate) => candidate.articleNo === config.articleNo);
+    assert.ok(article?.sourceCitation, `المادة ${config.articleNo} لها اقتباس مصدر`);
+    assert.strictEqual(article?.sourceCitation?.sourceId, FINANCIAL_REGULATION_TEXT_SOURCE.id);
+    assert.strictEqual(article?.sourceCitation?.sourcePath, FINANCIAL_REGULATION_TEXT_SOURCE.filePath);
+    assert.strictEqual(article?.sourceCitation?.sourceSha256, FINANCIAL_REGULATION_TEXT_SOURCE.sha256);
+    assert.ok(article?.enforcementRuleIds?.includes(config.ruleId), `المادة ${config.articleNo} تربط القاعدة ${config.ruleId}`);
+  }
+  const requiredQuoteFragments: Record<string, string[]> = {
+    '2': ['10%', '60%', '30%'],
+    '6': ['خمسين ألف جنيه', 'عشرين ألف جنيه'],
+    '9': ['عشرين ألف جنيه', 'عشرة آلاف جنيه'],
+    '37': ['2000.00', '100 جنيه', '100%'],
+    '39': ['3000.00'],
+    '40': ['5000.00'],
+    '50': ['5000.00', '100.000.000'],
+    '61': ['20000', '50000', '100000', '200000', '250000', '500000'],
+    '72': ['25%', '75%', '5%', '5%) الباقية'],
+    '73': ['15%', '4%'],
+  };
+  for (const [articleNo, fragments] of Object.entries(requiredQuoteFragments)) {
+    const quote = FINANCIAL_REGULATION_ARTICLES.find((article) => article.articleNo === articleNo)?.sourceCitation?.quoteAr || '';
+    for (const fragment of fragments) assert.ok(quote.includes(fragment), `اقتباس المادة ${articleNo} يتضمن القيمة المصدرية ${fragment}`);
+  }
+  assert.ok(FINANCIAL_REGULATION_ARTICLES.find((article) => article.articleNo === '72')?.sourceCitation?.noteAr?.includes('95%'));
+  const aiServiceSource = readFileSync(resolve(process.cwd(), 'server/services/ai.service.ts'), 'utf8');
+  assert.doesNotMatch(aiServiceSource, /الصرف النقدي فوق 20,000 ج\.م محظور نقداً/);
+  assert.doesNotMatch(aiServiceSource, /المشتريات بدون مستند تُرفض فوق 20,000 ج\.م/);
+  assert.match(aiServiceSource, /قاعدة إيصالات العضوية التشغيلية الحالية/);
+
+  // المادة 2: 10% للاتحاد (إن وجد)، 60% إجمالي للجان، 30% للنقابة العامة.
+  const statutoryDistribution = regulationService.checkDistributionPercentages([
+    { beneficiaryOrgId: 'org-general', percentage: 30 },
+    { beneficiaryOrgId: 'org-east-committee', percentage: 40 },
+    { beneficiaryOrgId: 'org-west-committee', percentage: 20 },
+  ]);
+  assert.deepStrictEqual(statutoryDistribution, [], 'تُجمع نسب اللجان، والاتحاد اختياري إذا لم يوجد');
+
+  // قيد إجمالي بدون بيانات سطور يمر دون تحذيرات تخصصية (لا نتائج كاذبة).
   const zeroViolations = regulationService.checkJournalEntry({ totalDebit: 9_000_000, linesCount: 2 });
   assert.deepStrictEqual(zeroViolations, [], 'بدون سطور تُستخدم للقواعد التخصصية لا تحذير كاذب');
-  console.log('  ✅ Passed: regulation is live at boot; aggregate-only entries stay silent.');
+  console.log('  ✅ Passed: source fingerprints and statutory values verified; runtime distribution conflict remains explicit.');
   assert.ok(resolveBasicStatutePath(), 'مسح لائحة النظام الأساسي موجود للعرض الكامل');
 
   // -------------------------------------------------------------
@@ -125,73 +261,133 @@ function runTests() {
   console.log('  ✅ Passed: agent search stable; filled articles surface on topic queries.');
 
   // -------------------------------------------------------------
-  // Test 8: القواعد التخصصية للسطور (صرف نقدي / بدلات / هدايا / مشتريات)
+  // Test 8: القواعد التخصصية مع فروق الجهات وحدود المادتين 37 و61
   // -------------------------------------------------------------
-  console.log('\n🔹 Test 8: Line-based rules — cash ceiling, allowances, gifts, procurement');
+  console.log('\n🔹 Test 8: Entity-specific cash, travel, allowance, gift, and procurement rules');
   const reg8 = regulationService;
 
-  const cashOver = reg8.checkJournalEntry({
+  const cashGeneralOver = reg8.checkJournalEntry({
     totalDebit: 25_000,
     linesCount: 2,
+    entityLevel: 'GENERAL_UNION',
     lines: [
-      { accountCode: '5201', description: 'شراء لوازم مكتبية', debit: 25_000, credit: 0 },
+      { accountCode: '5201', description: 'مصروف', debit: 25_000, credit: 0 },
       { accountCode: '1101', description: 'صرف نقدي من الخزينة', debit: 0, credit: 25_000 },
     ],
   });
-  assert.strictEqual(cashOver.filter((v) => v.ruleId === 'CASH_PAYMENT_CEILING').length, 1, 'صرف نقدي فوق 20 ألف يُكتشف (م9)');
-  assert.strictEqual(cashOver.filter((v) => v.ruleId === 'CASH_PAYMENT_CEILING')[0].articleNo, '9');
+  assert.strictEqual(cashGeneralOver.filter((v) => v.ruleId === 'CASH_PAYMENT_CEILING').length, 1, 'تجاوز حد النقابة العامة 20,000 (م9)');
 
-  const cashOk = reg8.checkJournalEntry({
+  const cashCommitteeOver = reg8.checkJournalEntry({
+    totalDebit: 11_000,
+    linesCount: 2,
+    entityLevel: 'COMMITTEE',
+    lines: [
+      { accountCode: '5201', description: 'مصروف', debit: 11_000, credit: 0 },
+      { accountCode: '1101', description: 'صرف نقدي', debit: 0, credit: 11_000 },
+    ],
+  });
+  assert.strictEqual(cashCommitteeOver.filter((v) => v.ruleId === 'CASH_PAYMENT_CEILING_BRANCH').length, 1, 'تجاوز حد اللجنة 10,000 (م9)');
+
+  const cashCommitteeOk = reg8.checkJournalEntry({
     totalDebit: 10_000,
     linesCount: 2,
+    entityLevel: 'COMMITTEE',
     lines: [
-      { accountCode: '5201', description: 'مصروفات', debit: 10_000, credit: 0 },
+      { accountCode: '5201', description: 'مصروف', debit: 10_000, credit: 0 },
       { accountCode: '1101', description: 'صرف نقدي', debit: 0, credit: 10_000 },
     ],
   });
-  assert.strictEqual(cashOk.filter((v) => v.ruleId === 'CASH_PAYMENT_CEILING').length, 0, 'تحت السقف النقدي يمر');
+  assert.strictEqual(cashCommitteeOk.filter((v) => v.ruleId === 'CASH_PAYMENT_CEILING_BRANCH').length, 0, 'المبلغ عند حد اللجنة يمر');
 
   const travelBelowFloor = reg8.checkJournalEntry({
-    totalDebit: 150,
+    totalDebit: 1_500,
     linesCount: 1,
-    lines: [{ accountCode: '5401', description: 'بدل سفر مأمورية ليلة واحدة', debit: 150, credit: 0 }],
+    entityLevel: 'GENERAL_UNION',
+    lines: [{ accountCode: '5401', description: 'بدل سفر مأمورية', travelNights: 1, debit: 1_500, credit: 0 }],
   });
-  assert.strictEqual(travelBelowFloor.filter((v) => v.ruleId === 'TRAVEL_ALLOWANCE_DAILY_CAP').length, 1, 'أقل من الحد الأدنى 200 (م37)');
+  assert.strictEqual(travelBelowFloor.filter((v) => v.ruleId === 'TRAVEL_ALLOWANCE_DAILY_CAP').length, 1, 'أقل من الحد الأدنى 2,000 للنقابة العامة (م37)');
+
+  const travelWithoutNightCount = reg8.checkJournalEntry({
+    totalDebit: 1_500,
+    linesCount: 1,
+    entityLevel: 'GENERAL_UNION',
+    lines: [{ accountCode: '5401', description: 'بدل سفر مأمورية مجمع', debit: 1_500, credit: 0 }],
+  });
+  assert.strictEqual(travelWithoutNightCount.filter((v) => v.ruleId.startsWith('TRAVEL_ALLOWANCE')).length, 0, 'لا تقارن قيمة إجمالية بحد الليلة دون عدد الليالي');
+
+  const travelCommitteeBelow = reg8.checkJournalEntry({
+    totalDebit: 99,
+    linesCount: 1,
+    entityLevel: 'COMMITTEE',
+    lines: [{ accountCode: '5401', description: 'بدل سفر مأمورية', travelNights: 1, debit: 99, credit: 0 }],
+  });
+  assert.strictEqual(travelCommitteeBelow.filter((v) => v.ruleId === 'TRAVEL_ALLOWANCE_DAILY_CAP_BRANCH').length, 1, 'حد اللجنة 100 جنيه لليلة (م37)');
 
   const travelOverIncrease = reg8.checkJournalEntry({
-    totalDebit: 450,
+    totalDebit: 4_500,
     linesCount: 1,
-    lines: [{ accountCode: '5401', description: 'بدل سفر مأمورية خارجية', debit: 450, credit: 0 }],
+    entityLevel: 'GENERAL_UNION',
+    lines: [{ accountCode: '5401', description: 'بدل سفر مأمورية خارجية', travelNights: 1, debit: 4_500, credit: 0 }],
   });
-  assert.strictEqual(travelOverIncrease.filter((v) => v.ruleId === 'TRAVEL_ALLOWANCE_MAX_INCREASE_PCT').length, 1, 'زيادة فوق 100% (م37)');
+  assert.strictEqual(travelOverIncrease.filter((v) => v.ruleId === 'TRAVEL_ALLOWANCE_MAX_INCREASE_PCT').length, 1, 'زيادة تتجاوز 100% من الحد الأدنى (م37)');
 
   const transportOver = reg8.checkJournalEntry({
-    totalDebit: 350,
+    totalDebit: 3_500,
     linesCount: 1,
-    lines: [{ accountCode: '5402', description: 'بدل انتقال شهري', debit: 350, credit: 0 }],
+    lines: [{ accountCode: '5402', description: 'بدل انتقال شهري', debit: 3_500, credit: 0 }],
   });
-  assert.strictEqual(transportOver.filter((v) => v.ruleId === 'MONTHLY_TRANSPORT_ALLOWANCE_CAP').length, 1, 'بدل انتقال فوق 300 (م39)');
+  assert.strictEqual(transportOver.filter((v) => v.ruleId === 'MONTHLY_TRANSPORT_ALLOWANCE_CAP').length, 1, 'بدل انتقال فوق 3,000 (م39)');
 
   const burdenOver = reg8.checkJournalEntry({
-    totalDebit: 600,
+    totalDebit: 6_000,
     linesCount: 1,
-    lines: [{ accountCode: '5403', description: 'بدل أعباء وظيفية', debit: 600, credit: 0 }],
+    lines: [{ accountCode: '5403', description: 'بدل أعباء وظيفية', boardMember: false, debit: 6_000, credit: 0 }],
   });
-  assert.strictEqual(burdenOver.filter((v) => v.ruleId === 'MONTHLY_BURDEN_ALLOWANCE_CAP').length, 1, 'بدل أعباء فوق 500 (م40)');
+  assert.strictEqual(burdenOver.filter((v) => v.ruleId === 'MONTHLY_BURDEN_ALLOWANCE_CAP').length, 1, 'بدل أعباء فوق 5,000 (م40)');
+  const burdenWithoutMemberStatus = reg8.checkJournalEntry({
+    totalDebit: 6_000,
+    linesCount: 1,
+    lines: [{ accountCode: '5403', description: 'بدل أعباء وظيفية', debit: 6_000, credit: 0 }],
+  });
+  assert.strictEqual(burdenWithoutMemberStatus.filter((v) => v.ruleId === 'MONTHLY_BURDEN_ALLOWANCE_CAP').length, 0, 'لا يطبق الحد دون معرفة صفة المستفيد');
+  const boardMemberBurden = reg8.checkJournalEntry({
+    totalDebit: 6_000,
+    linesCount: 1,
+    lines: [{ accountCode: '5403', description: 'بدل أعباء وظيفية', boardMember: true, debit: 6_000, credit: 0 }],
+  });
+  assert.strictEqual(boardMemberBurden.filter((v) => v.ruleId === 'MONTHLY_BURDEN_ALLOWANCE_CAP').length, 0, 'استثناء عضو هيئة المكتب لا يصدر تحذيراً آلياً إذا سُجل صراحةً');
 
   const giftsOver = reg8.checkJournalEntry({
     totalDebit: 20_000,
     linesCount: 1,
     lines: [{ accountCode: '5301', description: 'هدايا وفود وضيافة', debit: 20_000, credit: 0 }],
   });
-  assert.strictEqual(giftsOver.filter((v) => v.ruleId === 'GIFTS_CEILING_EXCEPTIONAL').length, 1, 'هدايا فوق 10 آلاف (م51)');
+  assert.strictEqual(giftsOver.filter((v) => v.ruleId === 'GIFTS_CEILING_REGULAR').length, 1, 'تجاوز 5,000 يتطلب التحقق من قرار الاستثناء بالمادة 50');
+  assert.strictEqual(giftsOver.filter((v) => v.ruleId === 'GIFTS_CEILING_EXCEPTIONAL').length, 0, '20,000 دون الحد الاستثنائي المطبوع 100,000,000');
 
   const procureOver = reg8.checkJournalEntry({
     totalDebit: 80_000,
     linesCount: 1,
+    entityLevel: 'GENERAL_UNION',
     lines: [{ accountCode: '5201', description: 'توريد مستلزمات تشغيلية', debit: 80_000, credit: 0 }],
   });
-  assert.strictEqual(procureOver.filter((v) => v.ruleId === 'PROC_DIRECT_ORDER_CEILING').length, 1, 'شراء فوق 50 ألف يستلزم ممارسة (م61)');
+  assert.strictEqual(procureOver.filter((v) => v.ruleId === 'PROC_DIRECT_ORDER_CEILING').length, 1, 'شراء عام فوق 50,000 يستلزم مراجعة إجراء الممارسة (م61)');
+
+  const branchPracticeOver = reg8.checkJournalEntry({
+    totalDebit: 150_000,
+    linesCount: 1,
+    entityLevel: 'COMMITTEE',
+    lines: [{ accountCode: '5201', description: 'شراء لوازم', debit: 150_000, credit: 0 }],
+  });
+  assert.strictEqual(branchPracticeOver.filter((v) => v.ruleId === 'PROC_TENDER_CEILING_BRANCH').length, 1, 'تجاوز ممارسة اللجنة 100,000 (م61)');
+
+  const branchLimitedTenderOver = reg8.checkJournalEntry({
+    totalDebit: 300_000,
+    linesCount: 1,
+    entityLevel: 'COMMITTEE',
+    lines: [{ accountCode: '5201', description: 'شراء معدات', debit: 300_000, credit: 0 }],
+  });
+  assert.strictEqual(branchLimitedTenderOver.filter((v) => v.ruleId === 'PROC_LIMITED_TENDER_CEILING_BRANCH').length, 1, 'تجاوز مناقصة اللجنة المحدودة 250,000 (م61)');
 
   const underAll = reg8.checkJournalEntry({
     totalDebit: 3_000,
@@ -199,9 +395,8 @@ function runTests() {
     lines: [{ accountCode: '5402', description: 'بدل انتقال شهري', debit: 3_000, credit: 0 }],
     type: 'REVERSAL',
   });
-  // السفر/الانتقال/الأعباء تُفحص على أي قيد غير عكسي؛ هذا القيد عكسي فلا ينبغي أن يُفصَّل (تبقى كلمة انتقال مع عكس)
-  assert.strictEqual(underAll.length, 0, 'لا تحذيرات للقيد تحت الحدود');
-  console.log('  ✅ Passed: cash/allowances/gifts/procurement rules enforced from line data.');
+  assert.strictEqual(underAll.length, 0, 'القيد العكسي مستثنى من الفحوص التخصصية');
+  console.log('  ✅ Passed: source-correct thresholds and entity-specific checks are exercised.');
 
   console.log('\n🎉 ALL REGULATION ENGINE TESTS PASSED SUCCESSFULLY!');
 }

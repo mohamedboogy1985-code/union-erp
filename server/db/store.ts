@@ -33,10 +33,20 @@ import {
   EmployeeAffair,
   EmployeeAdvance,
   PayrollRun,
+  Skill,
+  EmployeeSkill,
+  TrainingProgram,
+  TrainingEnrollment,
+  AiAgentSkill,
+  AccountingProcedure,
 } from '../../src/types/erp.js';
 import { normalizeArabicText } from '../utils/arabic.js';
-import { calculateAuditHash, generateVerificationToken, hashNationalId, maskIban, maskNationalId, sha256 } from '../utils/crypto.js';
+import { getRequestContext } from '../security/request-context.js';
+import { hashAuditLog } from '../services/audit-chain.service.js';
+import { generateVerificationToken, hashNationalId, maskIban, maskNationalId, sha256 } from '../utils/crypto.js';
 import { rebuildLedgerChain } from '../services/ledger-chain.service.js';
+import type { RegulationDocumentRecord, RegulationSourceRecord } from '../../src/types/erp.regulations.js';
+import { REGULATION_DOCUMENTS, REGULATION_SOURCES } from '../data/regulations-library.js';
 
 export class ERPStore {
   public organizations: Organization[] = [];
@@ -81,6 +91,23 @@ export class ERPStore {
   // ===== كشوف المرتبات المستوردة من أرشيف Excel (نماذج معتمدة) =====
   public payrollImports: any[] = [];
   // ===== الحضور والانصراف بالبصمة (وجه/إصبع) =====
+  // ===== نظام المهارات الموحد — Skills Unified System (استُعيد من PR #24/#26) =====
+  public skills: Skill[] = [];
+  public employeeSkills: EmployeeSkill[] = [];
+  public trainingPrograms: TrainingProgram[] = [];
+  public trainingEnrollments: TrainingEnrollment[] = [];
+  public aiAgentSkills: AiAgentSkill[] = [];
+  public accountingProcedures: AccountingProcedure[] = [];
+
+  // ===== مكتبة اللوائح — بيانات قانونية منظمة في الذاكرة وتُزامَن إلى PostgreSQL =====
+  public regulationStorageBackend: 'memory' | 'postgres' = 'memory';
+  public regulationSources: RegulationSourceRecord[] = REGULATION_SOURCES.map((source) => ({ ...source }));
+  public regulationDocuments: RegulationDocumentRecord[] = REGULATION_DOCUMENTS.map((document) => ({
+    ...document,
+    tagsAr: [...document.tagsAr],
+    enforcementRuleIdsAr: [...(document.enforcementRuleIdsAr ?? [])],
+  }));
+
   public attendanceRecords: AttendanceRecord[] = [];
   public attendanceDevices: AttendanceDevice[] = [];
   public attendanceSettings: AttendanceSettings = {
@@ -94,6 +121,13 @@ export class ERPStore {
   };
 
   private lastAuditHash = '0000000000000000000000000000000000000000000000000000000000000000';
+
+  /**
+   * خطّاف الدوام (P0-3): يُستدعى لكل حدث تدقيق ليُكتب في الطبقة الدائمة.
+   * لا يعتمد المتجر على قاعدة البيانات مباشرةً (تفادي اعتماد دائري)، ويُمرَّر
+   * من `server.ts` إلى `postgresManager.persistAuditLog`.
+   */
+  private auditPersistHook?: (log: AuditLog) => void;
 
   constructor() {
     this.seedInitialData();
@@ -150,6 +184,34 @@ export class ERPStore {
     return item;
   }
 
+  /** توصيل سجل التدقيق بالطبقة الدائمة (أو فصله بتمرير undefined) */
+  public setAuditPersistHook(hook: ((log: AuditLog) => void) | undefined): void {
+    this.auditPersistHook = hook;
+  }
+
+  /**
+   * تحميل أحداث التدقيق الدائمة عند الإقلاع (الأحدث أولاً) واستعادة طرف السلسلة،
+   * حتى تُبنى الأحداث الجديدة فوق السلسلة المخزّنة لا فوق سلسلة جديدة من الصفر.
+   */
+  public hydrateAuditLogs(logs: AuditLog[], lastHash?: string): void {
+    if (!Array.isArray(logs) || logs.length === 0) return;
+    const normalized = logs.map((log) => ({
+      ...log,
+      ipAddress: log.ipAddress || '127.0.0.1 (Desktop Client)',
+      previousState: log.previousState ?? undefined,
+      newState: log.newState ?? undefined,
+      status: (log.status as AuditLog['status']) || 'SUCCESS',
+    })) as AuditLog[];
+    // دمج (لا استبدال): سجل القاعدة مرجعي، وسجل الجلسة الحالية يُحفظ معه بلا تكرار
+    const byId = new Map<string, AuditLog>();
+    for (const log of [...this.auditLogs, ...normalized]) {
+      if (log?.id && !byId.has(log.id)) byId.set(log.id, log);
+    }
+    this.auditLogs = [...byId.values()].sort((a, b) => String(b.timestamp).localeCompare(String(a.timestamp)));
+    const tip = lastHash || normalized.find((l) => l.eventHash)?.eventHash;
+    if (tip) this.lastAuditHash = tip;
+  }
+
   public recordAudit(
     userId: string,
     userName: string,
@@ -164,8 +226,26 @@ export class ERPStore {
     status: 'SUCCESS' | 'FAILURE' | 'BLOCKED' = 'SUCCESS'
   ): AuditLog {
     const timestamp = new Date().toISOString();
-    const correlationId = `CORR-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
-    const eventHash = calculateAuditHash(timestamp, userId, action, entityId, this.lastAuditHash);
+    // سياق الطلب (P0-3): معرّف الارتباط وعنوان IP الحقيقي من الوسيط بدل قيمة مثبّتة/عشوائية
+    const context = getRequestContext();
+    const correlationId = context?.correlationId || `CORR-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
+    const ipAddress = context?.ipAddress || '127.0.0.1 (Desktop Client)';
+    // التجزئة تُبنى من كل حقول الحدث (a2) — نفس دالة الطبقة الدائمة بالضبط
+    const eventHash = hashAuditLog(
+      {
+        timestamp,
+        userId,
+        action,
+        entityType,
+        entityId,
+        details,
+        status,
+        correlationId,
+        previousState,
+        newState,
+      } as AuditLog,
+      this.lastAuditHash
+    );
 
     const log: AuditLog = {
       id: `AUDIT-${Date.now()}-${this.auditLogs.length + 1}`,
@@ -174,7 +254,7 @@ export class ERPStore {
       userName,
       userRole,
       organizationId,
-      ipAddress: '127.0.0.1 (Desktop Client)',
+      ipAddress,
       action,
       entityType,
       entityId,
@@ -189,6 +269,15 @@ export class ERPStore {
 
     this.lastAuditHash = eventHash;
     this.auditLogs.unshift(log);
+
+    // الدوام (P0-3): كل حدث يُكتب في القاعدة — لا يبقى التدقيق في الذاكرة وحدها.
+    // الخطّاف لا يُفشل العملية: أي خطأ داخل الطبقة الدائمة يُلتقط ويُسجَّل هناك.
+    try {
+      this.auditPersistHook?.(log);
+    } catch (error) {
+      console.error('⚠️ تعذّر تمرير حدث التدقيق للطبقة الدائمة:', error);
+    }
+
     return log;
   }
 
@@ -1111,6 +1200,58 @@ export class ERPStore {
       { id: 'gov-4-1-2', code: '04/01/02', name: 'نوع رسوم الخدمات', level: 'NAWT', parentId: 'gov-4-1', category: 'REVENUE', isActive: true, organizationId: 'org-general' },
       { id: 'gov-4-1-2-1', code: '04/01/02/01', name: 'حساب رسوم إصدار وتجديد الشهادات', level: 'HESAB', parentId: 'gov-4-1-2', category: 'REVENUE', mappedAccountId: 'acc-4102', mappedAccountCode: '4102', isActive: true, budgetLimit: 350000, organizationId: 'org-general' },
       { id: 'gov-4-1-2-1-1', code: '04/01/02/01/01', name: 'بند رسوم الشهادات والكارنيهات', level: 'BAND', parentId: 'gov-4-1-2-1', category: 'REVENUE', mappedAccountId: 'acc-4102', mappedAccountCode: '4102', isActive: true, budgetLimit: 350000, organizationId: 'org-general' },
+    ];
+    // ===== 19. نظام المهارات الموحد — Skills Unified System =====
+    const now = new Date().toISOString();
+    this.skills = [
+      // HR Skills
+      { id: 'skl-hr-001', code: 'SKL-HR-001', name: 'المحاسبة المالية المتقدمة', nameEn: 'Advanced Financial Accounting', description: 'إعداد القوائم المالية والميزانيات وفق المعايير المصرية', category: 'HR', level: 'ADVANCED', icon: 'Calculator', color: 'text-sky-400', isActive: true, estimatedHours: 40, createdAt: now, updatedAt: now },
+      { id: 'skl-hr-002', code: 'SKL-HR-002', name: 'Excel محاسبي متقدم', nameEn: 'Advanced Excel for Accounting', description: 'جداول محورية، دوال مالية، ماكرو', category: 'HR', level: 'INTERMEDIATE', icon: 'FileSpreadsheet', color: 'text-emerald-400', isActive: true, estimatedHours: 20, createdAt: now, updatedAt: now },
+      { id: 'skl-hr-003', code: 'SKL-HR-003', name: 'التدقيق الداخلي', nameEn: 'Internal Auditing', description: 'فحص الرقابة الداخلية وتقييم المخاطر', category: 'HR', level: 'EXPERT', icon: 'ShieldCheck', color: 'text-amber-400', isActive: true, estimatedHours: 60, createdAt: now, updatedAt: now },
+      { id: 'skl-hr-004', code: 'SKL-HR-004', name: 'إدارة الموارد البشرية', nameEn: 'HR Management', description: 'شئون العاملين والتأمينات والمرتبات', category: 'HR', level: 'INTERMEDIATE', icon: 'UsersRound', color: 'text-violet-400', isActive: true, estimatedHours: 30, createdAt: now, updatedAt: now },
+      // Training Skills
+      { id: 'skl-tr-001', code: 'SKL-TR-001', name: 'إعداد الموازنة التقديرية', nameEn: 'Budget Preparation', description: 'إعداد موازنة تقديرية للجهات النقابية', category: 'TRAINING', level: 'ADVANCED', icon: 'PieChart', color: 'text-indigo-400', isActive: true, estimatedHours: 25, createdAt: now, updatedAt: now },
+      { id: 'skl-tr-002', code: 'SKL-TR-002', name: 'الفاتورة الإلكترونية ETA', nameEn: 'Egyptian E-Invoicing', description: 'منظومة الفاتورة الإلكترونية لمصلحة الضرائب', category: 'TRAINING', level: 'INTERMEDIATE', icon: 'FileCode2', color: 'text-rose-400', isActive: true, estimatedHours: 15, createdAt: now, updatedAt: now },
+      { id: 'skl-tr-003', code: 'SKL-TR-003', name: 'القيادة النقابية', nameEn: 'Union Leadership', description: 'مهارات القيادة وإدارة اللجان النقابية', category: 'TRAINING', level: 'BEGINNER', icon: 'Crown', color: 'text-amber-400', isActive: true, estimatedHours: 20, createdAt: now, updatedAt: now },
+      // AI Agent Skills
+      { id: 'skl-ai-001', code: 'SKL-AI-001', name: 'التحليل المالي الذكي', nameEn: 'AI Financial Analysis', description: 'المساعد يحلل القوائم ويكتشف الشذوذ', category: 'AI_AGENT', level: 'EXPERT', icon: 'Bot', color: 'text-purple-400', isActive: true, estimatedHours: 0, createdAt: now, updatedAt: now },
+      { id: 'skl-ai-002', code: 'SKL-AI-002', name: 'التعرف الصوتي للمحاسبة', nameEn: 'Voice Accounting', description: 'تحويل الأوامر الصوتية إلى قيود يومية', category: 'AI_AGENT', level: 'ADVANCED', icon: 'Mic', color: 'text-pink-400', isActive: true, estimatedHours: 0, createdAt: now, updatedAt: now },
+      { id: 'skl-ai-003', code: 'SKL-AI-003', name: 'التنبؤ المالي', nameEn: 'Financial Forecasting', description: 'توقع الإيرادات والمصروفات باستخدام AI', category: 'AI_AGENT', level: 'EXPERT', icon: 'TrendingUp', color: 'text-sky-400', isActive: true, estimatedHours: 0, createdAt: now, updatedAt: now },
+      { id: 'skl-ai-004', code: 'SKL-AI-004', name: 'OCR وقراءة الفواتير', nameEn: 'OCR Invoice Reading', description: 'قراءة الفواتير الورقية وتحويلها لقيود', category: 'AI_AGENT', level: 'ADVANCED', icon: 'ScanText', color: 'text-emerald-400', isActive: true, estimatedHours: 0, createdAt: now, updatedAt: now },
+      // Accounting Procedures
+      { id: 'skl-acc-001', code: 'SKL-ACC-001', name: 'إقفال شهري', nameEn: 'Monthly Closing', description: 'إجراءات إقفال الفترة المحاسبية الشهرية', category: 'ACCOUNTING', level: 'ADVANCED', icon: 'Lock', color: 'text-slate-300', isActive: true, estimatedHours: 5, createdAt: now, updatedAt: now },
+      { id: 'skl-acc-002', code: 'SKL-ACC-002', name: 'تسوية بنكية', nameEn: 'Bank Reconciliation', description: 'مطابقة كشف البنك مع الدفاتر', category: 'ACCOUNTING', level: 'INTERMEDIATE', icon: 'Building2', color: 'text-blue-400', isActive: true, estimatedHours: 3, createdAt: now, updatedAt: now },
+      { id: 'skl-acc-003', code: 'SKL-ACC-003', name: 'حساب الإهلاك', nameEn: 'Depreciation Calculation', description: 'حساب إهلاك الأصول الثابتة شهرياً', category: 'ACCOUNTING', level: 'INTERMEDIATE', icon: 'Boxes', color: 'text-orange-400', isActive: true, estimatedHours: 2, createdAt: now, updatedAt: now },
+      { id: 'skl-acc-004', code: 'SKL-ACC-004', name: 'توزيع الإيرادات', nameEn: 'Revenue Distribution', description: 'توزيع حصيلة الاشتراكات على الصناديق', category: 'ACCOUNTING', level: 'ADVANCED', icon: 'Split', color: 'text-teal-400', isActive: true, estimatedHours: 4, createdAt: now, updatedAt: now },
+    ];
+
+    this.trainingPrograms = [
+      { id: 'trn-001', code: 'TRN-2026-001', title: 'دورة المحاسبة النقابية المتقدمة', description: 'برنامج تدريبي شامل للمحاسبين الجدد', category: 'TRAINING', durationHours: 40, maxParticipants: 25, instructor: 'د. طارق الجمال', location: 'مركز التدريب - القاهرة', status: 'OPEN', skillsGranted: ['skl-hr-001', 'skl-tr-001'], organizationId: 'org-training-center', createdAt: now },
+      { id: 'trn-002', code: 'TRN-2026-002', title: 'ورشة الفاتورة الإلكترونية', description: 'تطبيق عملي لمنظومة ETA', category: 'TRAINING', durationHours: 15, maxParticipants: 30, instructor: 'أ. محمد عبد الله', location: 'أونلاين', status: 'OPEN', skillsGranted: ['skl-tr-002'], organizationId: 'org-training-center', createdAt: now },
+      { id: 'trn-003', code: 'TRN-2026-003', title: 'الذكاء الاصطناعي في المحاسبة', description: 'استخدام AI لتحليل واكتشاف الشذوذ', category: 'AI_AGENT', durationHours: 20, maxParticipants: 20, instructor: 'المساعد الذكي', location: 'معمل الحاسب', status: 'IN_PROGRESS', skillsGranted: ['skl-ai-001', 'skl-ai-002'], organizationId: 'org-general', createdAt: now },
+    ];
+
+    this.aiAgentSkills = [
+      { id: 'ai-skill-001', skillId: 'skl-ai-001', skillName: 'التحليل المالي الذكي', agentName: 'المحاسب الذكي', capability: 'تحليل القوائم المالية واقتراح قيود تصحيحية', isEnabled: true, usageCount: 342, successRate: 96, organizationId: 'org-general', createdAt: now },
+      { id: 'ai-skill-002', skillId: 'skl-ai-002', skillName: 'التعرف الصوتي للمحاسبة', agentName: 'المساعد الحي', capability: 'تحويل أمر صوتي مثل \"سجل مصروف 500 جنيه صيانة\" إلى قيد', isEnabled: true, usageCount: 128, successRate: 89, organizationId: 'org-general', createdAt: now },
+      { id: 'ai-skill-003', skillId: 'skl-ai-003', skillName: 'التنبؤ المالي', agentName: 'المحلل الاكتواري', capability: 'توقع التدفقات النقدية لـ 12 شهر قادم', isEnabled: true, usageCount: 56, successRate: 92, organizationId: 'org-general', createdAt: now },
+      { id: 'ai-skill-004', skillId: 'skl-ai-004', skillName: 'OCR وقراءة الفواتير', agentName: 'قارئ المستندات', capability: 'استخراج المبلغ والتاريخ والمورد من صورة فاتورة', isEnabled: true, usageCount: 203, successRate: 94, organizationId: 'org-general', createdAt: now },
+    ];
+
+    this.accountingProcedures = [
+      { id: 'proc-001', skillId: 'skl-acc-001', skillName: 'إقفال شهري', procedureCode: 'PROC-CLOSE-001', title: 'إقفال الفترة الشهرية', description: 'مراجعة القيود المعلقة، ترحيل، وإغلاق الفترة', category: 'CLOSING', steps: [{ order: 1, title: 'مراجعة القيود غير المرحلة', description: 'فحص كل القيود بحالة DRAFT', automated: true }, { order: 2, title: 'ترحيل القيود المعتمدة', description: 'نقل القيود إلى دفتر الأستاذ', automated: true }, { order: 3, title: 'إغلاق الفترة', description: 'منع إدخال قيود جديدة في الفترة', automated: false }], estimatedMinutes: 30, isAutomated: true, organizationId: 'org-general', createdAt: now, updatedAt: now },
+      { id: 'proc-002', skillId: 'skl-acc-002', skillName: 'تسوية بنكية', procedureCode: 'PROC-BANK-001', title: 'تسوية كشف البنك الأهلي', description: 'مطابقة حركات البنك مع القيود', category: 'RECONCILIATION', steps: [{ order: 1, title: 'استيراد كشف البنك', description: 'رفع ملف CSV من البنك', automated: true }, { order: 2, title: 'مطابقة تلقائية', description: 'النظام يطابق حسب الرقم المرجعي', automated: true }], estimatedMinutes: 20, isAutomated: true, organizationId: 'org-general', createdAt: now, updatedAt: now },
+      { id: 'proc-003', skillId: 'skl-acc-003', skillName: 'حساب الإهلاك', procedureCode: 'PROC-DEP-001', title: 'احتساب إهلاك الأصول', description: 'حساب القسط الشهري وإنشاء قيد إهلاك', category: 'DEPRECIATION', steps: [{ order: 1, title: 'حساب الإهلاك', description: 'قسط ثابت = (التكلفة - الخردة)/العمر', automated: true }, { order: 2, title: 'إنشاء قيد الإهلاك', description: 'من ح/ مصروف إهلاك إلى ح/ مجمع الإهلاك', automated: true }], estimatedMinutes: 15, isAutomated: true, organizationId: 'org-general', createdAt: now, updatedAt: now },
+    ];
+
+    this.employeeSkills = [
+      { id: 'es-001', employeeId: 'EMP-001', employeeName: 'أحمد محمد', skillId: 'skl-hr-001', skillName: 'المحاسبة المالية المتقدمة', skillCategory: 'HR', level: 'ADVANCED', proficiency: 85, acquiredDate: '2025-06-15', verified: true, verifiedBy: 'usr-cfo', createdAt: now },
+      { id: 'es-002', employeeId: 'EMP-001', employeeName: 'أحمد محمد', skillId: 'skl-hr-002', skillName: 'Excel محاسبي متقدم', skillCategory: 'HR', level: 'EXPERT', proficiency: 92, acquiredDate: '2025-03-10', verified: true, createdAt: now },
+    ];
+
+    this.trainingEnrollments = [
+      { id: 'enr-001', programId: 'trn-001', programTitle: 'دورة المحاسبة النقابية المتقدمة', employeeId: 'EMP-001', employeeName: 'أحمد محمد', status: 'IN_PROGRESS', progress: 60, enrolledAt: '2026-01-10' },
+      { id: 'enr-002', programId: 'trn-002', programTitle: 'ورشة الفاتورة الإلكترونية', employeeId: 'EMP-002', employeeName: 'سارة أحمد', status: 'COMPLETED', progress: 100, score: 88, enrolledAt: '2026-01-15', completedAt: '2026-02-01' },
     ];
   }
   /**

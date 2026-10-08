@@ -6,7 +6,11 @@ export interface AgentDNA {
   id: string;
   name: string;
   role: string;
-  archetype: 'Orchestrator' | 'BrowserWorker' | 'FactChecker' | 'WindowsExecutive' | 'DataSpecialist' | 'VisionInspector' | 'SecurityGate';
+  /**
+   * الأنماط الأربعة الحقيقية بعد التصلّب (docs/AETHER_SWARM_HARDENING.md §2):
+   * لا وكلاء متصفح/ويندوز/رؤية شاشة — لا تنفيذ لهم في هذا المستودع.
+   */
+  archetype: 'Orchestrator' | 'LedgerAgent' | 'DocumentsAgent' | 'VerifierAgent';
   icon: string;
   model: string;
   capabilities: string[];
@@ -92,7 +96,9 @@ export interface AuditLogEntry {
   agentName: string;
   tool: string;
   riskLevel: RiskLevel;
-  status: 'SUCCESS' | 'BLOCKED' | 'FLAGGED' | 'VERIFIED';
+  // P0-1: 'SIMULATED'/'UNVERIFIED' تُضاف لأن النتيجة لم تمرّ بتنفيذ أو تحقق فعلي
+  status: 'SUCCESS' | 'BLOCKED' | 'FLAGGED' | 'VERIFIED' | 'SIMULATED' | 'UNVERIFIED';
+  simulated?: boolean;
   details: string;
   confidence: number;
 }

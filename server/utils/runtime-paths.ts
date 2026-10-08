@@ -24,3 +24,36 @@ export function resolveFirst(candidates: Array<string | undefined | null>): stri
   }
   return null;
 }
+
+/** الإصدار الاحتياطي عند تعذّر قراءة package.json (يُحدَّث مع كل إصدار عبر `npm version`) */
+export const FALLBACK_APP_VERSION = '1.1.0';
+
+let cachedAppVersion: string | null = null;
+
+/**
+ * إصدار التطبيق من package.json — مصدر واحد للحقيقة يظهر في /api/health وملفات الإصدار.
+ * يُبحث عنه بجوار الوحدة (تطوير)، أو في المجلد الأعلى (حزمة dist-server / app.asar)،
+ * ثم مجلد التشغيل الحالي؛ ويُتحقق من اسم الحزمة حتى لا يُلتقط package.json غريب.
+ */
+export function appVersion(importMetaUrl?: string): string {
+  if (cachedAppVersion) return cachedAppVersion;
+  const dir = moduleDir(importMetaUrl);
+  const candidates = [
+    path.join(dir, 'package.json'),
+    path.join(dir, '..', 'package.json'),
+    path.join(dir, '..', '..', 'package.json'),
+    path.join(process.cwd(), 'package.json'),
+  ];
+  for (const candidate of candidates) {
+    try {
+      if (!fs.existsSync(candidate)) continue;
+      const parsed = JSON.parse(fs.readFileSync(candidate, 'utf8')) as { name?: string; version?: string };
+      if (parsed?.name === 'union-app' && typeof parsed.version === 'string' && parsed.version.trim()) {
+        cachedAppVersion = parsed.version.trim();
+        return cachedAppVersion;
+      }
+    } catch { /* جرّب المرشح التالي */ }
+  }
+  cachedAppVersion = FALLBACK_APP_VERSION;
+  return cachedAppVersion;
+}

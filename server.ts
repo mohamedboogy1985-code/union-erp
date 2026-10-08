@@ -18,6 +18,7 @@ import { registerReportExportRoutes } from './server/routes/report-export.routes
 import { registerEtaRoutes } from './server/routes/eta.routes.js';
 import { registerOperatorAssistantRoutes } from './server/routes/operator-assistant.routes.js';
 import { registerJulesRoutes } from './server/routes/jules.routes.js';
+import { registerSkillsRoutes } from './server/routes/skills.routes.js';
 import { attachAetherSwarmLiveSocket, registerAetherSwarmRoutes } from './server/routes/aetherswarm.routes.js';
 import { configureAdminCredentials, configureUserCredentials, publicUser } from './server/security/admin-credentials.js';
 import { receiptsService } from './server/services/receipts.service.js';
@@ -26,6 +27,7 @@ import { calculateSimilarity, normalizeArabicText } from './server/utils/arabic.
 import { bundledBasicStatuteMeta, resolveBasicStatutePath } from './server/services/regulation-documents.js';
 import { generateVerificationToken, hashNationalId, maskNationalId, sha256 } from './server/utils/crypto.js';
 import { verifyLedgerChain, rebuildLedgerChain } from './server/services/ledger-chain.service.js';
+import { verifyAuditLogChain } from './server/services/audit-chain.service.js';
 
 // ===== IMPROVEMENTS.md: الخدمات والوسائط الجديدة =====
 import { securityHeadersMiddleware, comprehensiveAuditMiddleware, createRateLimiter, getRecentAccessLogs, GENERIC_RATE_LIMIT_MAX, SENSITIVE_ROUTES_RATE_LIMIT_MAX } from './server/security/middleware.js';
@@ -36,23 +38,66 @@ import { cacheService, CACHE_KEYS } from './server/services/cache.service.js';
 import { paginationService } from './server/utils/pagination.js';
 import { integrationAPI } from './server/services/integration.service.js';
 import { notificationService } from './server/services/notification.service.js';
-import { csvImportService } from './server/services/csv-import.service.js';
+import { CSV_IMPORT_MODULE_DIR, csvImportService } from './server/services/csv-import.service.js';
 import { committeesService } from './server/services/committees.service.js';
 import { portalDataService } from './server/services/portal-data.service.js';
-import { modelsService } from './server/services/models.service.js';
+import { MODELS_MODULE_DIR, modelsService } from './server/services/models.service.js';
 import * as modelsCrypto from './server/services/models-crypto.service.js';
 import { regulationService } from './server/services/regulation.service.js';
+import { USER_PROVIDED_GAZETTE_REFERENCE } from './server/data/gazette-reference.js';
+import { loadStatutoryDistributionModels } from './server/services/statutory-distribution-models.service.js';
 import { employeeAffairsService } from './server/services/employee-affairs.service.js';
 import { attendanceService } from './server/services/attendance.service.js';
 import { payrollService } from './server/services/payroll.service.js';
 import { payrollImportService } from './server/services/payroll-import.service.js';
 import { attachLiveAgentWebSocketServer } from './server/services/live-agent.service.js';
+import compression from 'compression';
 import { apiErrorHandler, notFoundHandler } from './server/middleware/error-handler.js';
+import { requestLoggerMiddleware, logger } from './server/middleware/logger.js';
+import { registerSystemRoutes } from './server/routes/system.routes.js';
+import { registerSwarmToolsRoutes } from './server/routes/swarm-tools.routes.js';
 import { maybeStartEmbeddedPostgres } from './server/db/pg-embedded.js';
+import { ETA_MODULE_DIR } from './server/services/eta/eta-store.js';
+import { collectDataPaths } from './server/utils/data-paths.js';
 import { can, isReadOnlyUser, ROLE_DEFINITIONS } from './server/security/permissions.js';
 import { assertRuntimeSecurity, isSqlConsoleAllowed, isStrictAuth } from './server/security/runtime-config.js';
+import { installApiGuard } from './server/security/api-guard.js';
+import { createAccountingRouter } from './server/routes/accounting.routes.js';
+import { createFinancialRouter } from './server/routes/financial.routes.js';
+import { createStatuteRouter } from './server/routes/statute.routes.js';
+import { createStatutoryUiRouter } from './server/routes/statutory-ui.routes.js';
+import { createRegulationsRouter } from './server/routes/regulations.routes.js';
+import { createTaxRouter } from './server/routes/tax.routes.js';
+import { createBiometricRouter } from './server/routes/biometric.routes.js';
+import { createHrReadRouter } from './server/routes/hr-read.routes.js';
+import { createVoiceJournalRouter } from './server/routes/voice-journal.routes.js';
+import { createGeneralAssistantRouter } from './server/routes/assistant.routes.js';
+import { createDistributionRouter } from './server/routes/distribution.routes.js';
+import { createInsuredListRouter, defaultInsuredListRouterDeps } from './server/routes/insured-list.routes.js';
+import { createActuarialRouter } from './server/routes/actuarial.routes.js';
+import {
+  createActuarialFund,
+  listActuarialFunds,
+  simulateActuarialFund,
+  updateActuarialFund,
+} from './server/services/actuarial-funds.service.js';
+import { checkFinancialAction, normalizeFinancialPayload } from './server/services/financial.service.js';
+import type { StatuteEnforcementStage } from './src/types/erp.statute.js';
+import { withRequestContext } from './server/security/request-context.js';
+import { createSensitiveRateLimiter } from './server/security/sensitive-rate-limit.js';
+import { resolveOrganizationScope } from './server/security/organization-scope.js';
 import { debtorsAccountId, findAccountByCodeOrName, findExpenseAccount, findRevenueAccount, findTreasuryAccount } from './server/utils/account-lookup.js';
 import type { User } from './src/types/erp.js';
+
+const ENFORCEMENT_STAGES: StatuteEnforcementStage[] = ['SHADOW', 'AUDIT', 'WARN', 'ENFORCE'];
+const requestedEnforcementStage = String(
+  process.env.STATUTE_ENFORCEMENT_STAGE || process.env.FINANCIAL_ENFORCEMENT_STAGE || 'SHADOW',
+).trim().toUpperCase();
+const enforcementStage: StatuteEnforcementStage = ENFORCEMENT_STAGES.includes(
+  requestedEnforcementStage as StatuteEnforcementStage,
+)
+  ? (requestedEnforcementStage as StatuteEnforcementStage)
+  : 'SHADOW';
 
 /** هل مكتبة النماذج مقفلة بكلمة مرور حالياً؟ (كلمة المرور تعيش في ذاكرة الخادم فقط) */
 function isModelsLocked(): boolean {
@@ -76,24 +121,35 @@ async function startServer() {
 
   const app = express();
   const PORT = Number(process.env.PORT || 3000);
+  // Create the HTTP server before Vite so HMR can share this server and avoid
+  // an orphaned secondary WebSocket listener when tsx watch restarts.
+  const httpServer = http.createServer(app);
 
   // ===== IMPROVEMENTS 5.1/5.2: طبقة الأمان قبل أي معالجة =====
   app.use(securityHeadersMiddleware);
   app.use(comprehensiveAuditMiddleware); // سجل تدقيق شامل لكل عمليات API
+  app.use(compression({ threshold: 1024 })); // ضغط الاستجابات الأكبر من 1KB (P2)
+  app.use(requestLoggerMiddleware); // P2: سجل pino + عدادات Prometheus لكل طلب
   // fix(security): حد معدل صريح وأكثر صرامة لمسارات النظام والحساسية العالية (100 طلب/دقيقة افتراضياً)
   // يُطبَّق قبل الحد العام ليقيّد /api/system و/api/security و/api/auth (تسجيل الدخول و2FA) ضد الإساءة والـ brute-force
   app.use(['/api/system', '/api/security', '/api/auth'], createRateLimiter(SENSITIVE_ROUTES_RATE_LIMIT_MAX, 60_000));
-  app.use(createRateLimiter(Number(process.env.RATE_LIMIT_MAX || 300), 60_000)); // 300 طلب/دقيقة لكل IP
+  // حد المعدل يخص واجهات API فقط؛ ملفات Vite/HMR الثابتة ليست API ولا ينبغي أن تستهلك الحصة عند تحميل الشاشات.
+  app.use('/api', createRateLimiter(Number(process.env.RATE_LIMIT_MAX || 300), 60_000)); // 300 طلب/دقيقة لكل IP على /api
 
   // Coding-agent inputs are text only; do not inherit the document-upload limit.
   app.use('/api/jules', express.json({ limit: '64kb' }));
   app.use('/api/operator-assistant', express.json({ limit: '3mb' }));
-  app.use(express.json({ limit: '250mb' })); // دعم رفع الملفات الكبيرة base64 للمستندات
+  // fix(security) P2: خُفِّض من 250mb — المستندات تُرفع كـ base64 والفواتير المضغوطة أقل من 4MB،
+  // وترك الباب مفتوحاً لـ 250mb كان يسمح بإسقاط الخادم بحمولة واحدة (DoS).
+  app.use(express.json({ limit: '50mb' }));
+  app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 
   // خدمة الأصول الثابتة (صور المستخدمين وأيقونة التطبيق) — بمسارات مرشحة
   // تدعم التطوير وحزمة الإنتاج وتطبيق Electron المُغلَّف
-  const { resolveFirst, moduleDir } = await import('./server/utils/runtime-paths.js');
+  const { resolveFirst, moduleDir, appVersion } = await import('./server/utils/runtime-paths.js');
   const esmDir = moduleDir(import.meta.url);
+  // إصدار التطبيق من package.json (مصدر واحد للحقيقة مع وسوم الإصدار v*)
+  const APP_VERSION = appVersion(import.meta.url);
   const assetsDir =
     resolveFirst([
       path.join(process.cwd(), 'assets'),
@@ -114,6 +170,31 @@ async function startServer() {
 
   // Initialize and synchronize with Cloud SQL PostgreSQL
   await postgresManager.initialize(erpStore);
+
+  // ===== دوام سجل التدقيق (P0-3): كل حدث يُكتب في القاعدة =====
+  // كانت الكتابة موصولة بمسارين فقط، فسجل التدقيق يضيع مع كل إعادة تشغيل.
+  if (postgresManager.isDbAvailable()) {
+    erpStore.setAuditPersistHook((log) => {
+      void postgresManager.persistAuditLog(log);
+    });
+    // 1) تعبئة أحداث ما قبل تهيئة القاعدة (إقلاع/CSV/بذر) مرة واحدة عند قاعدة فارغة
+    try {
+      await postgresManager.backfillAuditLogs(erpStore.auditLogs as any);
+    } catch (error: any) {
+      console.warn(`⚠️ تعذّر ترحيل أحداث التدقيق السابقة: ${error?.message || error}`);
+    }
+    // 2) استعادة الأحداث الدائمة وطرف السلسلة حتى تُبنى الأحداث الجديدة فوقها
+    try {
+      const persistedLogs = await postgresManager.loadAuditLogs(2000);
+      if (persistedLogs.length > 0) {
+        const tip = persistedLogs.find((l) => l.eventHash)?.eventHash;
+        erpStore.hydrateAuditLogs(persistedLogs as any, tip);
+        console.log(`🧾 تم تحميل ${persistedLogs.length} حدث تدقيق دائماً من PostgreSQL.`);
+      }
+    } catch (error: any) {
+      console.warn(`⚠️ تعذّر تحميل سجل التدقيق الدائم: ${error?.message || error}`);
+    }
+  }
   // Restore configured regulation thresholds before any request can inspect or enforce them.
   await regulationService.initialize();
 
@@ -128,15 +209,62 @@ async function startServer() {
       const verification = advancedAuthService.verifyToken(token);
       if (verification.valid && verification.payload?.sub) {
         const jwtUser = erpStore.users.find((u) => u.id === verification.payload.sub);
-        if (jwtUser) return jwtUser;
+        // حساب معطّل لا يُصادق عليه حتى لو كان توكنه صالحاً (تعطيل فوري بلا انتظار انتهاء التوكن)
+        if (jwtUser && jwtUser.isActive !== false) return jwtUser;
       }
     }
     // الوضع الصارم: لا يسقط إلى حساب افتراضي أبداً
     if (isStrictAuth()) return null;
-    // 2) وضع العرض التجريبي (Desktop Demo)
-    const userId = (req.headers['x-user-id'] as string) || 'usr-mohamed-abdallah';
-    const user = erpStore.users.find((u) => u.id === userId) || erpStore.users[0];
+    // 2) وضع العرض التجريبي (Desktop Demo): ترويسة x-user-id **صريحة** لمستخدم قائم.
+    // لا مستخدم افتراضي صامت — غياب الترويسة أو مجهولها = لا هوية (401).
+    const rawUserId = req.headers['x-user-id'];
+    const userId = (Array.isArray(rawUserId) ? rawUserId[0] : rawUserId)?.toString().trim();
+    if (!userId) return null;
+    const user = erpStore.users.find((u) => u.id === userId);
+    if (!user || user.isActive === false) return null;
     return user;
+  }
+
+  /** Write route audit metadata only; never persist transcripts, questions, request bodies, or payload values. */
+  function writeRouteAudit(entry: Record<string, unknown>): void {
+    const actorId = String(entry.actorId ?? entry.userId ?? 'system').slice(0, 100);
+    const actor = erpStore.users.find((candidate) => candidate.id === actorId);
+    const action = String(entry.action ?? 'API_ROUTE_ACTION').slice(0, 100);
+    const entityType = String(entry.entityType ?? entry.entity ?? 'HTTP_API').slice(0, 100);
+    const entityId = String(entry.entityId ?? entry.entryId ?? entry.reference ?? entry.draftId ?? '').slice(0, 160);
+    const safeFields = new Set([
+      'kind', 'posted', 'status', 'reference', 'issueCodes', 'blockedRuleIds',
+      'warningRuleIds', 'undeterminedCount', 'completenessPercent', 'enforcementStage',
+      'intentAction', 'intentFunction', 'textLength', 'navigateTo', 'needsConfirm',
+      'actionId', 'resultStepCount', 'hasPayload', 'draftId', 'entryId', 'lines',
+      'simulated', 'basedOnAttendance', 'hasMonth', 'methodsCount', 'created', 'ok',
+      'verdict', 'confidence', 'parameterKeys', 'sourceLength', 'execution',
+    ]);
+    const metadata: Record<string, unknown> = {};
+    for (const [key, value] of Object.entries(entry)) {
+      if (!safeFields.has(key)) continue;
+      if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') {
+        metadata[key] = typeof value === 'string' ? value.slice(0, 160) : value;
+      } else if (Array.isArray(value)) {
+        metadata[key] = value.slice(0, 30).map((item) =>
+          typeof item === 'string' ? item.slice(0, 100) : item,
+        );
+      }
+    }
+    const failed = entry.ok === false || action.endsWith('_REJECTED') || action.endsWith('_FAILED');
+    erpStore.recordAudit(
+      actor?.id ?? actorId,
+      actor?.fullName ?? 'مستخدم غير معروف',
+      actor?.role ?? 'UNKNOWN',
+      actor?.organizationId ?? 'org-general',
+      action,
+      entityType,
+      entityId,
+      JSON.stringify(metadata).slice(0, 2000),
+      undefined,
+      undefined,
+      failed ? 'FAILURE' : 'SUCCESS',
+    );
   }
 
   /**
@@ -186,30 +314,160 @@ async function startServer() {
     return null;
   }
 
+  function requestOrganizationScope(res: Response, user: User, requested: unknown): string | null {
+    const scope = resolveOrganizationScope(user, requested);
+    if (!scope.ok) {
+      res.status(scope.status).json({ error: scope.error });
+      return null;
+    }
+    const organization = erpStore.organizations.find(
+      (candidate) => candidate.id === scope.organizationId && candidate.isActive,
+    );
+    if (!organization) {
+      res.status(404).json({ error: 'المؤسسة المطلوبة غير موجودة أو غير نشطة.' });
+      return null;
+    }
+    return scope.organizationId;
+  }
+
+  // ===== سياق الطلب (P0-3): عنوان IP حقيقي + معرّف ارتباط لكل طلب =====
+  // يُركَّب أولاً حتى تحمل أحداث التدقيق (بما فيها الرفض) مصدرها الحقيقي.
+  app.use(withRequestContext);
+
+  // ===== حارس التوثيق الشامل (P0-3) =====
+  // كل نقاط /api بعده تتطلب هوية صريحة، باستثناء قائمة سماح صريحة (health/login/…)
+  const apiGuard = installApiGuard(app, {
+    resolveUser: getActiveUser,
+    onRejected: (req, info) => {
+      erpStore.recordAudit(
+        'anonymous',
+        'غير موثّق',
+        'ANONYMOUS',
+        'org-general',
+        'AUTH_REQUIRED',
+        'RBAC',
+        info.path,
+        `رفض ${req.method} ${info.path} — لا هوية صريحة (${info.reason})`,
+        undefined,
+        undefined,
+        'BLOCKED'
+      );
+    },
+  });
+
+  // قراءات الموظفين وشؤونهم والحضور والرواتب تُقيَّد بمؤسسة يملكها المستخدم الموثق.
+  app.use('/api', createHrReadRouter({ authenticate: getActiveUser }));
+
+  // ===== حدود معدل صريحة للمسارات الحسّاسة =====
+  // الحد العام يعفي مدير البرنامج، ومسارات التحقق التالية تُعيد حساب تجزئات آلاف
+  // القيود والأحداث عند كل نداء (سطح إغراق حقيقي)، فتُقيَّد صراحةً بمحدِّد قياسي.
+  const healthRateLimiter = createSensitiveRateLimiter();
+  const chainVerifyRateLimiter = createSensitiveRateLimiter();
+  const auditReadRateLimiter = createSensitiveRateLimiter();
+
+  // وحدات النظام الأساسي/المالية/المحاسبة والمساعد — مسجلة بعد حارس الهوية الشامل.
+  app.use('/api/statute', createStatuteRouter({
+    authenticate: getActiveUser,
+    enforcementStage,
+    auditWrite: async (entry) => { writeRouteAudit(entry); },
+    checkFinancialRegulation: async (payload) => checkFinancialAction(
+      normalizeFinancialPayload(payload),
+      { stage: enforcementStage },
+    ),
+  }));
+  app.use('/api/financial', createFinancialRouter({
+    authenticate: getActiveUser,
+    auditWrite: writeRouteAudit,
+    enforcementStage,
+  }));
+  app.use('/api/accounting', createAccountingRouter({
+    requirePermission,
+    auditWrite: writeRouteAudit,
+    enforcementStage,
+  }));
+  app.use('/api/statutory', createStatutoryUiRouter({
+    authenticate: getActiveUser,
+    enforcementStage,
+    getDistributionModels: () => loadStatutoryDistributionModels(postgresManager.isDbAvailable()),
+  }));
+  // رابط عميق للوحدة المدمجة في SPA؛ يُستخدم عميل API نفسه كي تبقى المصادقة الحالية فعّالة.
+  // لا نقدّم ملف HTML تجريبياً مستقلاً قد يتجاوز تدفق جلسة البرنامج أو يفقد رمز JWT في الذاكرة.
+  app.get('/statutory', (_req: Request, res: Response) => {
+    res.redirect(302, '/?tab=statutory');
+  });
+  // روابط عميقة للضرائب وكسب العمل والموارد البشرية — كلها تعود إلى SPA والجلسة نفسها.
+  app.get('/taxes', (_req: Request, res: Response) => res.redirect(302, '/?tab=taxes'));
+  app.get('/payroll-tax', (_req: Request, res: Response) => res.redirect(302, '/?tab=payroll-tax'));
+  // روابط قديمة تعود إلى الشاشات الموحّدة وتفتح التبويب المقصود داخل SPA.
+  app.get('/committee-data', (_req: Request, res: Response) => res.redirect(302, '/?tab=committee-data'));
+  app.get('/models', (_req: Request, res: Response) => res.redirect(302, '/?tab=models'));
+  app.get('/einvoicing', (_req: Request, res: Response) => res.redirect(302, '/?tab=einvoicing'));
+  app.get('/e-invoicing', (_req: Request, res: Response) => res.redirect(302, '/?tab=e-invoicing'));
+  app.get('/hr', (_req: Request, res: Response) => res.redirect(302, '/?tab=hrs'));
+  app.get('/hr/biometric', (_req: Request, res: Response) => res.redirect(302, '/?tab=biometric'));
+  app.use('/api/regulations', createRegulationsRouter({ authenticate: getActiveUser }));
+  app.use('/api/tax', createTaxRouter({ authenticate: getActiveUser, auditWrite: writeRouteAudit }));
+  app.use('/api/biometric', createBiometricRouter({ authenticate: getActiveUser, auditWrite: writeRouteAudit }));
+  app.use('/api/voice-journal', createVoiceJournalRouter({ authenticate: getActiveUser, auditWrite: writeRouteAudit }));
+  app.use('/api/assistant', createGeneralAssistantRouter({ authenticate: getActiveUser, auditWrite: writeRouteAudit }));
+  app.use('/api/revenue-distribution', createDistributionRouter({ authenticate: getActiveUser }));
+
   registerAIRoutes(app);
   registerAICoreRoutes(app, { requirePermission });
   registerAIActionRoutes(app, { requirePermission });
   registerReportExportRoutes(app);
   registerEtaRoutes(app);
-  registerOperatorAssistantRoutes(app, { persistAudit: (event) => postgresManager.persistAuditLog(event) });
+  registerOperatorAssistantRoutes(app, { persistAudit: (event) => { void postgresManager.persistAuditLog(event); } });
   registerJulesRoutes(app, {
     requirePermission,
-    persistAudit: (event) => postgresManager.persistAuditLog(event),
+    persistAudit: (event) => { void postgresManager.persistAuditLog(event); },
   });
   registerAetherSwarmRoutes(app);
+
+  // ===== سرب أدوات ERP الحقيقية (يقرأ بيانات المتجر عبر الصلاحيات نفسها) =====
+  registerSwarmToolsRoutes(app, {
+    requirePermission,
+    permissionsOf: (user) => ROLE_DEFINITIONS[user.role]?.permissions === undefined
+      ? ['view:all', 'search:all', 'print:all']
+      : (ROLE_DEFINITIONS[user.role]!.permissions as string[]),
+  });
+  // نظام المهارات الموحد (Skills Unified System) — استُعيد من PR #24/#26
+  registerSkillsRoutes(app, { requirePermission });
+
+  // ===== P2: مسارات النظام (مقاييس Prometheus + صحة مفصّلة + OpenAPI) =====
+  registerSystemRoutes(app, {
+    requirePermission,
+    getActiveUser,
+    databaseStatus: () => ({
+      connected: postgresManager.isDbAvailable(),
+      mode: postgresManager.isDbAvailable() ? 'PostgreSQL (مستمر)' : 'ذاكرة داخلية (عرض)',
+    }),
+    // المسارات تأتي من الوحدات الفعلية نفسها لتطابق تطوير ESM وحزمة CJS/Electron.
+    dataPaths: () => collectDataPaths({
+      moduleDirs: {
+        unionData: CSV_IMPORT_MODULE_DIR,
+        eta: ETA_MODULE_DIR,
+        models: MODELS_MODULE_DIR,
+      },
+    }),
+  });
 
   // ==========================================
   // 1. HEALTH & SYSTEM INFO
   // ==========================================
-  app.get('/api/health', (req: Request, res: Response) => {
+  // حد معدل صريح: نقطة عامة تُقرأ منها حالة النظام — تُقيَّد لمنع الاستنطاق/الإغراق
+  app.get('/api/health', healthRateLimiter, (req: Request, res: Response) => {
     res.json({
       status: 'ok',
       system: 'Union Financial ERP - General Syndicate',
-      version: '1.1.0',
+      version: APP_VERSION,
       timestamp: new Date().toISOString(),
       rbac: {
-        activeUser: erpStore.users.find((u) => u.id === ((req.headers['x-user-id'] as string) || 'usr-mohamed-abdallah'))?.fullName || 'محمد عبد الله أحمد',
+        // نقطة عامة: تُظهر الهوية الفعلية للطلب أو «غير موثّق» — بلا مستخدم افتراضي صامت
+        activeUser: getActiveUser(req)?.fullName || 'غير موثّق (نقطة عامة)',
         readOnly: isReadOnlyUser(getActiveUser(req)),
+        authMode: isStrictAuth() ? 'strict' : 'demo',
+        rejectedApiRequests: apiGuard.rejectedCount(),
       },
       database: {
         connected: postgresManager.isDbAvailable(),
@@ -336,23 +594,11 @@ async function startServer() {
     res.json(portalDataService.getCommitteesData());
   });
 
-  // fix(security): Sensitive GET — بيانات المؤمَّن عليهم PII (الاسم/تاريخ الميلاد/الأقساط)
-  // - مصادقة وصلاحية view:all قبل إرجاع أي بيانات
-  // - تنقية معامل البحث q (بلا محارف تحكم وبطول محدود) بدلاً من تمريره خاماً
-  app.get('/api/insured-list', (req: Request, res: Response) => {
-    const user = requirePermission(req, res, 'view:all');
-    if (!user) return;
-    const q = sanitizeSearchQuery(req.query.q);
-    res.json(portalDataService.getInsuredList(q));
-  });
-
-  // fix(security): بديل POST للبحث في بيانات المؤمَّن عليهم — يُبقي معايير البحث الحساسة
-  // خارج عناوين URL وسجلات البروكسي وسجل الوصول (تُرسل في جسم الطلب بدل query string)
-  app.post('/api/insured-list/search', (req: Request, res: Response) => {
-    const user = requirePermission(req, res, 'view:all');
-    if (!user) return;
-    res.json(portalDataService.getInsuredList(sanitizeSearchQuery(req.body?.q)));
-  });
+  // بيانات المؤمَّن عليهم (PII) لا تُقرأ إلا بصلاحية وضمن مؤسسة النقابة العامة المصرح بها.
+  app.use('/api/insured-list', createInsuredListRouter({
+    authenticate: getActiveUser,
+    ...defaultInsuredListRouterDeps,
+  }));
 
   app.get('/api/journal-2024', (_req: Request, res: Response) => {
     res.json(portalDataService.getJournal2024());
@@ -394,7 +640,7 @@ async function startServer() {
       res.json({
         directory: modelsService.resolveModelsDir(),
         files: modelsService.listModels(),
-        locked: modelsService.probeFirstEncrypted ? isModelsLocked() : false,
+        locked: modelsService.probeFirstEncrypted() ? isModelsLocked() : false,
       });
     } catch (err: any) {
       res.status(500).json({ error: err.message });
@@ -944,8 +1190,20 @@ async function startServer() {
   // ==============================================================
   // سلسلة التجزئة المضادة للتلاعب (Blockchain-style Ledger Chain)
   // ==============================================================
-  app.get('/api/ledger-chain/verify', (req: Request, res: Response) => {
-    const result = verifyLedgerChain(erpStore.journalEntries);
+  // حد معدل صريح: إعادة حساب تجزئة آلاف القيود لكل نداء
+  app.get('/api/ledger-chain/verify', chainVerifyRateLimiter, async (req: Request, res: Response) => {
+    // سلسلة السجل الرسمي = القيود المخزّنة (ذات التجزئة). القيود غير المخزّنة تُبلَّغ منفصلة.
+    const durableEntries = erpStore.journalEntries.filter((e) => Boolean(e.currentHash));
+    const nonDurableCount = erpStore.journalEntries.length - durableEntries.length;
+    const result = verifyLedgerChain(durableEntries);
+    // السلسلة الذاكرية صارت تعكس الحالة الدائمة: القيود تُحمَّل بتجزئاتها من القاعدة.
+    const persistedAuditChain = postgresManager.isDbAvailable()
+      ? await postgresManager.verifyPersistedAuditChain().catch(() => undefined)
+      : undefined;
+    // مقياس الدوام الحقيقي: عدد صفوف القاعدة التي تحمل تجزئة (لا نسخة الذاكرة)
+    const persistedJournalEntries = postgresManager.isDbAvailable()
+      ? await postgresManager.countJournalEntriesWithChain().catch(() => 0)
+      : 0;
     erpStore.recordAudit(
       getActiveUser(req)?.id || 'anonymous',
       'فحص سلامة السلسلة',
@@ -956,11 +1214,21 @@ async function startServer() {
       'GLOBAL',
       `فحص سلسلة التجزئة: ${result.verifiedCount}/${result.totalEntries} قيد سليم، ${result.tamperedCount} متلاعب فيه`
     );
-    res.json(result);
+    res.json({
+      ...result,
+      // دوام السلسلة (P0-3): القيود التي تحمل تجزئة مخزّنة، وحالة سلسلة سجل التدقيق الدائم
+      persisted: {
+        journalEntriesWithChain: persistedJournalEntries,
+        journalEntriesTotal: erpStore.journalEntries.length,
+        nonDurableEntries: nonDurableCount,
+        auditChain: persistedAuditChain || null,
+      },
+    });
   });
 
   app.post('/api/ledger-chain/rebuild', (req: Request, res: Response) => {
-    const user = requirePermission(req, res, 'journal:post');
+    // إعادة بناء السلسلة تُضفي شرعية على الحالة الراهنة — لا يملكها إلا مدير النظام
+    const user = requirePermission(req, res, 'system:admin');
     if (!user) return;
     const result = rebuildLedgerChain(erpStore.journalEntries);
     erpStore.recordAudit(
@@ -1514,23 +1782,7 @@ async function startServer() {
   // 9b. EMPLOYEE AFFAIRS (شئون العاملين — استكمال الوحدة)
   // بيانات العاملين مستزرعة من «استمارة 2 تأمينات» الحقيقية
   // ==========================================
-  app.get('/api/employees', (req: Request, res: Response) => {
-    res.json(employeeAffairsService.listEmployees(req.query.search as string));
-  });
 
-  app.get('/api/employee-affairs/summary', (req: Request, res: Response) => {
-    res.json(employeeAffairsService.getSummary());
-  });
-
-  app.get('/api/employee-affairs', (req: Request, res: Response) => {
-    res.json(
-      employeeAffairsService.listAffairs({
-        employeeId: req.query.employeeId as string,
-        type: req.query.type as any,
-        status: req.query.status as string,
-      })
-    );
-  });
 
   app.post('/api/employee-affairs', (req: Request, res: Response) => {
     const user = requirePermission(req, res, 'hr:manage');
@@ -1566,10 +1818,6 @@ async function startServer() {
     } catch (err: any) {
       res.status(400).json({ error: err.message });
     }
-  });
-
-  app.get('/api/employee-advances', (req: Request, res: Response) => {
-    res.json(employeeAffairsService.listAdvances(req.query.employeeId as string));
   });
 
   app.post('/api/employee-advances', (req: Request, res: Response) => {
@@ -1637,20 +1885,6 @@ async function startServer() {
     }
   });
 
-  app.get('/api/attendance', (req: Request, res: Response) => {
-    const limit = Math.min(2000, Number(req.query.limit) || 500);
-    res.json(
-      attendanceService
-        .listRecords({
-          employeeId: req.query.employeeId as string,
-          date: req.query.date as string,
-          from: req.query.from as string,
-          to: req.query.to as string,
-        })
-        .slice(0, limit)
-    );
-  });
-
   // تسجيل بصمة (حضور/انصراف تلقائي التبديل) — وجه/إصبع/يدوي
   app.post('/api/attendance/punch', (req: Request, res: Response) => {
     const user = requirePermission(req, res, 'attendance:manage');
@@ -1712,68 +1946,16 @@ async function startServer() {
     }
   });
 
-  // الملخصات الشهرية لكل العاملين (مصدر شاشة المرتبات)
-  app.get('/api/attendance/monthly/:year/:month', (req: Request, res: Response) => {
-    const year = Number(req.params.year);
-    const month = Number(req.params.month);
-    if (!year || month < 1 || month > 12) return res.status(400).json({ error: 'سنة/شهر غير صالح.' });
-    res.json(attendanceService.getMonthSummaries(year, month));
-  });
-
-  app.get('/api/attendance/monthly/:year/:month/:employeeId', (req: Request, res: Response) => {
-    const year = Number(req.params.year);
-    const month = Number(req.params.month);
-    const emp = erpStore.employees.find((e) => e.id === req.params.employeeId || e.employeeCode === req.params.employeeId);
-    if (!emp) return res.status(404).json({ error: 'العامل غير موجود.' });
-    if (!year || month < 1 || month > 12) return res.status(400).json({ error: 'سنة/شهر غير صالح.' });
-    res.json(attendanceService.getMonthlySummary(emp, year, month));
-  });
-
   // ==========================================
   // 9c. PAYROLL (شاشة المرتبات — مسير الرواتب الشهري)
   // ==========================================
-  app.get('/api/payroll/runs', (req: Request, res: Response) => {
-    res.json(payrollService.listRuns());
-  });
-
-  // كشوف المرتبات المستوردة من الأرشيف (نماذج معتمدة)
-  app.get('/api/payroll/imported-months', (req: Request, res: Response) => {
-    res.json(
-      erpStore.payrollImports
-        .slice()
-        .sort((a: any, b: any) => a.year - b.year || a.month - b.month)
-        .map((m: any) => ({
-          id: m.id,
-          year: m.year,
-          month: m.month,
-          monthLabelAr: m.monthLabelAr,
-          employeesCount: m.employeesCount,
-          totals: m.totals,
-          entryNumber: m.entryNumber,
-          status: m.status,
-          committedAt: m.committedAt,
-          committedBy: m.committedBy,
-        }))
-    );
-  });
-
-  app.get('/api/payroll/imported-months/:id', (req: Request, res: Response) => {
-    const rec = erpStore.payrollImports.find((m: any) => m.id === req.params.id);
-    if (!rec) return res.status(404).json({ error: 'الكشف المستورد غير موجود.' });
-    res.json(rec);
-  });
-
-  app.get('/api/payroll/runs/:id', (req: Request, res: Response) => {
-    const run = payrollService.getRun(req.params.id);
-    if (!run) return res.status(404).json({ error: 'المسير غير موجود.' });
-    res.json(run);
-  });
-
   app.post('/api/payroll/runs', (req: Request, res: Response) => {
     const user = requirePermission(req, res, 'hr:manage');
     if (!user) return;
+    const organizationId = requestOrganizationScope(res, user, req.body?.organizationId);
+    if (!organizationId) return;
     try {
-      const run = payrollService.generateRun(user, req.body);
+      const run = payrollService.generateRun(user, { ...req.body, organizationId });
       res.status(201).json(run);
     } catch (err: any) {
       res.status(400).json({ error: err.message });
@@ -1783,8 +1965,10 @@ async function startServer() {
   app.post('/api/payroll/runs/:id/approve', (req: Request, res: Response) => {
     const user = requirePermission(req, res, 'hr:manage');
     if (!user) return;
+    const organizationId = requestOrganizationScope(res, user, req.query.organizationId);
+    if (!organizationId) return;
     try {
-      res.json(payrollService.approveRun(user, req.params.id));
+      res.json(payrollService.approveRun(user, req.params.id, organizationId));
     } catch (err: any) {
       res.status(400).json({ error: err.message });
     }
@@ -1793,8 +1977,10 @@ async function startServer() {
   app.post('/api/payroll/runs/:id/post', (req: Request, res: Response) => {
     const user = requirePermission(req, res, 'hr:manage');
     if (!user) return;
+    const organizationId = requestOrganizationScope(res, user, req.query.organizationId);
+    if (!organizationId) return;
     try {
-      const result = payrollService.postRun(user, req.params.id);
+      const result = payrollService.postRun(user, req.params.id, organizationId);
       postgresManager.persistJournalEntry(result.entry);
       cacheService.invalidatePrefix('cache:');
       res.json(result);
@@ -1806,8 +1992,10 @@ async function startServer() {
   app.delete('/api/payroll/runs/:id', (req: Request, res: Response) => {
     const user = requirePermission(req, res, 'hr:manage');
     if (!user) return;
+    const organizationId = requestOrganizationScope(res, user, req.query.organizationId);
+    if (!organizationId) return;
     try {
-      payrollService.deleteDraftRun(user, req.params.id);
+      payrollService.deleteDraftRun(user, req.params.id, organizationId);
       res.json({ success: true, message: 'تم حذف مسودة المسير.' });
     } catch (err: any) {
       res.status(400).json({ error: err.message });
@@ -1839,12 +2027,14 @@ async function startServer() {
   app.post('/api/payroll/import-commit', (req: Request, res: Response) => {
     const user = requirePermission(req, res, 'hr:manage');
     if (!user) return;
+    const organizationId = requestOrganizationScope(res, user, req.body?.organizationId);
+    if (!organizationId) return;
     const { months, year } = req.body;
     if (!Array.isArray(months) || months.length === 0 || !year) {
       return res.status(400).json({ error: 'بيانات الشهور المستوردة غير مكتملة.' });
     }
     try {
-      const result = payrollImportService.commitImport(user, months, Number(year));
+      const result = payrollImportService.commitImport(user, months, Number(year), organizationId);
       cacheService.invalidatePrefix('cache:');
       // ترحيل القيود المُنشأة محاسبياً (أرصدة الحسابات) ثم مزامنتها مع PostgreSQL
       // الاعتماد يتم بهوية مدير النظام تجسيداً لقاعدة فصل المهام (المنشئ ≠ المعتمد)
@@ -1872,13 +2062,73 @@ async function startServer() {
     res.json(erpStore.assets);
   });
 
-  app.get('/api/audit-logs', (req: Request, res: Response) => {
-    // ===== IMPROVEMENTS 7.2: ترقيم صفحي اختياري لسجل التدقيق =====
+  // حد معدل صريح: قراءة سجل التدقيق كاملاً + المسار الحسّاس للتدقيق
+  app.get('/api/audit-logs', auditReadRateLimiter, async (req: Request, res: Response) => {
+    // البيانات المالية/الأمنية للسجل: صلاحية تدقيق مستقلة (P0-3)
+    const auditViewer = requirePermission(req, res, 'audit:read');
+    if (!auditViewer) return;
+    const limit = Math.min(500, Number(req.query.limit) || 200);
+
+    // ===== دوام سجل التدقيق (P0-3): القاعدة هي المصدر عند توفّرها =====
+    // قبل الإصلاح كان السجل ذاكرياً فقط، فيضيع مع كل إعادة تشغيل. عند فشل القراءة
+    // الدائمة نسقط إلى نسخة الذاكرة بدل إفشال الطلب.
+    if (postgresManager.isDbAvailable()) {
+      try {
+        const offset = req.query.page
+          ? (Math.max(1, Number(req.query.page)) - 1) * limit
+          : Math.max(0, Number(req.query.offset) || 0);
+        const persisted = await postgresManager.loadAuditLogs(limit, offset);
+        if (req.query.page) {
+          return res.json({
+            data: persisted,
+            page: Math.max(1, Number(req.query.page)),
+            limit,
+            total: await postgresManager.countAuditLogs(),
+            source: 'database',
+          });
+        }
+        return res.json(persisted);
+      } catch (error: any) {
+        console.warn(`⚠️ تعذّر قراءة سجل التدقيق الدائم — الرجوع للنسخة الذاكرية: ${error?.message || error}`);
+      }
+    }
+
+    // ===== IMPROVEMENTS 7.2: ترقيم صفحي اختياري لسجل التدقيق (النسخة الذاكرية) =====
     if (req.query.page) {
       return res.json(paginationService.paginate(erpStore.auditLogs, paginationService.fromQuery(req.query as any)));
     }
-    const limit = Math.min(500, Number(req.query.limit) || 200);
     res.json(erpStore.auditLogs.slice(0, limit));
+  });
+
+  /**
+   * ===== فحص سلامة سلسلة سجل التدقيق (P0-3) =====
+   * يُعاد حساب تجزئة كل حدث من حقوله ومن تجزئة الحدث السابق؛ أي تعديل أو حذف أو
+   * إعادة ترتيب يظهر في `brokenCount` مع أول موضع مكسور.
+   */
+  // حد معدل صريح: إعادة حساب سلسلة التدقيق بالكامل
+  app.get('/api/audit-logs/verify', auditReadRateLimiter, async (req: Request, res: Response) => {
+    const user = requirePermission(req, res, 'audit:read');
+    if (!user) return;
+
+    let result;
+    if (postgresManager.isDbAvailable()) {
+      result = await postgresManager.verifyPersistedAuditChain();
+    } else {
+      result = verifyAuditLogChain(erpStore.auditLogs as any, 'memory');
+    }
+
+    erpStore.recordAudit(
+      user.id,
+      user.fullName,
+      user.role,
+      user.organizationId,
+      'AUDIT_CHAIN_VERIFIED',
+      'AUDIT_LOG',
+      'GLOBAL',
+      `فحص سلسلة سجل التدقيق (${result.source}): ${result.verifiedCount}/${result.totalEvents} حدثاً سليماً، ${result.brokenCount} مكسور`
+    );
+
+    res.json(result);
   });
 
   // ==========================================
@@ -2033,6 +2283,7 @@ async function startServer() {
   app.get('/api/regulation', (req: Request, res: Response) => {
     res.json({
       document: 'اللائحة المالية المرفقة (86 مادة) — النافذ بقِيَم منقولة من مواد الوثيقة',
+      gazetteReference: USER_PROVIDED_GAZETTE_REFERENCE,
       articles: regulationService.listArticles(),
       status: regulationService.getStatus(),
     });
@@ -2509,216 +2760,28 @@ async function startServer() {
   // ==========================================
   // 13. ACTUARIAL STUDIO & PENSION FUNDS API
   // ==========================================
-  app.get('/api/actuarial/funds', async (req: Request, res: Response) => {
-    try {
-      const { db } = await import('./src/db/index.js');
-      const schema = await import('./src/db/schema.js');
-      const funds = await db.select().from(schema.actuarialFunds);
-      res.json(funds);
-    } catch (err: any) {
-      console.error('Failed to fetch actuarial funds from PostgreSQL:', err);
-      res.status(500).json({ error: err.message });
-    }
-  });
-
-  app.post('/api/actuarial/funds', async (req: Request, res: Response) => {
-    const user = requirePermission(req, res, 'system:admin');
-    if (!user) return;
-    const body = req.body;
-    try {
-      const { db } = await import('./src/db/index.js');
-      const schema = await import('./src/db/schema.js');
-      
-      const newFund = {
-        id: `fund-${Date.now()}`,
-        code: body.code || `FND-${Math.floor(100 + Math.random() * 900)}`,
-        name: body.name,
-        type: body.type || 'PENSION',
-        currentReserve: Number(body.currentReserve) || 0,
-        targetReserve: Number(body.targetReserve) || 0,
-        actuarialSurplusDeficit: (Number(body.currentReserve) || 0) - (Number(body.targetReserve) || 0),
-        discountRate: Number(body.discountRate) || 8.5,
-        inflationRate: Number(body.inflationRate) || 12.0,
-        activeMembersCount: Number(body.activeMembersCount) || 0,
-        beneficiariesCount: Number(body.beneficiariesCount) || 0,
-        monthlyInflow: Number(body.monthlyInflow) || 0,
-        monthlyOutflow: Number(body.monthlyOutflow) || 0,
-        solvencyRatio: body.targetReserve > 0 ? ((Number(body.currentReserve) / Number(body.targetReserve)) * 100) : 100,
-        status: (Number(body.currentReserve) >= Number(body.targetReserve)) ? 'SOLVENT' : 'WARNING',
-        organizationId: body.organizationId || user.organizationId,
-        lastValuationDate: body.lastValuationDate || new Date().toISOString().split('T')[0],
-        notes: body.notes || '',
-      };
-
-      await db.insert(schema.actuarialFunds).values(newFund as any);
-
+  app.use('/api/actuarial', createActuarialRouter({
+    authenticate: getActiveUser,
+    isOrganizationActive: (organizationId) => erpStore.organizations.some(
+      (organization) => organization.id === organizationId && organization.isActive,
+    ),
+    listFunds: listActuarialFunds,
+    createFund: createActuarialFund,
+    updateFund: updateActuarialFund,
+    simulate: simulateActuarialFund,
+    recordAudit: (actor, organizationId, action, entityId, description) => {
       erpStore.recordAudit(
-        user.id,
-        user.fullName,
-        user.role,
-        user.organizationId,
-        'ACTUARIAL_FUND_CREATED',
+        actor.id,
+        actor.fullName,
+        actor.role,
+        organizationId,
+        action,
         'ACTUARIAL_STUDIO',
-        newFund.id,
-        `إضافة وتأسيس صندوق إكتواري جديد [${newFund.name}] باحتياطي مستهدف [${newFund.targetReserve.toLocaleString()} ج.م]`
+        entityId,
+        description,
       );
-
-      res.status(201).json(newFund);
-    } catch (err: any) {
-      res.status(500).json({ error: err.message });
-    }
-  });
-
-  app.put('/api/actuarial/funds/:id', async (req: Request, res: Response) => {
-    const user = getActiveUser(req);
-    if (!user) return res.status(401).json({ error: 'يلزم تسجيل الدخول (الوضع الصارم).' });
-    const { id } = req.params;
-    const body = req.body;
-    try {
-      const { db } = await import('./src/db/index.js');
-      const schema = await import('./src/db/schema.js');
-      const { eq } = await import('drizzle-orm');
-
-      const currentReserve = Number(body.currentReserve) || 0;
-      const targetReserve = Number(body.targetReserve) || 0;
-      const surplusDeficit = currentReserve - targetReserve;
-      const solvency = targetReserve > 0 ? (currentReserve / targetReserve) * 100 : 100;
-      const status = solvency >= 100 ? 'SOLVENT' : solvency >= 80 ? 'WARNING' : 'DEFICIT';
-
-      await db.update(schema.actuarialFunds)
-        .set({
-          name: body.name,
-          currentReserve,
-          targetReserve,
-          actuarialSurplusDeficit: surplusDeficit,
-          discountRate: Number(body.discountRate) || 8.5,
-          inflationRate: Number(body.inflationRate) || 12.0,
-          activeMembersCount: Number(body.activeMembersCount) || 0,
-          beneficiariesCount: Number(body.beneficiariesCount) || 0,
-          monthlyInflow: Number(body.monthlyInflow) || 0,
-          monthlyOutflow: Number(body.monthlyOutflow) || 0,
-          solvencyRatio: solvency,
-          status,
-          notes: body.notes,
-          lastValuationDate: body.lastValuationDate || new Date().toISOString().split('T')[0],
-        })
-        .where(eq(schema.actuarialFunds.id, id));
-
-      erpStore.recordAudit(
-        user.id,
-        user.fullName,
-        user.role,
-        user.organizationId,
-        'ACTUARIAL_FUND_VALUATION_UPDATED',
-        'ACTUARIAL_STUDIO',
-        id,
-        `تحديث التقييم الإكتواري للصندوق [${body.name}] بنسبة ملاءة [${solvency.toFixed(1)}%]`
-      );
-
-      res.json({ success: true, message: 'تم تحديث بيانات الصندوق والدراسة الإكتوارية بنجاح.' });
-    } catch (err: any) {
-      res.status(500).json({ error: err.message });
-    }
-  });
-
-  app.post('/api/actuarial/simulate', async (req: Request, res: Response) => {
-    try {
-      const {
-        fundId,
-        horizonYears = 10,
-        expectedAnnualReturn = 9.5,
-        expectedInflation = 11.0,
-        pensionIncreaseRate = 8.0,
-        memberGrowthRate = 2.5,
-        retirementRate = 4.0,
-      } = req.body;
-
-      const { db } = await import('./src/db/index.js');
-      const schema = await import('./src/db/schema.js');
-      const { eq } = await import('drizzle-orm');
-
-      let fundName = 'صندوق المعاشات النقابي';
-      let currentReserve = 14500000;
-      let monthlyInflow = 850000;
-      let monthlyOutflow = 960000;
-
-      if (fundId) {
-        const found = await db.select().from(schema.actuarialFunds).where(eq(schema.actuarialFunds.id, fundId)).limit(1);
-        if (found.length > 0) {
-          fundName = found[0].name;
-          currentReserve = found[0].currentReserve;
-          monthlyInflow = found[0].monthlyInflow;
-          monthlyOutflow = found[0].monthlyOutflow;
-        }
-      }
-
-      // Mathematical Actuarial Projection Engine
-      const currentYear = 2026;
-      let reserve = currentReserve;
-      let annualInflow = monthlyInflow * 12;
-      let annualOutflow = monthlyOutflow * 12;
-      let depletionYear: number | null = null;
-      const projections: any[] = [];
-
-      for (let y = 1; y <= horizonYears; y++) {
-        const yearNumber = currentYear + y;
-        
-        // Inflow grows with member growth & inflation indexing
-        annualInflow = annualInflow * (1 + (memberGrowthRate + expectedInflation * 0.3) / 100);
-        // Outflow grows with retirement rate & pension cost-of-living adjustments
-        annualOutflow = annualOutflow * (1 + (pensionIncreaseRate + retirementRate * 0.4) / 100);
-        
-        // Investment yield earned on average reserve
-        const investmentReturn = reserve > 0 ? (reserve * (expectedAnnualReturn / 100)) : 0;
-        const netCashFlow = annualInflow + investmentReturn - annualOutflow;
-        
-        reserve += netCashFlow;
-
-        if (reserve <= 0 && depletionYear === null) {
-          depletionYear = yearNumber;
-        }
-
-        const requiredReserveAtYear = annualOutflow * 3.5; // 3.5 years safety buffer standard
-        const solvency = requiredReserveAtYear > 0 ? (Math.max(0, reserve) / requiredReserveAtYear) * 100 : 0;
-
-        projections.push({
-          year: yearNumber,
-          yearLabel: `${yearNumber}`,
-          projectedReserve: Math.round(reserve),
-          projectedContributions: Math.round(annualInflow),
-          projectedBenefitsPaid: Math.round(annualOutflow),
-          netCashFlow: Math.round(netCashFlow),
-          solvencyRatio: Number(solvency.toFixed(1)),
-          isSolvent: reserve > 0,
-        });
-      }
-
-      const sustainableYears = depletionYear ? (depletionYear - currentYear) : horizonYears;
-      const summaryStatus = !depletionYear ? 'HEALTHY' : sustainableYears >= 7 ? 'MODERATE_RISK' : 'HIGH_DEFICIT_RISK';
-      
-      const recIncrease = summaryStatus === 'HIGH_DEFICIT_RISK' ? 18.5 : summaryStatus === 'MODERATE_RISK' ? 9.0 : 0;
-      const recReserve = summaryStatus === 'HIGH_DEFICIT_RISK' ? Math.round(Math.abs(reserve) * 0.4) : 0;
-
-      const actuarialOpinion = summaryStatus === 'HEALTHY'
-        ? `يتمتع الصندوق بمتانة مالية واحتياطي استثماري مستقر يلبي التزامات المعاشات والمزايا للأعضاء على مدى ${horizonYears} سنوات قادمة بمعدل عائد متوقع ${expectedAnnualReturn}%.`
-        : `تظهر المحاكاة ضغطاً إكتوارياً مستقبلياً مع احتمالية استنزاف الاحتياطي بحلول عام ${depletionYear}. يُوصى بزيادة اشتراكات الصندوق بنسبة لا تقل عن ${recIncrease}% ورفع العائد الاستثماري لمحافظ الودائع وصناديق الاستثمار.`;
-
-      res.json({
-        fundId,
-        fundName,
-        horizonYears,
-        depletionYear,
-        sustainableYears,
-        recommendedContributionIncrease: recIncrease,
-        recommendedReserveInjection: recReserve,
-        summaryStatus,
-        actuarialOpinion,
-        projections,
-      });
-    } catch (err: any) {
-      res.status(500).json({ error: err.message });
-    }
-  });
+    },
+  }));
 
   // ==========================================
   // 13b. معالجة المسارات غير المعروفة وأخطاء الـ API (Phase 2)
@@ -2731,8 +2794,20 @@ async function startServer() {
   if (process.env.NODE_ENV !== 'production') {
     // استيراد Vite مؤجل: لا يُحمَّل إطلاقاً في الإنتاج (خاصة داخل حزمة Electron)
     const { createServer: createViteServer } = await import('vite');
+    const hmrClientPort = Number(process.env.VITE_HMR_CLIENT_PORT);
+    const viteHmr =
+      process.env.DISABLE_HMR === 'true'
+        ? false
+        : {
+            // Use the public app's HTTP server for HMR instead of opening Vite's
+            // separate 24678 listener. Behind HTTPS proxies, set client port 443.
+            server: httpServer,
+            ...(Number.isInteger(hmrClientPort) && hmrClientPort > 0 && hmrClientPort <= 65535
+              ? { clientPort: hmrClientPort }
+              : {}),
+          };
     const vite = await createViteServer({
-      server: { middlewareMode: true },
+      server: { middlewareMode: true, hmr: viteHmr },
       appType: 'spa',
     });
     app.use(vite.middlewares);
@@ -2757,7 +2832,6 @@ async function startServer() {
 
   app.use(apiErrorHandler);
 
-  const httpServer = http.createServer(app);
   attachLiveAgentWebSocketServer(httpServer);
   attachAetherSwarmLiveSocket(httpServer);
 

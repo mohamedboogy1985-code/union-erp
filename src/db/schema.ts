@@ -1,4 +1,4 @@
-import { pgTable, text, serial, integer, doublePrecision, boolean, timestamp, index, numeric } from 'drizzle-orm/pg-core';
+import { pgTable, text, serial, integer, doublePrecision, boolean, timestamp, index, uniqueIndex, numeric, jsonb } from 'drizzle-orm/pg-core';
 import { relations } from 'drizzle-orm';
 
 // 1. Users
@@ -27,6 +27,8 @@ export const organizations = pgTable('organizations', {
 
 // 3. Chart of Accounts (COA - Egyptian Syndicate Accounting Standard)
 // تم إصلاح P1: currentBalance من doublePrecision إلى numeric(18,2) لدقة محاسبية
+// ملاحظة: كل أعمدة numeric تُقرأ بوضع `mode: 'number'` — بدونها يعيد Drizzle/pg القيمة نصاً (string)،
+// فيتحول الجمع في التقارير ولوحة التحكم إلى لصق أرقام (مثال: "2500000" + "500000") وتظهر مجاميع فلكية.
 export const accounts = pgTable('accounts', {
   id: text('id').primaryKey(),
   code: text('code').notNull().unique(),
@@ -39,7 +41,7 @@ export const accounts = pgTable('accounts', {
   isActive: boolean('is_active').notNull().default(true),
   requiresSubledger: boolean('requires_subledger').notNull().default(false),
   subledgerType: text('subledger_type').default('NONE'), // MISC_DEBTOR, MISC_CREDITOR, MEMBER, SUPPLIER, NONE
-  currentBalance: numeric('current_balance', { precision: 18, scale: 2 }).notNull().default('0'),
+  currentBalance: numeric('current_balance', { precision: 18, scale: 2, mode: 'number' }).notNull().default(0),
   organizationId: text('organization_id').notNull().default('org-union-main'),
   createdAt: timestamp('created_at').defaultNow(),
 }, (table) => [
@@ -60,7 +62,7 @@ export const subledgerParties = pgTable('subledger_parties', {
   address: text('address'),
   taxRegistrationNumber: text('tax_registration_number'), // السجل الضريبي للشركات والمستشفيات
   commercialRegister: text('commercial_register'), // السجل التجاري
-  balance: numeric('balance', { precision: 18, scale: 2 }).notNull().default('0'),
+  balance: numeric('balance', { precision: 18, scale: 2, mode: 'number' }).notNull().default(0),
   organizationId: text('organization_id').notNull().default('org-union-main'),
   createdAt: timestamp('created_at').defaultNow(),
 }, (table) => [
@@ -75,8 +77,8 @@ export const costCenters = pgTable('cost_centers', {
   code: text('code').notNull().unique(),
   name: text('name').notNull(),
   type: text('type').notNull().default('PROJECT'), // PROJECT, COMMITTEE, FUND, ACTIVITY, BRANCH
-  budgetLimit: numeric('budget_limit', { precision: 18, scale: 2 }).notNull().default('0'),
-  currentSpent: numeric('current_spent', { precision: 18, scale: 2 }).notNull().default('0'),
+  budgetLimit: numeric('budget_limit', { precision: 18, scale: 2, mode: 'number' }).notNull().default(0),
+  currentSpent: numeric('current_spent', { precision: 18, scale: 2, mode: 'number' }).notNull().default(0),
   organizationId: text('organization_id').notNull().default('org-union-main'),
   createdAt: timestamp('created_at').defaultNow(),
 });
@@ -104,13 +106,17 @@ export const journalEntries = pgTable('journal_entries', {
   type: text('type').notNull().default('MANUAL'), // MANUAL, RECEIPT_AUTO, CLOSING, ADJUSTMENT, REVERSAL
   journalName: text('journal_name').notNull().default('يومية النقابة'), // اسم دفتر اليومية (دفاتر منفصلة)
   status: text('status').notNull().default('DRAFT'), // DRAFT, REVIEWED, POSTED, REJECTED, REVERSED
-  totalDebit: numeric('total_debit', { precision: 18, scale: 2 }).notNull().default('0'),
-  totalCredit: numeric('total_credit', { precision: 18, scale: 2 }).notNull().default('0'),
+  totalDebit: numeric('total_debit', { precision: 18, scale: 2, mode: 'number' }).notNull().default(0),
+  totalCredit: numeric('total_credit', { precision: 18, scale: 2, mode: 'number' }).notNull().default(0),
   createdById: text('created_by_id').notNull(),
   approvedById: text('approved_by_id'),
   reversalOfEntryId: text('reversal_of_entry_id'),
   isReversed: boolean('is_reversed').notNull().default(false),
   checksum: text('checksum').notNull(),
+  // سلسلة تجزئة الأستاذ الدائمة (P0-3): تُكتب عند الترحيل وتُتحقق بعد إعادة التشغيل
+  previousHash: text('previous_hash'),
+  currentHash: text('current_hash'),
+  chainIndex: integer('chain_index'),
   createdAt: timestamp('created_at').defaultNow(),
 }, (table) => [
   index('journal_entries_org_idx').on(table.organizationId),
@@ -128,8 +134,8 @@ export const journalLines = pgTable('journal_lines', {
   subledgerPartyId: text('subledger_party_id'),
   subledgerPartyNameInput: text('subledger_party_name_input'),
   costCenterId: text('cost_center_id'),
-  debit: numeric('debit', { precision: 18, scale: 2 }).notNull().default('0'),
-  credit: numeric('credit', { precision: 18, scale: 2 }).notNull().default('0'),
+  debit: numeric('debit', { precision: 18, scale: 2, mode: 'number' }).notNull().default(0),
+  credit: numeric('credit', { precision: 18, scale: 2, mode: 'number' }).notNull().default(0),
   description: text('description'),
   attachmentUrl: text('attachment_url'), // رابط صورة الفاتورة أو المستند الورقي المرفوع بالـ OCR
   aiConfidenceScore: doublePrecision('ai_confidence_score'), // نسبة دقة قراءة الذكاء الاصطناعي — يبقى double
@@ -149,7 +155,7 @@ export const receipts = pgTable('receipts', {
   payerName: text('payer_name').notNull(),
   memberId: text('member_id'),
   revenueTypeId: text('revenue_type_id').notNull(),
-  amount: numeric('amount', { precision: 18, scale: 2 }).notNull().default('0'),
+  amount: numeric('amount', { precision: 18, scale: 2, mode: 'number' }).notNull().default(0),
   paymentMethod: text('payment_method').notNull().default('CASH'), // CASH, CHEQUE, BANK_TRANSFER, POS, VISA
   notes: text('notes'),
   date: text('date').notNull(),
@@ -186,7 +192,7 @@ export const revenueTypes = pgTable('revenue_types', {
   id: text('id').primaryKey(),
   code: text('code').notNull().unique(),
   name: text('name').notNull(),
-  defaultAmount: numeric('default_amount', { precision: 18, scale: 2 }).default('0'),
+  defaultAmount: numeric('default_amount', { precision: 18, scale: 2, mode: 'number' }).default(0),
   creditAccountId: text('credit_account_id').notNull(),
   debitAccountId: text('debit_account_id').notNull(),
   isActive: boolean('is_active').notNull().default(true),
@@ -199,7 +205,7 @@ export const revenueDistributionRules = pgTable('revenue_distribution_rules', {
   id: text('id').primaryKey(),
   revenueTypeId: text('revenue_type_id').notNull(),
   name: text('name').notNull(),
-  percentage: numeric('percentage', { precision: 5, scale: 2 }).notNull(),
+  percentage: numeric('percentage', { precision: 5, scale: 2, mode: 'number' }).notNull(),
   targetAccountId: text('target_account_id').notNull(),
   costCenterId: text('cost_center_id'),
   isActive: boolean('is_active').notNull().default(true),
@@ -235,6 +241,105 @@ export const regulationRules = pgTable('regulation_rules', {
   updatedAt: timestamp('updated_at').notNull().defaultNow(),
 });
 
+// 15. Statutory source registry and searchable document corpus.
+export const regulationSources = pgTable('regulation_sources', {
+  id: text('id').primaryKey(),
+  code: text('code').notNull().unique(),
+  titleAr: text('title_ar').notNull(),
+  subtitleAr: text('subtitle_ar').notNull().default(''),
+  kindAr: text('kind_ar').notNull().default(''),
+  authorityAr: text('authority_ar').notNull().default(''),
+  issueRefAr: text('issue_ref_ar').notNull().default(''),
+  issuedAt: text('issued_at'),
+  pagesCount: integer('pages_count').notNull().default(0),
+  fileName: text('file_name').notNull().default(''),
+  sha256: text('sha256'),
+  hasTextLayer: boolean('has_text_layer').notNull().default(true),
+  extractionAr: text('extraction_ar').notNull().default(''),
+  docsCount: integer('docs_count').notNull().default(0),
+  unitLabelAr: text('unit_label_ar').notNull().default('مادة'),
+  statusAr: text('status_ar').notNull().default(''),
+  notesAr: text('notes_ar').notNull().default(''),
+  createdAt: timestamp('created_at').defaultNow(),
+});
+
+export const regulationDocuments = pgTable('regulation_documents', {
+  id: text('id').primaryKey(),
+  sourceId: text('source_id').notNull(),
+  sourceTitleAr: text('source_title_ar').notNull().default(''),
+  refCode: text('ref_code').notNull().default(''),
+  articleNumber: text('article_number'),
+  kindAr: text('kind_ar').notNull().default('مادة'),
+  orderIndex: integer('order_index').notNull().default(0),
+  pageNumber: integer('page_number'),
+  chapterAr: text('chapter_ar'),
+  titleAr: text('title_ar').notNull().default(''),
+  textAr: text('text_ar').notNull(),
+  tagsAr: jsonb('tags_ar').notNull(),
+  enforcementRuleIdsAr: jsonb('enforcement_rule_ids_ar').notNull(),
+  ocrDerived: boolean('ocr_derived').notNull().default(false),
+  searchAr: text('search_ar').notNull().default(''),
+  createdAt: timestamp('created_at').defaultNow(),
+}, (table) => [
+  index('regulation_documents_source_idx').on(table.sourceId),
+  index('regulation_documents_article_idx').on(table.sourceId, table.articleNumber),
+  index('regulation_documents_page_idx').on(table.sourceId, table.pageNumber),
+]);
+
+// Article (2) spreadsheet-derived distribution models. These are reference/calculation
+// models only: they deliberately have no general-ledger account mapping.
+export const statutoryDistributionModels = pgTable('statutory_distribution_models', {
+  id: text('id').primaryKey(),
+  code: text('code').notNull().unique(),
+  modelKind: text('model_kind').notNull(),
+  titleAr: text('title_ar').notNull(),
+  articleNo: text('article_no').notNull(),
+  isActive: boolean('is_active').notNull().default(false),
+  postingEnabled: boolean('posting_enabled').notNull().default(false),
+  postingBlockReasonAr: text('posting_block_reason_ar').notNull().default(''),
+  sourceFile: text('source_file').notNull(),
+  sourcePath: text('source_path').notNull(),
+  sourceSheetAr: text('source_sheet_ar').notNull(),
+  sourceCommit: text('source_commit').notNull(),
+  sourceSha256: text('source_sha256').notNull(),
+  sourceRowCount: integer('source_row_count').notNull(),
+  basisAr: text('basis_ar').notNull(),
+  calculationAr: text('calculation_ar').notNull(),
+  scopeAr: text('scope_ar').notNull(),
+  shareConfig: jsonb('share_config').notNull(),
+  totals: jsonb('totals'),
+  openItemsAr: jsonb('open_items_ar').notNull(),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+  updatedAt: timestamp('updated_at').notNull().defaultNow(),
+});
+
+export const statutoryDistributionModelRows = pgTable('statutory_distribution_model_rows', {
+  id: text('id').primaryKey(),
+  modelId: text('model_id').notNull().references(() => statutoryDistributionModels.id, { onDelete: 'cascade' }),
+  sequenceNo: integer('sequence_no').notNull(),
+  sourceRow: integer('source_row').notNull(),
+  nameAr: text('name_ar').notNull(),
+  governorateAr: text('governorate_ar'),
+  memberCount: integer('member_count'),
+  membershipFeePerMember: numeric('membership_fee_per_member', { precision: 18, scale: 2, mode: 'number' }),
+  receiptRangeAr: text('receipt_range_ar'),
+  receiptsCount: integer('receipts_count'),
+  receiptFee: numeric('receipt_fee', { precision: 18, scale: 2, mode: 'number' }),
+  grossCollected: numeric('gross_collected', { precision: 18, scale: 2, mode: 'number' }),
+  educationSupport: numeric('education_support', { precision: 18, scale: 2, mode: 'number' }),
+  distributionBase: numeric('distribution_base', { precision: 18, scale: 2, mode: 'number' }),
+  generalShare: numeric('general_share', { precision: 18, scale: 2, mode: 'number' }),
+  committeeShare: numeric('committee_share', { precision: 18, scale: 2, mode: 'number' }),
+  federationShare: numeric('federation_share', { precision: 18, scale: 2, mode: 'number' }),
+  printingShare: numeric('printing_share', { precision: 18, scale: 2, mode: 'number' }),
+  generalCollected: numeric('general_collected', { precision: 18, scale: 2, mode: 'number' }),
+  calculated: boolean('calculated').notNull().default(false),
+  sourceFormulas: jsonb('source_formulas').notNull().default({}),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+}, (table) => [
+  uniqueIndex('statutory_distribution_model_rows_model_sequence_unique').on(table.modelId, table.sequenceNo),
+]);
+
 // 15. Immutable Audit Logs & Anti-Fraud Trace
 export const auditLogs = pgTable('audit_logs', {
   id: text('id').primaryKey(),
@@ -248,6 +353,15 @@ export const auditLogs = pgTable('audit_logs', {
   organizationId: text('organization_id').notNull().default('org-union-main'),
   details: text('details').notNull(),
   ipAddress: text('ip_address').default('127.0.0.1'),
+  correlationId: text('correlation_id'),
+  status: text('status').notNull().default('SUCCESS'), // SUCCESS, FAILURE, BLOCKED
+  // الحالتان قبل/بعد التغيير: جزء من مضمون التجزئة (تعديل نص الحدث يجب أن يكسر السلسلة)
+  previousState: jsonb('previous_state'),
+  newState: jsonb('new_state'),
+  // سلسلة تجزئة دائمة (P0-3): كل حدث مربوط بتجزئة الحدث السابق — أي تعديل يكسر السلسلة
+  previousHash: text('previous_hash'),
+  eventHash: text('event_hash'),
+  sequence: integer('sequence'), // ترتيب أحادي متزايد داخل السلسلة (فهرس فريد يمنع إعادة الكتابة)
   createdAt: timestamp('created_at').defaultNow(),
 }, (table) => [
   index('audit_logs_user_idx').on(table.userId),
@@ -255,6 +369,8 @@ export const auditLogs = pgTable('audit_logs', {
   index('audit_logs_timestamp_idx').on(table.timestamp),
   index('audit_logs_entity_idx').on(table.entityType, table.entityId),
   index('audit_logs_org_idx').on(table.organizationId),
+  uniqueIndex('audit_logs_sequence_unique').on(table.sequence),
+  index('audit_logs_previous_hash_idx').on(table.previousHash),
 ]);
 
 // 15. Actuarial Funds & Pension Reserves (صناديق المعاشات والتكافل والدراسات الإكتوارية)
@@ -263,15 +379,15 @@ export const actuarialFunds = pgTable('actuarial_funds', {
   code: text('code').notNull().unique(),
   name: text('name').notNull(),
   type: text('type').notNull().default('PENSION'), // PENSION, SOLIDARITY, HEALTHCARE, EMERGENCY, SOCIAL_ACTIVITY
-  currentReserve: numeric('current_reserve', { precision: 18, scale: 2 }).notNull().default('0'),
-  targetReserve: numeric('target_reserve', { precision: 18, scale: 2 }).notNull().default('0'),
-  actuarialSurplusDeficit: numeric('actuarial_surplus_deficit', { precision: 18, scale: 2 }).notNull().default('0'),
+  currentReserve: numeric('current_reserve', { precision: 18, scale: 2, mode: 'number' }).notNull().default(0),
+  targetReserve: numeric('target_reserve', { precision: 18, scale: 2, mode: 'number' }).notNull().default(0),
+  actuarialSurplusDeficit: numeric('actuarial_surplus_deficit', { precision: 18, scale: 2, mode: 'number' }).notNull().default(0),
   discountRate: doublePrecision('discount_rate').notNull().default(8.5),
   inflationRate: doublePrecision('inflation_rate').notNull().default(12.0),
   activeMembersCount: integer('active_members_count').notNull().default(0),
   beneficiariesCount: integer('beneficiaries_count').notNull().default(0),
-  monthlyInflow: numeric('monthly_inflow', { precision: 18, scale: 2 }).notNull().default('0'),
-  monthlyOutflow: numeric('monthly_outflow', { precision: 18, scale: 2 }).notNull().default('0'),
+  monthlyInflow: numeric('monthly_inflow', { precision: 18, scale: 2, mode: 'number' }).notNull().default(0),
+  monthlyOutflow: numeric('monthly_outflow', { precision: 18, scale: 2, mode: 'number' }).notNull().default(0),
   solvencyRatio: doublePrecision('solvency_ratio').notNull().default(100.0),
   status: text('status').notNull().default('SOLVENT'), // SOLVENT, WARNING, DEFICIT, CRITICAL
   organizationId: text('organization_id').notNull().default('org-union-main'),

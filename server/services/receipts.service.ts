@@ -96,11 +96,19 @@ export class ReceiptsService {
     ];
 
     for (const alloc of allocations) {
+      // تربط قاعدة التوزيع التشغيلية الحساب بمعرّف المتجر؛ لا نستبدله بحساب إيراد اعتباطي.
+      const resolvedAccount = erpStore.accounts.find(
+        (account) => account.id === alloc.accountId || account.code === alloc.accountId,
+      );
+      if (!resolvedAccount || resolvedAccount.isParent) {
+        throw new Error(`حساب التوزيع غير موجود أو تجميعي (${alloc.accountId}). حدّث قاعدة التوزيع قبل إصدار الإيصال.`);
+      }
       journalLines.push({
-        accountId: alloc.accountId,
+        accountId: resolvedAccount.id,
         debit: 0,
         credit: alloc.allocatedAmount,
         description: `توزيع إيراد إيصال [${receiptNumber}] لصالح [${alloc.beneficiaryOrgName}] بنسبة (${alloc.percentage}%)`,
+        subledgerPartyNameInput: alloc.beneficiaryOrgName,
       });
     }
 

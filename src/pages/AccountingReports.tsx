@@ -15,6 +15,7 @@ import {
 } from 'lucide-react';
 import { api } from '../services/api.js';
 import { PrintHeader } from '../components/PrintHeader.js';
+import { buildReportCsv } from '../utils/report-csv.js';
 import {
   Account,
   GeneralLedgerReportItem,
@@ -158,8 +159,36 @@ export const AccountingReports: React.FC<AccountingReportsProps> = ({
     window.print();
   };
 
+  /** تصدير حقيقي: يبني ملف CSV من البيانات المحمّلة في التبويب الحالي وينزّله */
   const handleExportCSV = () => {
-    onShowToast('success', 'تم تصدير كشف الحساب والبيانات إلى ملف Excel/CSV بنجاح.');
+    const title = REPORT_TITLES[activeReportTab] || 'تقرير محاسبي';
+    let file: { fileName: string; content: string };
+    try {
+      file = buildReportCsv({
+        reportTab: activeReportTab,
+        title,
+        startDate,
+        endDate,
+        statement,
+        glItems,
+        receiptsPayments,
+        incomeExpense,
+        trialBalance,
+      });
+    } catch {
+      onShowToast('info', 'لا توجد بيانات بعد للتصدير في هذا التبويب.');
+      return;
+    }
+    const blob = new Blob([file.content], { type: 'text/csv;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = file.fileName;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+    onShowToast('success', 'تم تصدير التقرير إلى ملف CSV/Excel بنجاح.');
   };
 
   const REPORT_TITLES: Record<string, string> = {
