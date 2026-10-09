@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { BookOpen, Search, FileSpreadsheet, Plus, Edit2, Trash2, PlusCircle, Mic, MicOff, Video, VideoOff, Volume2, Sparkles, Building2, Printer } from 'lucide-react';
 import { api } from '../services/api.js';
 import { JournalRow, User } from '../types/erp.js';
@@ -321,21 +321,26 @@ export const Journal2024Viewer: React.FC<Journal2024ViewerProps> = ({
     });
   };
 
-  const filtered = rows.filter((r) => {
-    if (!searchQuery.trim()) return true;
+  // Memoize row filtering and sum calculation to prevent unnecessary O(n) filtering and array iteration
+  // on every render (such as audio/video timer ticks or form input state updates in the modal).
+  const filtered = useMemo(() => {
+    if (!searchQuery.trim()) return rows;
     const q = searchQuery.trim();
-    return (
-      r.description.includes(q) ||
-      r.date.includes(q) ||
-      r.debitAccount.includes(q) ||
-      r.creditAccount.includes(q) ||
-      r.amount.includes(q) ||
-      r.permitNo.includes(q) ||
-      r.checkNo.includes(q)
+    return rows.filter(
+      (r) =>
+        r.description.includes(q) ||
+        r.date.includes(q) ||
+        r.debitAccount.includes(q) ||
+        r.creditAccount.includes(q) ||
+        r.amount.includes(q) ||
+        r.permitNo.includes(q) ||
+        r.checkNo.includes(q)
     );
-  });
+  }, [rows, searchQuery]);
 
-  const total = filtered.reduce((s, r) => s + (Number(r.amount) || 0), 0);
+  const total = useMemo(() => {
+    return filtered.reduce((s, r) => s + (Number(r.amount) || 0), 0);
+  }, [filtered]);
 
   return (
     <div className="p-6 max-w-7xl mx-auto space-y-6">
