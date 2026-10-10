@@ -20,6 +20,7 @@ import { registerOperatorAssistantRoutes } from './server/routes/operator-assist
 import { registerJulesRoutes } from './server/routes/jules.routes.js';
 import { registerSkillsRoutes } from './server/routes/skills.routes.js';
 import { attachAetherSwarmLiveSocket, registerAetherSwarmRoutes } from './server/routes/aetherswarm.routes.js';
+import { attachTranscriptionStudioSocket, registerTranscriptionStudioRoutes } from './server/routes/transcription-studio.routes.js';
 import { configureAdminCredentials, configureUserCredentials, publicUser } from './server/security/admin-credentials.js';
 import { receiptsService } from './server/services/receipts.service.js';
 import { reportsService } from './server/services/reports.service.js';
@@ -423,6 +424,7 @@ async function startServer() {
     persistAudit: (event) => { void postgresManager.persistAuditLog(event); },
   });
   registerAetherSwarmRoutes(app);
+  registerTranscriptionStudioRoutes(app);
 
   // ===== سرب أدوات ERP الحقيقية (يقرأ بيانات المتجر عبر الصلاحيات نفسها) =====
   registerSwarmToolsRoutes(app, {
@@ -2834,6 +2836,7 @@ async function startServer() {
 
   attachLiveAgentWebSocketServer(httpServer);
   attachAetherSwarmLiveSocket(httpServer);
+  attachTranscriptionStudioSocket(httpServer);
 
   // استعادة كشوف المرتبات المستوردة المعتمدة سابقاً
   const restoredImports = payrollImportService.loadPersistedImports();

@@ -83,6 +83,7 @@
   "author": "mohamedboogy1985-code",
   "license": "MIT",
   "dependencies": {
+    "@fontsource/cairo": "^5.3.0",
     "@google/genai": "^2.19.0",
     "@types/pg": "^8.23.1",
     "axios": "^1.20.0",
@@ -111,6 +112,7 @@
     "pino-pretty": "^10.3.1",
     "react": "^19.0.1",
     "react-dom": "^19.0.1",
+    "recharts": "^3.10.1",
     "redis": "^4.7.1",
     "ws": "^8.21.3"
   },
