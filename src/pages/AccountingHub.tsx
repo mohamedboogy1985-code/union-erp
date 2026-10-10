@@ -11,7 +11,6 @@ import {
   Landmark,
   Bot,
   BadgePercent,
-  GraduationCap,
 } from 'lucide-react';
 import { JournalEntries } from './JournalEntries.js';
 import { AccountingReports } from './AccountingReports.js';
@@ -36,8 +35,7 @@ export type AccountingTabId =
   | 'journal2024'
   | 'balance-sheet'
   | 'assets'
-  | 'voice-agent'
-  | 'training-hr-shortcut';
+  | 'voice-agent';
 
 interface AccountingHubProps {
   organizationId: string;
@@ -48,8 +46,6 @@ interface AccountingHubProps {
   ) => void;
   /** الوحدة الفرعية المفتوحة عند الوصول (أو عند التنقل من روابط داخلية قديمة) */
   initialTab?: AccountingTabId;
-  /** يفتح الموارد البشرية في بوابة التدريب، دون تمرير بيانات النقابة إلى شاشة HR. */
-  onOpenTrainingHr: () => void;
 }
 
 const SUB_TABS: ModuleTabDef<AccountingTabId>[] = [
@@ -77,12 +73,6 @@ const SUB_TABS: ModuleTabDef<AccountingTabId>[] = [
     icon: Bot,
     badge: 'إملاء ← اعتماد',
   },
-  {
-    id: 'training-hr-shortcut',
-    label: 'الموارد البشرية — بوابة التدريب',
-    icon: GraduationCap,
-    badge: 'سياق بيانات منفصل',
-  },
 ];
 
 export const AccountingHub: React.FC<AccountingHubProps> = ({
@@ -90,7 +80,6 @@ export const AccountingHub: React.FC<AccountingHubProps> = ({
   currentUser,
   onShowToast,
   initialTab = 'journals',
-  onOpenTrainingHr,
 }) => {
   const [activeTab, setActiveTab] = useState<AccountingTabId>(initialTab);
 
@@ -105,13 +94,7 @@ export const AccountingHub: React.FC<AccountingHubProps> = ({
         title="المحاسبة والمالية — وحدة موحدة"
         tabs={SUB_TABS}
         activeId={activeTab}
-        onChange={(tab) => {
-          if (tab === 'training-hr-shortcut') {
-            onOpenTrainingHr();
-            return;
-          }
-          setActiveTab(tab);
-        }}
+        onChange={setActiveTab}
       />
 
       <div>

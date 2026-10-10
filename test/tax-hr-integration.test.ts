@@ -67,8 +67,7 @@ test('tax and HR hubs are reachable from their portals, assistant navigation, an
   assert.match(layoutSource, /selectedGateway === 'syndicate'[\s\S]*accountingIndex[\s\S]*hr-training-shortcut[\s\S]*tax-training-shortcut/, 'HR and tax shortcuts should appear directly below Accounting in the syndicate sidebar');
   assert.match(layoutSource, /label: 'الموارد البشرية — بوابة التدريب'/, 'the sidebar should visibly label HR as a training-context shortcut');
   assert.match(layoutSource, /label: 'الضرائب وكسب العمل — بوابة التدريب'/, 'the sidebar should visibly label taxes as a training-context shortcut');
-  assert.match(accountingHubSource, /label: 'الموارد البشرية — بوابة التدريب'/, 'HR should be discoverable under Accounting and Finance with an explicit scope label');
-  assert.match(accountingHubSource, /tab === 'training-hr-shortcut'[\s\S]*onOpenTrainingHr\(\)/, 'the Accounting shortcut must switch portal context instead of opening HR under the union organization');
+  assert.doesNotMatch(accountingHubSource, /training-hr-shortcut/, 'the Accounting shortcut must not embed HR in the syndicate portal');
   assert.match(layoutSource, /item\.action === 'open-training-hr' \|\| item\.action === 'open-training-taxes'[\s\S]*onOpenTrainingHr\(item\.action === 'open-training-taxes' \? 'taxes' : 'employees'\)/, 'both shortcuts must explicitly switch to the appropriate training hub tab');
   assert.match(appSource, /const handleOpenTrainingHr = \(initialTab: 'employees' \| 'taxes' = 'employees'\) => \{[\s\S]*setSelectedGateway\('training'\)[\s\S]*setSelectedOrgId\(trainingPortal\.organizationId\)[\s\S]*setCurrentTab\(initialTab === 'taxes' \? 'taxes' : 'hrs'\)/);
   assert.match(appSource, /onOpenTrainingHr=\{handleOpenTrainingHr\}/);
