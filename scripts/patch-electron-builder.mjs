@@ -2,7 +2,8 @@
 // `npm list -a --long` ينهار صامتاً (exit 1 بلا مخرجات) في npm الجديدة،
 // فيفشل البناء بـ "No JSON content found in output".
 // الحل: إزالة العلم `-a` (العُمق الكامل هو الافتراضي في npm >= 11).
-import { existsSync, globSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, readFileSync, writeFileSync } from "node:fs";
+import * as nodeFs from "node:fs";
 import { join } from "node:path";
 
 const targetFile = join(
@@ -16,9 +17,9 @@ const targetFile = join(
 
 const files = existsSync(targetFile)
   ? [targetFile]
-  : globSync("node_modules/app-builder-lib/out/**/npmNodeModulesCollector.js", {
-      cwd: process.cwd(),
-    });
+  : (typeof nodeFs.globSync === 'function'
+      ? nodeFs.globSync("node_modules/app-builder-lib/out/**/npmNodeModulesCollector.js", { cwd: process.cwd() })
+      : []);
 
 const needle = '["list", "-a", "--include", "prod"';
 const desired = '["list", "--include", "prod"';
