@@ -23,6 +23,7 @@ import type { RegulationBudgetsTabId } from './pages/RegulationBudgetsHub.js';
 
 const RegulationBudgetsHub = lazy(() => import('./pages/RegulationBudgetsHub.js').then((m) => ({ default: m.RegulationBudgetsHub })));
 const AetherSwarmApp = lazy(() => import('./aetherswarm/AetherSwarmApp.js').then((m) => ({ default: m.AetherSwarmApp })));
+const AudioTranscriptionStudio = lazy(() => import('./pages/AudioTranscriptionStudio.js').then((m) => ({ default: m.AudioTranscriptionStudio })));
 
 // الصفحات المعزولة الأقل استخداماً — تُحمَّل كسولاً (lazy) لتقسيم الحزمة الرئيسية
 // وتقليل الإقلاع. تُقسّم كل صفحة إلى حزمتها الخاصة عبر Vite/Rollup.
@@ -328,7 +329,6 @@ export function App() {
               currentUser={currentUser}
               onShowToast={showToast}
               initialTab={ACCOUNTING_HUB_ALIASES[currentTab]}
-              onOpenTrainingHr={handleOpenTrainingHr}
             />
           </ErrorBoundary>
         ) : null}
@@ -384,6 +384,14 @@ currentTab === 'membership' ||
           <ErrorBoundary label="سرب الوكيل AetherSwarm" onNavigate={setCurrentTab}>
             <Suspense fallback={lazyFallback('سرب الوكيل AetherSwarm')}>
               <AetherSwarmApp />
+            </Suspense>
+          </ErrorBoundary>
+        ) : null}
+
+        {currentTab === 'audio-studio' ? (
+          <ErrorBoundary label="استوديو تفريغ وتحليل الصوت" onNavigate={setCurrentTab}>
+            <Suspense fallback={lazyFallback('استوديو تفريغ وتحليل الصوت')}>
+              <AudioTranscriptionStudio />
             </Suspense>
           </ErrorBoundary>
         ) : null}
