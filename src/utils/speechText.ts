@@ -315,59 +315,110 @@ export function splitSpokenSentences(text: string, maxLength = 110): string[] {
   return sentences;
 }
 
+// Pre-compiled regular expressions for optimal string transformation performance
+const RE_MULTISPACE = /\s+/g;
+const RE_PUNCT_SPACES = /\s+([،.؟!])/g;
+const RE_DUP_PUNCT = /([،.])\1+/g;
+const RE_WAW_SPACE = /(^|\s)و\s+(?=[\u0621-\u064A])/g;
+const RE_COMMA_DOT = /،\s*\./g;
+const RE_DOT_COMMA = /\.\s*،/g;
+const RE_TATWEEL = /\s*ـ\s*/g;
+const RE_LEADING_PUNCT = /^[،.\s]+/;
+
+const RE_CODEBLOCK = /```[\s\S]*?```/g;
+const RE_INLINE_CODE = /`[^`]*`/g;
+const RE_HTTP = /https?:\/\/\S+/gi;
+const RE_WWW = /www\.\S+/gi;
+const RE_HTML = /<\/?[a-z][^>]*>/gi;
+const RE_BULLETS = /^[ \t]*[-*•‣▪●○]\s+/gm;
+const RE_MARKDOWN = /[|#*_~^]/g;
+const RE_BRACKETS = /[()[\]{}]/g;
+const RE_QUOTES = /[«»"'”“’‘]/g;
+const RE_ARROWS = /[→←↑↓↔►⇒]/g;
+const RE_DOT_BULLETS = /[•▪●○]/g;
+const RE_MULT = /×/g;
+const RE_DIV = /÷/g;
+const RE_EQ = /=/g;
+const RE_BI = /(^|\s)بـ\s+/g;
+const RE_LAM = /(^|\s)ل\s+/g;
+const RE_EMOJI = /\p{Extended_Pictographic}/gu;
+const RE_COLONS = /[:؛]/g;
+const RE_AMP = /\s*&\s*/g;
+const RE_PLUS = /\s*\+\s*/g;
+const RE_ELLIPSIS = /…/g;
+const RE_DASHES = /[-–—]{1,}/g;
+
+const RE_DATE_DMY = /\b(\d{1,2})[\/-](\d{1,2})[\/-](\d{4})\b/g;
+const RE_DATE_YMD = /\b(\d{4})[\/-](\d{1,2})[\/-](\d{1,2})\b/g;
+const RE_DATE_MY = /\b(\d{1,2})[\/-](\d{4})\b/g;
+
+const RE_IDENTIFIER = /\b([A-Z]{2,6})-(\d{2,4})-?(\d{1,4})\b/g;
+const RE_CODE_LABEL = /(كود|الكود|حساب|الحساب|قيد|القيد|رقم القيد|رقم المستند|بصمة رقم)[\s،]*(\d{2,})/g;
+const RE_PERCENT = /(\d[\d,]*(?:\.\d+)?)\s*(?:%|٪)/g;
+const RE_PCT_SYMBOL = /\s*%\s*/g;
+const RE_ARABIC_PCT = /٪/g;
+const RE_SLASH_OR = /\s*\/\s*/g;
+const RE_DASH_COMMA = /\s*[-–—]\s*/g;
+const RE_YEAR = /\b(1[89]\d{2}|20\d{2})\b/g;
+const RE_NEGATIVE = /(?<=^|\s)-(\d[\d,]*(?:\.\d+)?)/g;
+const RE_RANGE = /(\d[\d,]*(?:\.\d+)?)\s*-\s*(\d[\d,]*(?:\.\d+)?)/g;
+const RE_MONEY = /(\d[\d,]*(?:\.\d{1,2})?)\s*(?:ج\.?م|ج(?![\u0621-\u064A])|جنيه(?:اً|ًا)?|جنيهاً|EGP)/g;
+const RE_AMOUNT = /-?(\d[\d,]*(?:\.\d+)?)/g;
+const RE_ZERO_FRACTION = /^0+$/;
+
 function normalizeSpacing(text: string): string {
   return text
-    .replace(/\s+/g, " ")
-    .replace(/\s+([،.؟!])/g, "$1")
-    .replace(/([،.])\1+/g, "$1")
-    .replace(/(^|\s)و\s+(?=[\u0621-\u064A])/g, "$1و")
-    .replace(/،\s*\./g, ".")
-    .replace(/\.\s*،/g, ".")
-    .replace(/\s*ـ\s*/g, "")
-    .replace(/^[،.\s]+/, "")
+    .replace(RE_MULTISPACE, " ")
+    .replace(RE_PUNCT_SPACES, "$1")
+    .replace(RE_DUP_PUNCT, "$1")
+    .replace(RE_WAW_SPACE, "$1و")
+    .replace(RE_COMMA_DOT, ".")
+    .replace(RE_DOT_COMMA, ".")
+    .replace(RE_TATWEEL, "")
+    .replace(RE_LEADING_PUNCT, "")
     .trim();
 }
 
 function stripSymbols(text: string): string {
   return text
-    .replace(/```[\s\S]*?```/g, " ")
-    .replace(/`[^`]*`/g, " ")
-    .replace(/https?:\/\/\S+/gi, " ")
-    .replace(/www\.\S+/gi, " ")
-    .replace(/<\/?[a-z][^>]*>/gi, " ")
-    .replace(/^[ \t]*[-*•‣▪●○]\s+/gm, "")
-    .replace(/[|#*_~^]/g, " ")
-    .replace(/[()[\]{}]/g, " ")
-    .replace(/[«»"'”“’‘]/g, " ")
-    .replace(/[→←↑↓↔►⇒]/g, "، ")
-    .replace(/[•▪●○]/g, "، ")
-    .replace(/×/g, " في ")
-    .replace(/÷/g, " على ")
-    .replace(/=/g, " يساوي ")
-    .replace(/(^|\s)بـ\s+/g, "$1بقيمةِ ")
-    .replace(/(^|\s)ل\s+/g, "$1ل")
-    .replace(/\p{Extended_Pictographic}/gu, " ")
-    .replace(/[:؛]/g, "،")
-    .replace(/\s*&\s*/g, " و ")
-    .replace(/\s*\+\s*/g, " و ")
-    .replace(/…/g, "،")
-    .replace(/[-–—]{1,}/g, "-");
+    .replace(RE_CODEBLOCK, " ")
+    .replace(RE_INLINE_CODE, " ")
+    .replace(RE_HTTP, " ")
+    .replace(RE_WWW, " ")
+    .replace(RE_HTML, " ")
+    .replace(RE_BULLETS, " ")
+    .replace(RE_MARKDOWN, " ")
+    .replace(RE_BRACKETS, " ")
+    .replace(RE_QUOTES, " ")
+    .replace(RE_ARROWS, "، ")
+    .replace(RE_DOT_BULLETS, "، ")
+    .replace(RE_MULT, " في ")
+    .replace(RE_DIV, " على ")
+    .replace(RE_EQ, " يساوي ")
+    .replace(RE_BI, "$1بقيمةِ ")
+    .replace(RE_LAM, "$1ل")
+    .replace(RE_EMOJI, " ")
+    .replace(RE_COLONS, "،")
+    .replace(RE_AMP, " و ")
+    .replace(RE_PLUS, " و ")
+    .replace(RE_ELLIPSIS, "،")
+    .replace(RE_DASHES, "-");
 }
 
 function convertDates(text: string): string {
   return text
     .replace(
-      /\b(\d{1,2})[\/-](\d{1,2})[\/-](\d{4})\b/g,
+      RE_DATE_DMY,
       (_all, day: string, month: string, year: string) =>
         `يوم ${arabicIntegerWords(Number(day))} من شهر ${MONTHS[Number(month) - 1] ?? month} ${arabicYearWords(Number(year))}`,
     )
     .replace(
-      /\b(\d{4})[\/-](\d{1,2})[\/-](\d{1,2})\b/g,
+      RE_DATE_YMD,
       (_all, year: string, month: string, day: string) =>
         `يوم ${arabicIntegerWords(Number(day))} من شهر ${MONTHS[Number(month) - 1] ?? month} ${arabicYearWords(Number(year))}`,
     )
     .replace(
-      /\b(\d{1,2})[\/-](\d{4})\b/g,
+      RE_DATE_MY,
       (_all, month: string, year: string) =>
         `شهر ${MONTHS[Number(month) - 1] ?? month} ${arabicYearWords(Number(year))}`,
     );
@@ -375,7 +426,7 @@ function convertDates(text: string): string {
 
 function convertIdentifiers(text: string): string {
   return text.replace(
-    /\b([A-Z]{2,6})-(\d{2,4})-?(\d{1,4})\b/g,
+    RE_IDENTIFIER,
     (_all, prefix: string, first: string, second: string) => {
       const label = ID_PREFIXES[prefix.toUpperCase()] ?? prefix;
       const firstValue = Number(first);
@@ -391,7 +442,7 @@ function convertIdentifiers(text: string): string {
 
 function convertCodes(text: string): string {
   return text.replace(
-    /(كود|الكود|حساب|الحساب|قيد|القيد|رقم القيد|رقم المستند|بصمة رقم)[\s،]*(\d{2,})/g,
+    RE_CODE_LABEL,
     (_all, label: string, digits: string) =>
       `${label} ${arabicDigitsWords(digits)}`,
   );
@@ -399,7 +450,7 @@ function convertCodes(text: string): string {
 
 function convertPercent(text: string): string {
   return text.replace(
-    /(\d[\d,]*(?:\.\d+)?)\s*(?:%|٪)/g,
+    RE_PERCENT,
     (_all, amount: string) => {
       const value = Number(amount.replace(/,/g, ""));
       if (!Number.isFinite(value)) return amount;
@@ -410,46 +461,46 @@ function convertPercent(text: string): string {
 
 function convertTrailingSymbols(text: string): string {
   return text
-    .replace(/\s*%\s*/g, " بالمائة ")
-    .replace(/٪/g, " بالمائة ")
-    .replace(/\s*\/\s*/g, " أو ")
-    .replace(/\s*[-–—]\s*/g, "، ");
+    .replace(RE_PCT_SYMBOL, " بالمائة ")
+    .replace(RE_ARABIC_PCT, " بالمائة ")
+    .replace(RE_SLASH_OR, " أو ")
+    .replace(RE_DASH_COMMA, "، ");
 }
 
 function convertYears(text: string): string {
-  return text.replace(/\b(1[89]\d{2}|20\d{2})\b/g, (_all, year: string) =>
+  return text.replace(RE_YEAR, (_all, year: string) =>
     arabicYearWords(Number(year)),
   );
 }
 
 function convertNegatives(text: string): string {
-  return text.replace(/(?<=^|\s)-(\d[\d,]*(?:\.\d+)?)/g, "سالب $1");
+  return text.replace(RE_NEGATIVE, "سالب $1");
 }
 
 function convertRanges(text: string): string {
   return text.replace(
-    /(\d[\d,]*(?:\.\d+)?)\s*-\s*(\d[\d,]*(?:\.\d+)?)/g,
+    RE_RANGE,
     "من $1 إلى $2",
   );
 }
 
 function convertMoney(text: string): string {
   return text.replace(
-    /(\d[\d,]*(?:\.\d{1,2})?)\s*(?:ج\.?م|ج(?![\u0621-\u064A])|جنيه(?:اً|ًا)?|جنيهاً|EGP)/g,
+    RE_MONEY,
     (_all, amount: string) =>
       arabicMoneyWords(Number(amount.replace(/,/g, ""))),
   );
 }
 
 function convertAmounts(text: string): string {
-  return text.replace(/-?(\d[\d,]*(?:\.\d+)?)/g, (_all, raw: string) => {
+  return text.replace(RE_AMOUNT, (_all, raw: string) => {
     const negative = raw.startsWith("-");
     const cleaned = raw.replace(/[-,]/g, "");
     const value = Number(cleaned);
     if (!Number.isFinite(value)) return raw;
     if (cleaned.includes(".")) {
       const [whole, fraction] = cleaned.split(".");
-      const words = /^0+$/.test(fraction)
+      const words = RE_ZERO_FRACTION.test(fraction)
         ? arabicIntegerWords(Number(whole))
         : `${arabicIntegerWords(Number(whole))} فاصلة ${arabicDigitsWords(fraction)}`;
       return negative ? `سالب ${words}` : words;
@@ -508,8 +559,11 @@ function applyTashkeel(text: string): string {
     .join(" ");
 }
 
-export function toSpokenArabic(input: string, maxSentenceLength = 110): string {
-  if (!input) return "";
+// Bounded LRU cache to memoize TTS text transformations for fast response times
+const SPOKEN_ARABIC_CACHE = new Map<string, string>();
+const MAX_CACHE_ENTRIES = 500;
+
+function computeSpokenArabic(input: string, maxSentenceLength: number): string {
   let text = stripSymbols(input);
   text = convertDates(text);
   text = convertIdentifiers(text);
@@ -525,6 +579,24 @@ export function toSpokenArabic(input: string, maxSentenceLength = 110): string {
   text = applyTashkeel(text);
   const sentences = splitSpokenSentences(text, maxSentenceLength);
   return normalizeSpacing(sentences.join(" "));
+}
+
+export function toSpokenArabic(input: string, maxSentenceLength = 110): string {
+  if (!input) return "";
+  const cacheKey = maxSentenceLength === 110 ? input : `${maxSentenceLength}:${input}`;
+  const cached = SPOKEN_ARABIC_CACHE.get(cacheKey);
+  if (cached !== undefined) return cached;
+
+  const result = computeSpokenArabic(input, maxSentenceLength);
+
+  if (SPOKEN_ARABIC_CACHE.size >= MAX_CACHE_ENTRIES) {
+    const oldestKey = SPOKEN_ARABIC_CACHE.keys().next().value;
+    if (oldestKey !== undefined) {
+      SPOKEN_ARABIC_CACHE.delete(oldestKey);
+    }
+  }
+  SPOKEN_ARABIC_CACHE.set(cacheKey, result);
+  return result;
 }
 
 export function containsDigits(text: string): boolean {
