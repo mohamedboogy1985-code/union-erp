@@ -1,7 +1,13 @@
 import assert from 'node:assert/strict';
 import { after, test } from 'node:test';
 import React, { act, useState } from 'react';
-import { JSDOM } from 'jsdom';
+import { createRequire } from 'node:module';
+const require = createRequire(import.meta.url);
+const wt = require('node:worker_threads');
+if (!wt.markAsUncloneable) {
+  Object.defineProperty(wt, 'markAsUncloneable', { value: () => {}, writable: true, configurable: true });
+}
+const { JSDOM } = await import('jsdom');
 import type { User } from '../src/types/erp.js';
 import type { AssistantStatus, AssistantTurnResult } from '../src/types/operator-assistant.js';
 

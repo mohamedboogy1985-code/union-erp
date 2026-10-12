@@ -64,7 +64,8 @@ test('tax and HR hubs are reachable from their portals, assistant navigation, an
   assert.equal(screensForPortal('syndicate').some((screen) => hrScreenIds.includes(screen.id)), false);
   assert.equal(screensForPortal('committees').some((screen) => screen.id === 'taxes' || screen.id === 'biometric'), false);
   assert.match(layoutSource, /selectedGateway === 'committees'[\s\S]*hr-training-shortcut[\s\S]*tax-training-shortcut/, 'the committees portal should show separate HR and tax shortcuts to the training portal');
-  assert.match(layoutSource, /selectedGateway === 'syndicate'[\s\S]*accountingIndex[\s\S]*hr-training-shortcut[\s\S]*tax-training-shortcut/, 'HR and tax shortcuts should appear directly below Accounting in the syndicate sidebar');
+  assert.match(layoutSource, /selectedGateway === 'syndicate'[\s\S]*accountingIndex[\s\S]*tax-training-shortcut/, 'tax shortcut should appear directly below Accounting in the syndicate sidebar');
+  assert.doesNotMatch(layoutSource, /selectedGateway === 'syndicate'[^]*?trainingShortcuts = \[[^\]]*?hr-training-shortcut/, 'HR shortcut must not appear in the syndicate training shortcuts list');
   assert.match(layoutSource, /label: 'الموارد البشرية — بوابة التدريب'/, 'the sidebar should visibly label HR as a training-context shortcut');
   assert.match(layoutSource, /label: 'الضرائب وكسب العمل — بوابة التدريب'/, 'the sidebar should visibly label taxes as a training-context shortcut');
   assert.doesNotMatch(accountingHubSource, /training-hr-shortcut/, 'the Accounting shortcut must not embed HR in the syndicate portal');
