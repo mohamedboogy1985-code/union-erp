@@ -3,23 +3,31 @@
  * Used for Subledger Parties, Debtors (1301), Vendors, and Members
  */
 
+// Pre-compiled regular expressions for optimal Arabic normalization performance
+const RE_MULTISPACE = /\s+/g;
+const RE_ALEF = /[أإآٱ]/g;
+const RE_TAA_MARBOUTA = /ة/g;
+const RE_YAA = /ى/g;
+const RE_TASHKEEL = /[\u064B-\u065F\u0670]/g;
+const RE_TATWEEL = /\u0640/g;
+
 export function normalizeArabicText(text: string): string {
   if (!text) return '';
 
   return text
     .trim()
     // Replace multiple spaces with a single space
-    .replace(/\s+/g, ' ')
+    .replace(RE_MULTISPACE, ' ')
     // Normalize Alefs
-    .replace(/[أإآٱ]/g, 'ا')
+    .replace(RE_ALEF, 'ا')
     // Normalize Taa Marbouta to Haa
-    .replace(/ة/g, 'ه')
+    .replace(RE_TAA_MARBOUTA, 'ه')
     // Normalize Yaa
-    .replace(/ى/g, 'ي')
+    .replace(RE_YAA, 'ي')
     // Remove Arabic diacritics (Tashkeel)
-    .replace(/[\u064B-\u065F\u0670]/g, '')
+    .replace(RE_TASHKEEL, '')
     // Remove Tatweel (Kashida)
-    .replace(/\u0640/g, '')
+    .replace(RE_TATWEEL, '')
     // Lowercase for any Latin characters
     .toLowerCase();
 }
@@ -34,29 +42,31 @@ export function calculateSimilarity(str1: string, str2: string): number {
   if (s1 === s2) return 1.0;
   if (!s1.length || !s2.length) return 0.0;
 
-  const track = Array(s2.length + 1)
-    .fill(null)
-    .map(() => Array(s1.length + 1).fill(null));
+  // Optimized memory allocation: use two 1D rows instead of full 2D matrix (O(N) vs O(N*M))
+  let prevRow = new Int32Array(s1.length + 1);
+  let currRow = new Int32Array(s1.length + 1);
 
-  for (let i = 0; i <= s1.length; i += 1) {
-    track[0][i] = i;
-  }
-  for (let j = 0; j <= s2.length; j += 1) {
-    track[j][0] = j;
+  for (let i = 0; i <= s1.length; i++) {
+    prevRow[i] = i;
   }
 
-  for (let j = 1; j <= s2.length; j += 1) {
-    for (let i = 1; i <= s1.length; i += 1) {
-      const indicator = s1[i - 1] === s2[j - 1] ? 0 : 1;
-      track[j][i] = Math.min(
-        track[j][i - 1] + 1, // deletion
-        track[j - 1][i] + 1, // insertion
-        track[j - 1][i - 1] + indicator // substitution
+  for (let j = 1; j <= s2.length; j++) {
+    currRow[0] = j;
+    const char2 = s2[j - 1];
+    for (let i = 1; i <= s1.length; i++) {
+      const indicator = s1[i - 1] === char2 ? 0 : 1;
+      currRow[i] = Math.min(
+        currRow[i - 1] + 1,        // insertion
+        prevRow[i] + 1,            // deletion
+        prevRow[i - 1] + indicator  // substitution
       );
     }
+    const temp = prevRow;
+    prevRow = currRow;
+    currRow = temp;
   }
 
-  const distance = track[s2.length][s1.length];
+  const distance = prevRow[s1.length];
   const maxLength = Math.max(s1.length, s2.length);
   return 1 - distance / maxLength;
 }
