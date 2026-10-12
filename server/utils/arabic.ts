@@ -32,59 +32,39 @@ export function normalizeArabicText(text: string): string {
     .toLowerCase();
 }
 
-const MAX_SIMILARITY_LEN = 250;
-
 /**
  * Calculates Levenshtein similarity ratio between 0 and 1
  */
 export function calculateSimilarity(str1: string, str2: string): number {
-  if (!str1 || !str2) return 0.0;
-
-  // Guard input lengths to guarantee bounded iteration
-  const safe1 = str1.length > MAX_SIMILARITY_LEN ? str1.slice(0, MAX_SIMILARITY_LEN) : str1;
-  const safe2 = str2.length > MAX_SIMILARITY_LEN ? str2.slice(0, MAX_SIMILARITY_LEN) : str2;
-
-  const s1 = normalizeArabicText(safe1);
-  const s2 = normalizeArabicText(safe2);
+  const s1 = normalizeArabicText(str1);
+  const s2 = normalizeArabicText(str2);
 
   if (s1 === s2) return 1.0;
   if (!s1.length || !s2.length) return 0.0;
 
-  const len1 = s1.length;
-  const len2 = s2.length;
+  const track = Array(s2.length + 1)
+    .fill(null)
+    .map(() => Array(s1.length + 1).fill(null));
 
-  // Convert to typed Uint16 character code arrays for high-performance integer comparisons
-  const code1 = new Uint16Array(len1);
-  for (let i = 0; i < len1; i++) code1[i] = s1.charCodeAt(i);
-
-  const code2 = new Uint16Array(len2);
-  for (let i = 0; i < len2; i++) code2[i] = s2.charCodeAt(i);
-
-  // Optimized memory allocation: use two 1D rows instead of full 2D matrix (O(N) vs O(N*M))
-  let prevRow = new Int32Array(len1 + 1);
-  let currRow = new Int32Array(len1 + 1);
-
-  for (let i = 0; i <= len1; i++) {
-    prevRow[i] = i;
+  for (let i = 0; i <= s1.length; i += 1) {
+    track[0][i] = i;
+  }
+  for (let j = 1; j <= s2.length; j += 1) {
+    track[j][0] = j;
   }
 
-  for (let j = 1; j <= len2; j++) {
-    currRow[0] = j;
-    const char2 = code2[j - 1];
-    for (let i = 1; i <= len1; i++) {
-      const indicator = code1[i - 1] === char2 ? 0 : 1;
-      currRow[i] = Math.min(
-        currRow[i - 1] + 1,        // insertion
-        prevRow[i] + 1,            // deletion
-        prevRow[i - 1] + indicator  // substitution
+  for (let j = 1; j <= s2.length; j += 1) {
+    for (let i = 1; i <= s1.length; i += 1) {
+      const indicator = s1[i - 1] === s2[j - 1] ? 0 : 1;
+      track[j][i] = Math.min(
+        track[j][i - 1] + 1, // deletion
+        track[j - 1][i] + 1, // insertion
+        track[j - 1][i - 1] + indicator // substitution
       );
     }
-    const temp = prevRow;
-    prevRow = currRow;
-    currRow = temp;
   }
 
-  const distance = prevRow[len1];
-  const maxLength = Math.max(len1, len2);
+  const distance = track[s2.length][s1.length];
+  const maxLength = Math.max(s1.length, s2.length);
   return 1 - distance / maxLength;
 }
