@@ -38,24 +38,28 @@ const MAX_SIMILARITY_LEN = 250;
  * Calculates Levenshtein similarity ratio between 0 and 1
  */
 export function calculateSimilarity(str1: string, str2: string): number {
-  const s1 = normalizeArabicText(str1).slice(0, MAX_SIMILARITY_LEN);
-  const s2 = normalizeArabicText(str2).slice(0, MAX_SIMILARITY_LEN);
+  const s1 = normalizeArabicText(str1);
+  const s2 = normalizeArabicText(str2);
 
   if (s1 === s2) return 1.0;
   if (!s1.length || !s2.length) return 0.0;
 
-  // Optimized memory allocation: use two 1D rows instead of full 2D matrix (O(N) vs O(N*M))
-  let prevRow = new Int32Array(s1.length + 1);
-  let currRow = new Int32Array(s1.length + 1);
+  // Bound lengths with explicit Math.min to cap iteration bounds and eliminate CodeQL warnings
+  const len1 = Math.min(s1.length, MAX_SIMILARITY_LEN);
+  const len2 = Math.min(s2.length, MAX_SIMILARITY_LEN);
 
-  for (let i = 0; i <= s1.length; i++) {
+  // Optimized memory allocation: use two 1D rows instead of full 2D matrix (O(N) vs O(N*M))
+  let prevRow = new Int32Array(len1 + 1);
+  let currRow = new Int32Array(len1 + 1);
+
+  for (let i = 0; i <= len1; i++) {
     prevRow[i] = i;
   }
 
-  for (let j = 1; j <= s2.length; j++) {
+  for (let j = 1; j <= len2; j++) {
     currRow[0] = j;
     const char2 = s2[j - 1];
-    for (let i = 1; i <= s1.length; i++) {
+    for (let i = 1; i <= len1; i++) {
       const indicator = s1[i - 1] === char2 ? 0 : 1;
       currRow[i] = Math.min(
         currRow[i - 1] + 1,        // insertion
@@ -68,7 +72,7 @@ export function calculateSimilarity(str1: string, str2: string): number {
     currRow = temp;
   }
 
-  const distance = prevRow[s1.length];
-  const maxLength = Math.max(s1.length, s2.length);
+  const distance = prevRow[len1];
+  const maxLength = Math.max(len1, len2);
   return 1 - distance / maxLength;
 }
