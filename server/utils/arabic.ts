@@ -32,12 +32,14 @@ export function normalizeArabicText(text: string): string {
     .toLowerCase();
 }
 
+const MAX_SIMILARITY_LEN = 250;
+
 /**
  * Calculates Levenshtein similarity ratio between 0 and 1
  */
 export function calculateSimilarity(str1: string, str2: string): number {
-  const s1 = normalizeArabicText(str1);
-  const s2 = normalizeArabicText(str2);
+  const s1 = normalizeArabicText(str1).slice(0, MAX_SIMILARITY_LEN);
+  const s2 = normalizeArabicText(str2).slice(0, MAX_SIMILARITY_LEN);
 
   if (s1 === s2) return 1.0;
   if (!s1.length || !s2.length) return 0.0;
