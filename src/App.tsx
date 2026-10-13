@@ -152,11 +152,13 @@ const INITIAL_DEEP_LINK_TABS = new Set([
   'hrs', 'employees', 'payroll', 'attendance', 'biometric', 'biometric-attendance', 'advances',
   'actuarial', 'insured-list', 'insured-actuarial',
   'aihub', 'aiHub', 'ai', 'liveagent', 'accountant', 'customagent', 'swarm', 'aetherswarm',
+  'audio-studio', 'audio', 'transcription', 'audio_studio',
 ]);
 
 function initialTabFromSearch(search: string): string {
   const requested = new URLSearchParams(search).get('tab');
   if (requested && LEGACY_AI_TABS.has(requested)) return 'aetherswarm';
+  if (requested && (requested === 'audio' || requested === 'audio_studio' || requested === 'transcription')) return 'audio-studio';
   return requested && INITIAL_DEEP_LINK_TABS.has(requested) ? requested : 'portals';
 }
 
@@ -298,6 +300,7 @@ export function App() {
             <Gateways
               onSelectGateway={handleSelectGateway}
               onOpenAgent={() => setCurrentTab('aetherswarm')}
+              onOpenAudioStudio={() => setCurrentTab('audio-studio')}
               onShowToast={showToast}
             />
           </ErrorBoundary>
@@ -388,9 +391,9 @@ currentTab === 'membership' ||
           </ErrorBoundary>
         ) : null}
 
-        {currentTab === 'audio-studio' ? (
-          <ErrorBoundary label="استوديو تفريغ وتحليل الصوت" onNavigate={setCurrentTab}>
-            <Suspense fallback={lazyFallback('استوديو تفريغ وتحليل الصوت')}>
+        {(currentTab === 'audio-studio' || currentTab === 'audio' || currentTab === 'transcription' || currentTab === 'audio_studio') ? (
+          <ErrorBoundary label="استوديو نسخ الصوت (Audio Transcription Studio)" onNavigate={setCurrentTab}>
+            <Suspense fallback={lazyFallback('استوديو نسخ الصوت')}>
               <AudioTranscriptionStudio />
             </Suspense>
           </ErrorBoundary>

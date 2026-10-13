@@ -2,6 +2,7 @@ import React, { Suspense, lazy, useCallback, useState } from 'react';
 import {
   BookOpenCheck,
   Bot,
+  ExternalLink,
   Gavel,
   Landmark,
   Library,
@@ -154,6 +155,41 @@ export const RegulationBudgetsHub: React.FC<RegulationBudgetsHubProps> = ({
 
       {visibleSection === 'financial' && (
         <section className="space-y-4" aria-label="اللوائح والموازنات">
+          {/* شريط الإشعار بالمرجعية التشريعية: قانون العمل رقم 14 لسنة 2025 */}
+          <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-2.5 rounded-xl bg-slate-900 border border-emerald-500/30 text-xs shadow-sm">
+            <div className="flex items-center gap-2">
+              <span className="px-2 py-0.5 rounded-md bg-emerald-500/20 text-emerald-300 font-bold text-[10.5px] border border-emerald-500/40">
+                مرجع تشريعي 2025
+              </span>
+              <span className="text-slate-200">
+                قانون رقم 14 لسنة 2025 بإصدار قانون العمل (الجريدة الرسمية 3 مايو 2025 — يلغي ق 12 لسنة 2003)
+              </span>
+            </div>
+            <div className="flex items-center gap-3">
+              <button
+                type="button"
+                onClick={() => {
+                  setActiveSection('financial');
+                  setActiveFinancialTab('regulations-library');
+                }}
+                className="text-[11px] text-teal-400 hover:text-teal-300 underline font-semibold"
+              >
+                استعراض في مكتبة اللوائح
+              </button>
+              <span className="text-slate-700">|</span>
+              <a
+                href="https://www.labour.gov.eg/media/0iedik3q/%D8%A7%D9%84%D9%82%D8%A7%D9%86%D9%88%D9%86-%D8%B1%D9%82%D9%85-14-%D9%84%D8%B3%D9%86%D8%A9-2025-%D8%A8%D8%A5%D8%B5%D8%AF%D8%A7%D8%B1-%D9%82%D8%A7%D9%86%D9%88%D9%86-%D8%A7%D9%84%D8%B9%D9%85%D9%84.pdf"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1 text-[11px] text-emerald-400 hover:text-emerald-300 font-bold"
+                title="فتح ملف PDF الأصلي من بوابة وزارة العمل المصرية"
+              >
+                <span>فتح PDF وزارة العمل</span>
+                <ExternalLink className="w-3.5 h-3.5" />
+              </a>
+            </div>
+          </div>
+
           <ModuleTabs
             title="اللوائح والموازنات"
             tabs={FINANCIAL_TABS}
