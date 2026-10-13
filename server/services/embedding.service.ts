@@ -26,6 +26,8 @@ export interface EmbeddingRecord {
   type: string;
   reference: string;
   keywords: string[];
+  tfidfVector?: Map<number, number>;
+  normalizedKeywords?: string[];
 }
 
 export interface RagSearchResult {
@@ -175,6 +177,12 @@ class EmbeddingService {
       this.tfidfIdf.set(term, Math.log((total + 1) / (df + 1)) + 1);
       this.tfidfVocab.set(term, index++);
     }
+    // Performance optimization: Pre-calculate document TF-IDF vectors and normalized keywords
+    // once during index creation so searchLocal doesn't re-calculate them for every query.
+    for (const record of this.memoryEmbeddings) {
+      record.tfidfVector = this.textToTfidfVector(record.contentNormalized);
+      record.normalizedKeywords = record.keywords.map((k) => normalizeArabicText(k));
+    }
   }
 
   private textToTfidfVector(text: string): Map<number, number> {
@@ -214,9 +222,11 @@ class EmbeddingService {
     const results: RagSearchResult[] = [];
 
     for (const record of this.memoryEmbeddings) {
-      const documentVector = this.textToTfidfVector(record.contentNormalized);
+      // Use pre-computed TF-IDF document vector and pre-normalized keywords for maximum performance
+      const documentVector = record.tfidfVector ?? this.textToTfidfVector(record.contentNormalized);
       const similarity = this.cosineSimilaritySparse(queryVector, documentVector);
-      const keywordBoost = record.keywords.some((keyword) => normalizedQuery.includes(normalizeArabicText(keyword))) ? 0.15 : 0;
+      const keywords = record.normalizedKeywords ?? record.keywords.map((k) => normalizeArabicText(k));
+      const keywordBoost = keywords.some((keyword) => normalizedQuery.includes(keyword)) ? 0.15 : 0;
       const score = Math.min(1, similarity + keywordBoost);
       if (score > 0.05)
         results.push({
