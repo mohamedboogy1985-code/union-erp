@@ -119,7 +119,7 @@ export const SCREENS: ScreenDef[] = [
   { id: 'skills', label: 'نظام المهارات الموحد', icon: Award, group: 'الذكاء الاصطناعي والإعدادات', portals: ALL },
   // سرب الوكيل هو شاشة الوكلاء الوحيدة في القائمة.
   { id: 'aetherswarm', label: 'سرب الوكيل AetherSwarm', icon: Cpu, group: 'الذكاء الاصطناعي والإعدادات', portals: ALL },
-  { id: 'audio-studio', label: 'استوديو تفريغ وتحليل الصوت', icon: Mic, group: 'الذكاء الاصطناعي والإعدادات', portals: ALL },
+  { id: 'audio-studio', label: 'استوديو نسخ الصوت (Audio Transcription Studio)', icon: Mic, group: 'الذكاء الاصطناعي والإعدادات', portals: ALL },
   { id: 'jules', label: 'Jules — وكيل البرمجة', icon: FileCode2, group: 'الذكاء الاصطناعي والإعدادات', portals: ALL },
   { id: 'settings', label: 'الإعدادات والصلاحيات', icon: Settings, group: 'الذكاء الاصطناعي والإعدادات', portals: ALL },
 ];

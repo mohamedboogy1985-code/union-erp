@@ -406,6 +406,8 @@ async function startServer() {
   app.get('/e-invoicing', (_req: Request, res: Response) => res.redirect(302, '/?tab=e-invoicing'));
   app.get('/hr', (_req: Request, res: Response) => res.redirect(302, '/?tab=hrs'));
   app.get('/hr/biometric', (_req: Request, res: Response) => res.redirect(302, '/?tab=biometric'));
+  app.get('/audio-studio', (_req: Request, res: Response) => res.redirect(302, '/?tab=audio-studio'));
+  app.get('/transcription', (_req: Request, res: Response) => res.redirect(302, '/?tab=audio-studio'));
   app.use('/api/regulations', createRegulationsRouter({ authenticate: getActiveUser }));
   app.use('/api/tax', createTaxRouter({ authenticate: getActiveUser, auditWrite: writeRouteAudit }));
   app.use('/api/biometric', createBiometricRouter({ authenticate: getActiveUser, auditWrite: writeRouteAudit }));
