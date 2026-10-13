@@ -12,8 +12,6 @@ import {
   Lock,
   Award,
   RefreshCw,
-  ExternalLink,
-  Scale,
 } from 'lucide-react';
 import { api, ApiError, downloadAuthenticatedFile } from '../services/api.js';
 import { AuthenticatedApiFrame } from '../components/AuthenticatedApiFrame.js';
@@ -239,33 +237,6 @@ export const FinancialRegulation: React.FC<FinancialRegulationProps> = ({
           </div>
         </div>
       )}
-
-      {/* مرجعية قانون العمل الجديد رقم 14 لسنة 2025 المتصلة باللائحة المالية */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-xl border border-emerald-500/30 bg-emerald-950/20 p-3.5 text-xs">
-        <div className="flex items-start gap-2.5">
-          <Scale className="mt-0.5 h-4 w-4 shrink-0 text-emerald-400" />
-          <div>
-            <div className="flex items-center gap-2">
-              <strong className="text-white text-xs">المرجعية التشريعية: قانون العمل رقم 14 لسنة 2025</strong>
-              <span className="text-[10px] px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300 font-mono">الجريدة الرسمية (3 مايو 2025)</span>
-            </div>
-            <p className="text-[11px] text-slate-300 mt-1">
-              أحكام الأجور والبدلات والمكافآت (مادة 1)، وصندوق تمويل التدريب 1% (مادة 2 إصدار)، وصندوق الخدمات الاجتماعية ورعاية العمالة غير المنتظمة (مواد 3 و7 إصدار).
-            </p>
-          </div>
-        </div>
-        <div className="flex items-center gap-2 shrink-0">
-          <a
-            href="https://www.labour.gov.eg/media/0iedik3q/%D8%A7%D9%84%D9%82%D8%A7%D9%86%D9%88%D9%86-%D8%B1%D9%82%D9%85-14-%D9%84%D8%B3%D9%86%D8%A9-2025-%D8%A8%D8%A5%D8%B5%D8%AF%D8%A7%D8%B1-%D9%82%D8%A7%D9%86%D9%88%D9%86-%D8%A7%D9%84%D8%B9%D9%85%D9%84.pdf"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-[11px] transition-colors"
-          >
-            <span>فتح PDF وزارة العمل</span>
-            <ExternalLink className="w-3.5 h-3.5" />
-          </a>
-        </div>
-      </div>
 
       {regulationError && (
         <div className="bg-rose-950/30 border border-rose-800/60 rounded-2xl p-4 flex items-start justify-between gap-4" role="alert">

@@ -1,12 +1,6 @@
 import assert from 'node:assert/strict';
 import { after, test } from 'node:test';
-import { createRequire } from 'node:module';
-const require = createRequire(import.meta.url);
-const wt = require('node:worker_threads');
-if (!wt.markAsUncloneable) {
-  Object.defineProperty(wt, 'markAsUncloneable', { value: () => {}, writable: true, configurable: true });
-}
-const { JSDOM } = await import('jsdom');
+import { JSDOM } from 'jsdom';
 import React, { act, useState } from 'react';
 import type { User } from '../src/types/erp.js';
 import type { JulesActivity, JulesSession, JulesStatus } from '../src/types/jules.js';

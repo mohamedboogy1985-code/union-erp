@@ -42,8 +42,9 @@ export function calculateSimilarity(str1: string, str2: string): number {
   if (s1 === s2) return 1.0;
   if (!s1.length || !s2.length) return 0.0;
 
-  const len1 = s1.length;
-  const len2 = s2.length;
+  const track = Array(s2.length + 1)
+    .fill(null)
+    .map(() => Array(s1.length + 1).fill(null));
 
   for (let i = 0; i <= s1.length; i += 1) {
     track[0][i] = i;
@@ -52,22 +53,18 @@ export function calculateSimilarity(str1: string, str2: string): number {
     track[j][0] = j;
   }
 
-  for (let j = 1; j <= len2; j += 1) {
-    curr[0] = j;
-    const char2 = s2.charCodeAt(j - 1);
-    for (let i = 1; i <= len1; i += 1) {
-      const indicator = s1.charCodeAt(i - 1) === char2 ? 0 : 1;
-      const del = prev[i] + 1; // deletion
-      const ins = curr[i - 1] + 1; // insertion
-      const sub = prev[i - 1] + indicator; // substitution
-      curr[i] = del < ins ? (del < sub ? del : sub) : (ins < sub ? ins : sub);
+  for (let j = 1; j <= s2.length; j += 1) {
+    for (let i = 1; i <= s1.length; i += 1) {
+      const indicator = s1[i - 1] === s2[j - 1] ? 0 : 1;
+      track[j][i] = Math.min(
+        track[j][i - 1] + 1, // deletion
+        track[j - 1][i] + 1, // insertion
+        track[j - 1][i - 1] + indicator // substitution
+      );
     }
-    const temp = prev;
-    prev = curr;
-    curr = temp;
   }
 
-  const distance = prev[len1];
-  const maxLength = Math.max(len1, len2);
+  const distance = track[s2.length][s1.length];
+  const maxLength = Math.max(s1.length, s2.length);
   return 1 - distance / maxLength;
 }

@@ -19,7 +19,6 @@ import {
   MapPin,
   Radio,
   BadgePercent,
-  Mic,
 } from 'lucide-react';
 import { Organization, User, SyncStatus } from '../types/erp.js';
 import { api, setCurrentUserId } from '../services/api.js';
@@ -203,12 +202,18 @@ export const Layout: React.FC<LayoutProps> = ({
     });
   }
 
-  // تظهر وصلة الضرائب تحت المحاسبة في بوابة النقابة، لكنها تبدّل السياق
-  // صراحة إلى مركز التدريب ولا تعرض بيانات التدريب داخل مؤسسة النقابة العامة.
-  // تم فصل وإزالة الموارد البشرية (HR) تماماً من بوابة النقابة العامة لضمان العزل التام.
+  // تظهر وصلتا HR والضرائب تحت المحاسبة في بوابة النقابة، لكنهما تبدّلان السياق
+  // صراحة إلى مركز التدريب ولا تعرضان بيانات التدريب داخل مؤسسة النقابة العامة.
   if (selectedGateway === 'syndicate') {
     const accountingIndex = navItems.findIndex((item) => item.id === 'accounting');
     const trainingShortcuts: NavItem[] = [
+      {
+        id: 'hr-training-shortcut',
+        label: 'الموارد البشرية — بوابة التدريب',
+        icon: UsersRound,
+        badge: 'مركز التدريب',
+        action: 'open-training-hr',
+      },
       {
         id: 'tax-training-shortcut',
         label: 'الضرائب وكسب العمل — بوابة التدريب',
@@ -302,10 +307,6 @@ export const Layout: React.FC<LayoutProps> = ({
     accountant: 'aetherswarm',
     customagent: 'aetherswarm',
     swarm: 'aetherswarm',
-    'audio-studio': 'audio-studio',
-    audio: 'audio-studio',
-    transcription: 'audio-studio',
-    audio_studio: 'audio-studio',
   };
   const effectiveTab = TAB_TARGETS[currentTab] || (currentTab === 'ai' ? 'aihub' : currentTab);
 
@@ -531,20 +532,9 @@ export const Layout: React.FC<LayoutProps> = ({
             <button
               onClick={() => onTabChange('ai')}
               className="flex items-center gap-1.5 px-2.5 py-1 bg-purple-950/50 hover:bg-purple-900/70 border border-purple-700/50 rounded text-xs font-medium text-purple-300 transition-colors"
-              title="سرب الوكلاء الذكي AetherSwarm"
             >
               <Bot className="w-3.5 h-3.5 text-purple-400" />
               <span className="text-[11px] hidden sm:inline">استوديو AI</span>
-            </button>
-
-            {/* Audio Transcription Studio Shortcut */}
-            <button
-              onClick={() => onTabChange('audio-studio')}
-              className="flex items-center gap-1.5 px-2.5 py-1 bg-indigo-950/60 hover:bg-indigo-900/80 border border-indigo-700/60 rounded text-xs font-medium text-indigo-300 transition-colors shadow-sm"
-              title="استوديو نسخ الصوت المباشر والمسجل (Audio Transcription Studio)"
-            >
-              <Mic className="w-3.5 h-3.5 text-indigo-400" />
-              <span className="text-[11px] hidden sm:inline">نسخ الصوت</span>
             </button>
 
             {/* User Dropdown */}

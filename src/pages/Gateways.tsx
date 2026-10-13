@@ -1,5 +1,5 @@
 import React from 'react';
-import { ArrowRight, Landmark, Film, Sparkles, Mic, Cpu } from 'lucide-react';
+import { ArrowRight, Landmark, Film, Sparkles } from 'lucide-react';
 import { GATEWAYS, PortalId, screensForPortal } from '../config/portals.js';
 import { PromoShowcase } from './PromoShowcase.js';
 import { speakArabic, welcomeMessageFor } from '../utils/speech.js';
@@ -8,7 +8,6 @@ import { PORTAL_LOGOS } from '../components/PortalLogo.js';
 interface GatewayProps {
   onSelectGateway: (gatewayId: PortalId) => void;
   onOpenAgent?: () => void;
-  onOpenAudioStudio?: () => void;
   onShowToast: (type: 'success' | 'error' | 'warning' | 'info', msg: string) => void;
 }
 
@@ -33,12 +32,7 @@ function speakWelcomeMessage(text: string) {
   }
 }
 
-export const Gateways: React.FC<GatewayProps> = ({
-  onSelectGateway,
-  onOpenAgent,
-  onOpenAudioStudio,
-  onShowToast,
-}) => {
+export const Gateways: React.FC<GatewayProps> = ({ onSelectGateway, onOpenAgent, onShowToast }) => {
   return (
     <div className="p-6 max-w-6xl mx-auto space-y-6">
       <div className="flex items-center gap-3">
@@ -94,51 +88,19 @@ export const Gateways: React.FC<GatewayProps> = ({
         })}
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        {onOpenAgent && (
-          <button
-            type="button"
-            onClick={onOpenAgent}
-            className="text-right rounded-2xl border border-cyan-500/40 bg-cyan-950/40 hover:bg-cyan-900/40 p-5 flex items-center justify-between gap-4 transition-all shadow-md group"
-          >
-            <div className="flex items-center gap-3.5">
-              <div className="w-11 h-11 rounded-xl bg-cyan-500/20 flex items-center justify-center shrink-0 border border-cyan-500/30">
-                <Cpu className="w-5 h-5 text-cyan-400 group-hover:scale-110 transition-transform" />
-              </div>
-              <div>
-                <h2 className="text-base font-bold text-white flex items-center gap-2">
-                  سرب الوكيل AetherSwarm
-                  <Sparkles className="w-3.5 h-3.5 text-cyan-400" />
-                </h2>
-                <p className="text-xs text-slate-300 mt-0.5">الوكيل الذكي المدمج المتقدم لإدارة المهام والمحادثة الفورية</p>
-              </div>
-            </div>
-            <span className="shrink-0 rounded-full bg-cyan-500 hover:bg-cyan-400 px-3.5 py-1.5 text-xs font-bold text-slate-950 transition-colors">فتح الوكيل</span>
-          </button>
-        )}
-
-        {onOpenAudioStudio && (
-          <button
-            type="button"
-            onClick={onOpenAudioStudio}
-            className="text-right rounded-2xl border border-indigo-500/40 bg-indigo-950/40 hover:bg-indigo-900/40 p-5 flex items-center justify-between gap-4 transition-all shadow-md group"
-          >
-            <div className="flex items-center gap-3.5">
-              <div className="w-11 h-11 rounded-xl bg-indigo-500/20 flex items-center justify-center shrink-0 border border-indigo-500/30">
-                <Mic className="w-5 h-5 text-indigo-400 group-hover:scale-110 transition-transform" />
-              </div>
-              <div>
-                <h2 className="text-base font-bold text-white flex items-center gap-2">
-                  استوديو نسخ الصوت (Audio Studio)
-                  <span className="text-[10px] px-2 py-0.5 rounded-full bg-indigo-500/20 border border-indigo-400/40 text-indigo-300 font-normal">جديد</span>
-                </h2>
-                <p className="text-xs text-slate-300 mt-0.5">تفريغ مباشر، رفع ملفات صوتية، تحليل نقابي وتوليد ردود صوتية</p>
-              </div>
-            </div>
-            <span className="shrink-0 rounded-full bg-indigo-500 hover:bg-indigo-400 px-3.5 py-1.5 text-xs font-bold text-slate-950 transition-colors">فتح الاستوديو</span>
-          </button>
-        )}
-      </div>
+      {onOpenAgent && (
+        <button
+          type="button"
+          onClick={onOpenAgent}
+          className="w-full text-right rounded-2xl border border-cyan-500/40 bg-cyan-950/40 hover:bg-cyan-900/40 p-5 flex items-center justify-between gap-4"
+        >
+          <div>
+            <h2 className="text-lg font-bold text-white">سرب الوكيل AetherSwarm</h2>
+            <p className="text-sm text-slate-300 mt-1">الوكيل الجديد المدمج من Google AI Studio. اضغط هنا لفتحه مباشرة.</p>
+          </div>
+          <span className="shrink-0 rounded-full bg-cyan-500 px-4 py-2 text-sm font-bold text-slate-950">فتح الوكيل</span>
+        </button>
+      )}
 
       {/* ===== الفيديو والعرض الترويجي ===== */}
       <section className="mt-10 rounded-2xl bg-slate-900 border border-slate-800 p-6 shadow-lg">
