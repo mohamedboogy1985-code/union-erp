@@ -23,11 +23,11 @@ export interface EmbeddingRecord {
   content: string;
   contentNormalized: string;
   embedding?: number[];
+  tfidfVector?: Map<number, number>;
   type: string;
   reference: string;
   keywords: string[];
-  tfidfVector?: Map<number, number>;
-  normalizedKeywords?: string[];
+  keywordsNormalized?: string[];
 }
 
 export interface RagSearchResult {
@@ -104,6 +104,7 @@ class EmbeddingService {
         type: 'RULE',
         reference: rule.titleAr,
         keywords: rule.keywords,
+        keywordsNormalized: rule.keywords.map(normalizeArabicText),
       });
 
     for (const reg of KNOWLEDGE_BASE.regulations)
@@ -114,6 +115,7 @@ class EmbeddingService {
         type: 'REGULATION',
         reference: reg.titleAr,
         keywords: reg.keywords,
+        keywordsNormalized: reg.keywords.map(normalizeArabicText),
       });
 
     for (const faq of KNOWLEDGE_BASE.faqItems)
@@ -124,6 +126,7 @@ class EmbeddingService {
         type: 'FAQ',
         reference: faq.question,
         keywords: faq.keywords,
+        keywordsNormalized: faq.keywords.map(normalizeArabicText),
       });
 
     for (const err of KNOWLEDGE_BASE.commonErrors)
@@ -134,6 +137,7 @@ class EmbeddingService {
         type: 'ERROR',
         reference: err.error,
         keywords: err.keywords,
+        keywordsNormalized: err.keywords.map(normalizeArabicText),
       });
 
     for (const article of FINANCIAL_REGULATION_ARTICLES)
@@ -144,17 +148,21 @@ class EmbeddingService {
         type: 'ARTICLE',
         reference: `المادة ${article.articleNo}: ${article.title}`,
         keywords: article.keywords,
+        keywordsNormalized: article.keywords.map(normalizeArabicText),
       });
 
-    for (const account of erpStore.accounts.filter((a) => !a.isParent && a.isActive).slice(0, 500))
+    for (const account of erpStore.accounts.filter((a) => !a.isParent && a.isActive).slice(0, 500)) {
+      const kw = [account.code, account.name, account.type];
       records.push({
         id: `kb-acc-${account.code}`,
         content: `حساب ${account.code} - ${account.name} نوع ${account.type} طبيعة ${account.nature}${account.requiresSubledger ? ' يتطلب أستاذ مساعد' : ''}`,
         contentNormalized: normalizeArabicText(`${account.code} ${account.name} ${account.type} ${account.nature}`),
         type: 'ACCOUNT',
         reference: `${account.code} - ${account.name}`,
-        keywords: [account.code, account.name, account.type],
+        keywords: kw,
+        keywordsNormalized: kw.map(normalizeArabicText),
       });
+    }
 
     this.memoryEmbeddings = records;
     this.buildTfidfIndex();
@@ -177,11 +185,10 @@ class EmbeddingService {
       this.tfidfIdf.set(term, Math.log((total + 1) / (df + 1)) + 1);
       this.tfidfVocab.set(term, index++);
     }
-    // Performance optimization: Pre-calculate document TF-IDF vectors and normalized keywords
-    // once during index creation so searchLocal doesn't re-calculate them for every query.
+
+    // Pre-compute TF-IDF vectors for all seeded documents to optimize searchLocal
     for (const record of this.memoryEmbeddings) {
       record.tfidfVector = this.textToTfidfVector(record.contentNormalized);
-      record.normalizedKeywords = record.keywords.map((k) => normalizeArabicText(k));
     }
   }
 
@@ -222,11 +229,11 @@ class EmbeddingService {
     const results: RagSearchResult[] = [];
 
     for (const record of this.memoryEmbeddings) {
-      // Use pre-computed TF-IDF document vector and pre-normalized keywords for maximum performance
-      const documentVector = record.tfidfVector ?? this.textToTfidfVector(record.contentNormalized);
+      // Use pre-computed sparse TF-IDF vector and normalized keywords to avoid re-parsing during search loops
+      const documentVector = record.tfidfVector || this.textToTfidfVector(record.contentNormalized);
       const similarity = this.cosineSimilaritySparse(queryVector, documentVector);
-      const keywords = record.normalizedKeywords ?? record.keywords.map((k) => normalizeArabicText(k));
-      const keywordBoost = keywords.some((keyword) => normalizedQuery.includes(keyword)) ? 0.15 : 0;
+      const keywordsToMatch = record.keywordsNormalized || record.keywords.map(normalizeArabicText);
+      const keywordBoost = keywordsToMatch.some((keyword) => normalizedQuery.includes(keyword)) ? 0.15 : 0;
       const score = Math.min(1, similarity + keywordBoost);
       if (score > 0.05)
         results.push({
