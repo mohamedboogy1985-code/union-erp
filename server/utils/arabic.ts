@@ -37,12 +37,22 @@ export function normalizeArabicText(text: string): string {
  * Uses single-array iterative Levenshtein algorithm with dynamic allocation
  * to avoid allocations while keeping runtime O(m*n) and space O(min(m,n)).
  */
+const MAX_SIMILARITY_STRING_LENGTH = 1000;
+
 export function calculateSimilarity(str1: string, str2: string): number {
-  const s1 = normalizeArabicText(str1);
-  const s2 = normalizeArabicText(str2);
+  let s1 = normalizeArabicText(str1);
+  let s2 = normalizeArabicText(str2);
 
   if (s1 === s2) return 1.0;
   if (!s1.length || !s2.length) return 0.0;
+
+  // Bound string length to prevent unbounded O(N*M) CPU loop iteration / ReDoS / DoS
+  if (s1.length > MAX_SIMILARITY_STRING_LENGTH) {
+    s1 = s1.slice(0, MAX_SIMILARITY_STRING_LENGTH);
+  }
+  if (s2.length > MAX_SIMILARITY_STRING_LENGTH) {
+    s2 = s2.slice(0, MAX_SIMILARITY_STRING_LENGTH);
+  }
 
   // Ensure s1 is shorter to optimize space allocation
   let a = s1;
