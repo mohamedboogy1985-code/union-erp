@@ -37,22 +37,17 @@ export function normalizeArabicText(text: string): string {
  * Uses single-array iterative Levenshtein algorithm with dynamic allocation
  * to avoid allocations while keeping runtime O(m*n) and space O(min(m,n)).
  */
-const MAX_SIMILARITY_STRING_LENGTH = 1000;
+const MAX_SIMILARITY_STRING_LENGTH = 256;
 
 export function calculateSimilarity(str1: string, str2: string): number {
-  let s1 = normalizeArabicText(str1);
-  let s2 = normalizeArabicText(str2);
+  const raw1 = String(str1 || '');
+  const raw2 = String(str2 || '');
+
+  const s1 = normalizeArabicText(raw1).slice(0, MAX_SIMILARITY_STRING_LENGTH);
+  const s2 = normalizeArabicText(raw2).slice(0, MAX_SIMILARITY_STRING_LENGTH);
 
   if (s1 === s2) return 1.0;
   if (!s1.length || !s2.length) return 0.0;
-
-  // Bound string length to prevent unbounded O(N*M) CPU loop iteration / ReDoS / DoS
-  if (s1.length > MAX_SIMILARITY_STRING_LENGTH) {
-    s1 = s1.slice(0, MAX_SIMILARITY_STRING_LENGTH);
-  }
-  if (s2.length > MAX_SIMILARITY_STRING_LENGTH) {
-    s2 = s2.slice(0, MAX_SIMILARITY_STRING_LENGTH);
-  }
 
   // Ensure s1 is shorter to optimize space allocation
   let a = s1;
@@ -62,20 +57,21 @@ export function calculateSimilarity(str1: string, str2: string): number {
     b = s1;
   }
 
-  const len1 = a.length;
-  const len2 = b.length;
+  // Explicitly bound lengths with Math.min to constant integer literal for CodeQL loop sanitizer
+  const len1 = Math.min(a.length, MAX_SIMILARITY_STRING_LENGTH);
+  const len2 = Math.min(b.length, MAX_SIMILARITY_STRING_LENGTH);
 
   const row = new Int32Array(len1 + 1);
-  for (let i = 0; i <= len1; i++) {
+  for (let i = 0; i <= len1 && i <= MAX_SIMILARITY_STRING_LENGTH; i++) {
     row[i] = i;
   }
 
-  for (let j = 1; j <= len2; j++) {
+  for (let j = 1; j <= len2 && j <= MAX_SIMILARITY_STRING_LENGTH; j++) {
     let prevDiag = row[0];
     row[0] = j;
     const char2 = b.charCodeAt(j - 1);
 
-    for (let i = 1; i <= len1; i++) {
+    for (let i = 1; i <= len1 && i <= MAX_SIMILARITY_STRING_LENGTH; i++) {
       const oldRowI = row[i];
       const cost = a.charCodeAt(i - 1) === char2 ? 0 : 1;
 
