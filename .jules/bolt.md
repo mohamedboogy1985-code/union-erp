@@ -5,3 +5,7 @@
 ## 2025-05-19 - Pre-computed TF-IDF Vectors for Local RAG Search
 **Learning:** Performing vector construction and text normalization inside loop passes over in-memory knowledge base records during RAG search causes high CPU overhead and unnecessary object allocations on every search query.
 **Action:** Pre-compute sparse TF-IDF vectors and normalized keyword arrays during index seeding/building so search queries only perform fast vector inner products.
+
+## 2026-03-30 - Single-Row Typed Array Allocation for Levenshtein String Similarity
+**Learning:** Computing Levenshtein string similarity dynamically in string matching/fuzzy lookup routines (such as Subledger party resolution and committee search) using two-dimensional arrays or full matrices causes heavy object allocations and runtime overhead.
+**Action:** Use a single flat `Int32Array` row of length `min(str1.length, str2.length) + 1` with diagonal value tracking to achieve O(min(N, M)) memory footprint and avoid heap allocations during repetitive string similarity checks.
