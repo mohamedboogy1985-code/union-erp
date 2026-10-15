@@ -45,11 +45,11 @@ export function calculateSimilarity(str1: string, str2: string): number {
   const len1 = s1.length;
   const len2 = s2.length;
 
-  for (let i = 0; i <= s1.length; i += 1) {
-    track[0][i] = i;
-  }
-  for (let j = 1; j <= s2.length; j += 1) {
-    track[j][0] = j;
+  let prev = new Array<number>(len1 + 1);
+  let curr = new Array<number>(len1 + 1);
+
+  for (let i = 0; i <= len1; i += 1) {
+    prev[i] = i;
   }
 
   for (let j = 1; j <= len2; j += 1) {
