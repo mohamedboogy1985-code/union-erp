@@ -47,6 +47,8 @@ export interface StatuteIndex {
   articleById: Map<string, StatuteArticle>;
   articleByNumber: Map<number, StatuteArticle>;
   chapterById: Map<string, StatuteChapter>;
+  titleTokenIndex: Map<string, Set<number>>;
+  keywordTokenIndex: Map<string, Set<number>>;
   tokenIndex: Map<string, Set<number>>;
   rulesByArticle: Map<string, StatuteRuleDefinition[]>;
   articlesInOrder: StatuteArticle[];
@@ -56,6 +58,8 @@ const buildIndex = (): StatuteIndex => {
   const articleById = new Map<string, StatuteArticle>();
   const articleByNumber = new Map<number, StatuteArticle>();
   const chapterById = new Map<string, StatuteChapter>();
+  const titleTokenIndex = new Map<string, Set<number>>();
+  const keywordTokenIndex = new Map<string, Set<number>>();
   const tokenIndex = new Map<string, Set<number>>();
   const rulesByArticle = new Map<string, StatuteRuleDefinition[]>();
 
@@ -64,6 +68,24 @@ const buildIndex = (): StatuteIndex => {
   for (const article of STATUTE_ARTICLES) {
     articleById.set(article.id, article);
     articleByNumber.set(article.number, article);
+
+    // Pre-index title tokens for fast O(1) title matching
+    for (const token of tokensOf(article.title)) {
+      const existing = titleTokenIndex.get(token) ?? new Set<number>();
+      existing.add(article.number);
+      titleTokenIndex.set(token, existing);
+    }
+
+    // Pre-index keyword tokens for fast O(1) keyword matching
+    for (const keyword of article.keywords) {
+      for (const token of tokensOf(keyword)) {
+        const existing = keywordTokenIndex.get(token) ?? new Set<number>();
+        existing.add(article.number);
+        keywordTokenIndex.set(token, existing);
+      }
+    }
+
+    // Pre-index all tokens (title, text, keywords) for full-text matching
     for (const token of tokensOf(`${article.title} ${article.text} ${article.keywords.join(' ')}`)) {
       const existing = tokenIndex.get(token) ?? new Set<number>();
       existing.add(article.number);
@@ -81,6 +103,8 @@ const buildIndex = (): StatuteIndex => {
     articleById,
     articleByNumber,
     chapterById,
+    titleTokenIndex,
+    keywordTokenIndex,
     tokenIndex,
     rulesByArticle,
     articlesInOrder: [...STATUTE_ARTICLES].sort((a, b) => a.number - b.number),
@@ -135,7 +159,7 @@ export const searchStatute = (
 
   const scores = new Map<number, { score: number; field: StatuteSearchHit['matchedField']; best: number }>();
 
-  const addHits = (numbers: number[], weight: number, field: StatuteSearchHit['matchedField']): void => {
+  const addHits = (numbers: Iterable<number>, weight: number, field: StatuteSearchHit['matchedField']): void => {
     for (const number of numbers) {
       const prev = scores.get(number) ?? { score: 0, field, best: 0 };
       const best = Math.max(prev.best, weight);
@@ -148,18 +172,15 @@ export const searchStatute = (
   };
 
   for (const term of terms) {
-    const titleHits = STATUTE_INDEX.articlesInOrder
-      .filter((a) => tokensOf(a.title).includes(term))
-      .map((a) => a.number);
-    addHits(titleHits, 6, 'title');
+    // Optimization: Use pre-compiled token indices instead of re-tokenizing title/keywords for every query term
+    const titleHits = STATUTE_INDEX.titleTokenIndex.get(term);
+    if (titleHits) addHits(titleHits, 6, 'title');
 
-    const keywordHits = STATUTE_INDEX.articlesInOrder
-      .filter((a) => a.keywords.some((k) => tokensOf(k).includes(term)))
-      .map((a) => a.number);
-    addHits(keywordHits, 4, 'keywords');
+    const keywordHits = STATUTE_INDEX.keywordTokenIndex.get(term);
+    if (keywordHits) addHits(keywordHits, 4, 'keywords');
 
     const textHits = STATUTE_INDEX.tokenIndex.get(term);
-    if (textHits) addHits([...textHits], 2, 'text');
+    if (textHits) addHits(textHits, 2, 'text');
   }
 
   const limit = options?.scopeLimit ?? 20;
