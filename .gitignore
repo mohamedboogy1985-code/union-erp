@@ -110,3 +110,5 @@ prisma.config.ts.backup
 /*.docx
 # بيانات حقيقية محلية: ضعها هنا ولا تُرفع أبداً
 /private-data/
+/*.jpg
+/git
