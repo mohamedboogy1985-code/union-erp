@@ -61,7 +61,7 @@ import { maybeStartEmbeddedPostgres } from './server/db/pg-embedded.js';
 import { ETA_MODULE_DIR } from './server/services/eta/eta-store.js';
 import { collectDataPaths } from './server/utils/data-paths.js';
 import { can, isReadOnlyUser, ROLE_DEFINITIONS } from './server/security/permissions.js';
-import { assertRuntimeSecurity, isSqlConsoleAllowed, isStrictAuth } from './server/security/runtime-config.js';
+import { assertRuntimeSecurity, getListenHost, isSqlConsoleAllowed, isStrictAuth } from './server/security/runtime-config.js';
 import { installApiGuard } from './server/security/api-guard.js';
 import { createAccountingRouter } from './server/routes/accounting.routes.js';
 import { createFinancialRouter } from './server/routes/financial.routes.js';
@@ -2892,9 +2892,13 @@ async function startServer() {
     }
   }
 
-  httpServer.listen(PORT, '0.0.0.0', () => {
+  const LISTEN_HOST = getListenHost();
+  httpServer.listen(PORT, LISTEN_HOST, () => {
     console.log(`=======================================================`);
-    console.log(`🏛️ Union Financial ERP Server running on http://0.0.0.0:${PORT}`);
+    console.log(`🏛️ Union Financial ERP Server running on http://${LISTEN_HOST}:${PORT}`);
+    if (LISTEN_HOST === '0.0.0.0' && !isStrictAuth()) {
+      console.warn('⚠️ الخادم مكشوف للشبكة بينما DEMO_MODE=true (هوية بلا كلمة مرور). اضبط DEMO_MODE=false أو HOST=127.0.0.1.');
+    }
     console.log(`📌 General Syndicate Chart of Accounts & 1301 Subledger Ready`);
     console.log(`=======================================================`);
   });

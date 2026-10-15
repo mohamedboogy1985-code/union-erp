@@ -49,7 +49,8 @@ export class MigrationManager {
         success: false,
         message: err.message || 'فشل في تنفيذ أمر SQL.',
         durationMs,
-        error: err.stack || err.message,
+        // لا نُعيد err.stack للعميل (تسريب مسارات داخلية)؛ الرسالة تكفي.
+        error: err.message,
       };
     }
   }

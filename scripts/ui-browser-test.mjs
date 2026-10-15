@@ -6,7 +6,7 @@
  */
 import { chromium } from 'playwright-core';
 
-const BASE = process.argv[2] ?? process.env.BASE_URL ?? 'http://localhost:3000';
+const BASE = process.argv[2] ?? process.env.BASE_URL ?? 'http://127.0.0.1:3000';
 const shots = `${process.env.OUT_DIR ?? '.'}/screens`;
 const fs = await import('node:fs');
 fs.mkdirSync(shots, { recursive: true });
