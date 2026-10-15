@@ -97,3 +97,18 @@ fix-prisma.ps1
 fix-prisma-and-apply-changes.ps1
 *.backup
 prisma.config.ts.backup
+
+# --- تصلّب الخصوصية (تقرير الفحص 2026-10-14) ---
+# سجلات تشغيل وملفات patch ضخمة لا مكان لها في المستودع
+*.log
+*.patch
+# صور/ملفات مكتبية خاصة في جذر المستودع (البيانات التشغيلية مكانها server/data)
+/*.jfif
+/*.jpeg
+/WhatsApp Image*
+/*.xlsx
+/*.docx
+# بيانات حقيقية محلية: ضعها هنا ولا تُرفع أبداً
+/private-data/
+/*.jpg
+/git

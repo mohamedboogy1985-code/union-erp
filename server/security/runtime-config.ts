@@ -13,8 +13,8 @@
  *   الطريقة الوحيدة لتفعيل الوضع الصارم: DEMO_MODE=false صريحاً، حتى لا ينكسر
  *   تطبيق Electron المُغلَّف الذي يعمل بـ NODE_ENV=production افتراضياً.
  *
- * - ALLOW_SQL_CONSOLE=true → يسمح بنقطة تنفيذ SQL اليدوية (مقفلة افتراضياً
- *   في الوضع الصارم، ومفتوحة في وضع العرض لأغراض العرض والتطوير).
+ * - ALLOW_SQL_CONSOLE=true → يسمح بنقطة تنفيذ SQL اليدوية (مقفلة افتراضياً دائماً).
+ * - HOST → عنوان الاستماع (الافتراضي 127.0.0.1 في وضع العرض و0.0.0.0 في الوضع الصارم).
  */
 
 const WEAK_SECRETS = new Set([
@@ -50,11 +50,29 @@ export function isStrictAuth(): boolean {
   return !isDemoMode();
 }
 
-/** هل يُسمح باستخدام وحدة تنفيذ SQL اليدوية؟ */
+/**
+ * هل يُسمح باستخدام وحدة تنفيذ SQL اليدوية؟
+ * تصلّب أمني: لا تُفتح إلا بـ ALLOW_SQL_CONSOLE=true صراحةً — حتى في وضع العرض.
+ * (كانت تُفتح تلقائياً في DEMO_MODE، وهو الوضع الافتراضي، فتُصبح متاحة لأي جهاز على الشبكة.)
+ */
 export function isSqlConsoleAllowed(): boolean {
-  if (String(process.env.ALLOW_SQL_CONSOLE || '').trim().toLowerCase() === 'true') return true;
-  // توافقاً مع وضع العرض الحالي: مسموحة للعرض والتطوير فقط، ومقفلة في الوضع الصارم
-  return isDemoMode();
+  return String(process.env.ALLOW_SQL_CONSOLE || '').trim().toLowerCase() === 'true';
+}
+
+/**
+ * عنوان استماع الخادم:
+ * - HOST صريح → يُستخدم كما هو (مثال: HOST=0.0.0.0 داخل Docker).
+ * - تطبيق Electron (الخادم يعمل داخل عمليته) → 127.0.0.1 دائماً، حتى في الوضع الصارم،
+ *   لأنه نسخة محلية على جهاز واحد ولا يجوز كشفه لبقية الشبكة.
+ * - الوضع الصارم (DEMO_MODE=false) على خادم → 0.0.0.0 لأنه مخصص للنشر الشبكي.
+ * - وضع العرض (الافتراضي، تطبيق سطح المكتب) → 127.0.0.1 فقط، لأن الهوية فيه
+ *   بترويسة x-user-id بلا كلمة مرور ولا يجوز كشفه لبقية الشبكة.
+ */
+export function getListenHost(): string {
+  const explicit = String(process.env.HOST || '').trim();
+  if (explicit) return explicit;
+  if (process.versions?.electron) return '127.0.0.1';
+  return isStrictAuth() ? '0.0.0.0' : '127.0.0.1';
 }
 
 /** هل يبدو السر الممرر ضعيفاً/افتراضياً؟ */
