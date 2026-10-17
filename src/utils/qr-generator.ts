@@ -40,7 +40,7 @@ function gfMul(a: number, b: number): number {
 }
 
 // ---------------------------------------------------------------------------
-// 2) متعدد حدود المولد و Reed-Solomon
+// 2) متعدد حدود المولد و Reed-Solomon (محسّن)
 // ---------------------------------------------------------------------------
 function polyMul(p1: number[], p2: number[]): number[] {
   const coeff = new Array(p1.length + p2.length - 1).fill(0);
@@ -52,33 +52,50 @@ function polyMul(p1: number[], p2: number[]): number[] {
   return coeff;
 }
 
-function reedSolomonCompute(data: number[], degree: number): number[] {
-  // كثير الحدود المولّد g(x) = (x - α^0)(x - α^1)...(x - α^(degree-1))
-  // المعاملات بالترتيب من الأعلى درجة إلى الأدنى (المعامل الأول = 1)
-  let gen = [1];
+/** تخزين مسبق لكثير حدود المولد بحسب الدرجة لتجنب إعادة الحساب الكثيفة */
+const GEN_POLY_CACHE: Record<number, number[]> = {};
+
+function getGeneratorPoly(degree: number): number[] {
+  let gen = GEN_POLY_CACHE[degree];
+  if (gen) return gen;
+  gen = [1];
   for (let i = 0; i < degree; i++) {
     gen = polyMul(gen, [1, gfExp(i)]);
   }
+  GEN_POLY_CACHE[degree] = gen;
+  return gen;
+}
 
-  // قسمة متعددة الحدود: نلحق أصفاراً بالبيانات (بحجم درجة المولّد) ثم نأخذ الباقي
-  const padded = data.slice();
-  for (let i = 0; i < degree; i++) padded.push(0);
-  let result = padded;
+/**
+ * حساب أكواد تصحيح الخطأ بطريقة Reed-Solomon.
+ * تحسين الأداء:
+ * 1) استخدام كثير حدود المولد المخزن مسبقاً (GEN_POLY_CACHE).
+ * 2) القسمة التركيبية في نفس الموضع على ذاكرة مؤقتة ثابتة (Int32Array)
+ *    بدون عمليات slicing وتقطيع المصفوقات في كل تكرار.
+ */
+function reedSolomonCompute(data: number[], degree: number): number[] {
+  const gen = getGeneratorPoly(degree);
+  const dataLen = data.length;
 
-  while (result.length - gen.length >= 0) {
-    const coeff = result[0];
-    for (let i = 0; i < gen.length; i++) {
-      result[i] ^= gfMul(gen[i], coeff);
+  // ذاكرة ممتدة تحوي البيانات متبوعة بدرجة المولد (الأصفار الملحقة)
+  const buffer = new Int32Array(dataLen + degree);
+  for (let i = 0; i < dataLen; i++) buffer[i] = data[i];
+
+  // قسمة تركيبية في الموضع (In-place synthetic division)
+  for (let i = 0; i < dataLen; i++) {
+    const coeff = buffer[i];
+    if (coeff !== 0) {
+      for (let j = 0; j < gen.length; j++) {
+        buffer[i + j] ^= gfMul(gen[j], coeff);
+      }
     }
-    let offset = 0;
-    while (offset < result.length && result[offset] === 0) offset++;
-    result = result.slice(offset);
   }
 
-  // حشو الباقي يساراً للوصول إلى عدد البايتات المطلوب (degree)
-  const remainder = new Array(degree).fill(0);
-  const start = degree - result.length;
-  for (let i = 0; i < result.length; i++) remainder[start + i] = result[i];
+  // باقي القسمة يمثل أكواد تصحيح الخطأ المطلوبة
+  const remainder = new Array(degree);
+  for (let i = 0; i < degree; i++) {
+    remainder[i] = buffer[dataLen + i];
+  }
   return remainder;
 }
 
@@ -467,67 +484,95 @@ function applyMask(mask: number, qm: QrMatrix) {
 }
 
 // ---------------------------------------------------------------------------
-// 8) عقوبة الأقنعة
+// 8) عقوبة الأقنعة (محسّنة بدون تخصيص كائنات متكررة)
 // ---------------------------------------------------------------------------
+/**
+ * حساب النتيجة التفاضلية للعقوبة في الأقنعة (Penalty Score).
+ * تحسين الأداء:
+ * 1) قراءة الأعمدة مباشرة بدون إنشاء مصفوفات مؤقتة (No array allocations for columns).
+ * 2) حساب نسبة الداكن أثناء التدقيق بدلاً من الحلقات المزدوجة المكررة.
+ */
 function maskPenalty(qm: QrMatrix): number {
   const size = qm.size;
   const m = qm.matrix;
   let penalty = 0;
 
-  // القاعدة 1: تشغيل 5 فأكثر
-  const runScore = (line: number[]) => {
-    let score = 0;
+  // القاعدة 1: تشغيل 5 وحدات متتالية بنفس اللون (صفوف وأعمدة)
+  for (let r = 0; r < size; r++) {
+    const row = m[r];
     let count = 1;
-    for (let i = 1; i <= line.length; i++) {
-      if (i < line.length && line[i] === line[i - 1]) count++;
-      else {
-        if (count >= 5) score += 3 + (count - 5);
+    for (let c = 1; c <= size; c++) {
+      if (c < size && row[c] === row[c - 1]) {
+        count++;
+      } else {
+        if (count >= 5) penalty += 3 + (count - 5);
         count = 1;
       }
     }
-    return score;
-  };
-  for (let r = 0; r < size; r++) penalty += runScore(m[r]);
-  for (let c = 0; c < size; c++) {
-    const col: number[] = [];
-    for (let r = 0; r < size; r++) col.push(m[r][c]);
-    penalty += runScore(col);
   }
 
-  // القاعدة 2: مربعات 2x2
-  for (let r = 0; r < size - 1; r++) {
-    for (let c = 0; c < size - 1; c++) {
-      const v = m[r][c];
-      if (m[r][c + 1] === v && m[r + 1][c] === v && m[r + 1][c + 1] === v) penalty += 3;
+  for (let c = 0; c < size; c++) {
+    let count = 1;
+    for (let r = 1; r <= size; r++) {
+      if (r < size && m[r][c] === m[r - 1][c]) {
+        count++;
+      } else {
+        if (count >= 5) penalty += 3 + (count - 5);
+        count = 1;
+      }
     }
   }
 
-  // القاعدة 3: نمط 10111010000 / 00001011101
+  // القاعدة 2: مربعات 2x2 متجانسة اللون
+  let dark = 0;
+  for (let r = 0; r < size; r++) {
+    const row = m[r];
+    const nextRow = r < size - 1 ? m[r + 1] : null;
+    for (let c = 0; c < size; c++) {
+      if (row[c] === 1) dark++;
+      if (nextRow && c < size - 1) {
+        const v = row[c];
+        if (row[c + 1] === v && nextRow[c] === v && nextRow[c + 1] === v) {
+          penalty += 3;
+        }
+      }
+    }
+  }
+
+  // القاعدة 3: نمط 10111010000 / 00001011101 (صفوف وأعمدة)
   const pat1 = [1, 0, 1, 1, 1, 0, 1, 0, 0, 0, 0];
   const pat2 = [0, 0, 0, 0, 1, 0, 1, 1, 1, 0, 1];
-  const patternScore = (line: number[]) => {
-    let score = 0;
-    for (let i = 0; i + 11 <= line.length; i++) {
-      let a = true;
-      let z = true;
-      for (let j = 0; j < 11; j++) {
-        if (line[i + j] !== pat1[j]) a = false;
-        if (line[i + j] !== pat2[j]) z = false;
-      }
-      if (a || z) score += 40;
-    }
-    return score;
-  };
+
   for (let r = 0; r < size; r++) {
-    penalty += patternScore(m[r]);
-    const col: number[] = [];
-    for (let rr = 0; rr < size; rr++) col.push(m[rr][r]);
-    penalty += patternScore(col);
+    const row = m[r];
+    for (let c = 0; c + 11 <= size; c++) {
+      let match1 = true;
+      let match2 = true;
+      for (let j = 0; j < 11; j++) {
+        const v = row[c + j];
+        if (v !== pat1[j]) match1 = false;
+        if (v !== pat2[j]) match2 = false;
+        if (!match1 && !match2) break;
+      }
+      if (match1 || match2) penalty += 40;
+    }
   }
 
-  // القاعدة 4: نسبة الداكن
-  let dark = 0;
-  for (const row of m) for (const v of row) if (v === 1) dark++;
+  for (let c = 0; c < size; c++) {
+    for (let r = 0; r + 11 <= size; r++) {
+      let match1 = true;
+      let match2 = true;
+      for (let j = 0; j < 11; j++) {
+        const v = m[r + j][c];
+        if (v !== pat1[j]) match1 = false;
+        if (v !== pat2[j]) match2 = false;
+        if (!match1 && !match2) break;
+      }
+      if (match1 || match2) penalty += 40;
+    }
+  }
+
+  // القاعدة 4: نسبة المربعات الداكنة الإجمالية
   const pct = (dark * 100) / (size * size);
   const prev = Math.floor(pct / 5) * 5;
   const next = prev + 5;
