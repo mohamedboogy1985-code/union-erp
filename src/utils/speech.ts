@@ -22,6 +22,26 @@ export interface SpeakOptions {
 
 const ARABIC_LANG_FALLBACKS = ['ar', 'ar-SA', 'ar-EG', 'ar-DZ', 'ar-AE'];
 
+// Pre-compiled regular expressions for optimal Speech / TTS text cleanup performance
+const RE_DIACRITICS = /[\u064B-\u065F]/g;
+const RE_QURANIC_TATWEEL = /[\u0610-\u061A\u0640]/g;
+const RE_ALEF_HAMZA_BELOW = /إ/g;
+const RE_ALEF_MAQSURA = /ى/g;
+
+const RE_CODEBLOCK = /```[\s\S]*?```/g;
+const RE_INLINE_CODE = /`[^`]*`/g;
+const RE_HTTP = /https?:\/\/\S+/gi;
+const RE_WWW = /www\.\S+/gi;
+const RE_MAILTO = /mailto:\S+/gi;
+const RE_HTML = /<\/?[a-z][^>]*>/gi;
+const RE_MARKDOWN = /[#>*_~|]/g;
+const RE_MUSTACHE = /\{\{.*?\}\}/g;
+const RE_NUMBER_COMMAS = /(\d)[.,](\d{3})/g;
+const RE_EMOJI = /\p{Extended_Pictographic}/gu;
+const RE_SYMBOLS = /[→←↑↓↔►▪•·⦁⇒]/g;
+const RE_DUP_PUNCT = /([.,:;!؟?،…-])\1+/g;
+const RE_MULTISPACE = /\s+/g;
+
 export function isSpeechSupported(): boolean {
   return typeof window !== 'undefined' && 'speechSynthesis' in window;
 }
@@ -63,10 +83,10 @@ export function preloadVoices(): void {
 /** تطبيع أحرف عربية للقراءة الطبيعية مع الحفاظ على الأعجمي/الأسماء. */
 function normalizeArabicChars(input: string): string {
   return input
-    .replace(/[\u064B-\u065F]/g, '') // التشكيل والحركات
-    .replace(/[\u0610-\u061A\u0640]/g, '') // علامات قرآنية + تطويل
-    .replace(/إ/g, 'ا')
-    .replace(/ى/g, 'ي');
+    .replace(RE_DIACRITICS, '') // التشكيل والحركات
+    .replace(RE_QURANIC_TATWEEL, '') // علامات قرآنية + تطويل
+    .replace(RE_ALEF_HAMZA_BELOW, 'ا')
+    .replace(RE_ALEF_MAQSURA, 'ي');
 }
 
 /** يزيل محارف التحكم ويترك النص الناطق سليماً (بدون Regex لتجنب lint). */
@@ -105,28 +125,28 @@ export function cleanArabicTextForSpeech(input: string): string {
 
   let t = input
     // كتل أكواد كاملة
-    .replace(/```[\s\S]*?```/g, ' ')
+    .replace(RE_CODEBLOCK, ' ')
     // نص أكواد مضمن
-    .replace(/`[^`]*`/g, ' ')
+    .replace(RE_INLINE_CODE, ' ')
     // روابط
-    .replace(/https?:\/\/\S+/gi, ' ')
-    .replace(/www\.\S+/gi, ' ')
-    .replace(/mailto:\S+/gi, ' ')
+    .replace(RE_HTTP, ' ')
+    .replace(RE_WWW, ' ')
+    .replace(RE_MAILTO, ' ')
     // وسوم HTML
-    .replace(/<\/?[a-z][^>]*>/gi, ' ')
+    .replace(RE_HTML, ' ')
     // محارف ترويسة/تنسيق Markdown وتسميات
-    .replace(/[#>*_~|]/g, ' ')
-    .replace(/\{\{.*?\}\}/g, ' ')
+    .replace(RE_MARKDOWN, ' ')
+    .replace(RE_MUSTACHE, ' ')
     // فواصل الأرقام (1,234 → 1234) لقراءتها كرقم واحد
-    .replace(/(\d)[.,](\d{3})/g, '$1$2')
+    .replace(RE_NUMBER_COMMAS, '$1$2')
     // رمز تعبيرية ورسوميات
-    .replace(/\p{Extended_Pictographic}/gu, ' ')
+    .replace(RE_EMOJI, ' ')
     // أسهم ونقاط وقوائم
-    .replace(/[→←↑↓↔►▪•·⦁⇒]/g, ' ')
+    .replace(RE_SYMBOLS, ' ')
     // علامات ترقيم متكررة → واحدة
-    .replace(/([.,:;!؟?،…-])\1+/g, '$1')
+    .replace(RE_DUP_PUNCT, '$1')
     // مسافات بيضاء متعددة
-    .replace(/\s+/g, ' ')
+    .replace(RE_MULTISPACE, ' ')
     .trim();
 
   // تطبيع الحروف العربية
