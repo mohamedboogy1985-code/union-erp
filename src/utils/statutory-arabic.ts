@@ -12,6 +12,10 @@ const RE_MULTISPACE = /\s+/g;
 const NORMALIZE_ARABIC_CACHE = new Map<string, string>();
 const MAX_CACHE_ENTRIES = 500;
 
+export const clearNormalizeArabicCache = (): void => {
+  NORMALIZE_ARABIC_CACHE.clear();
+};
+
 function computeNormalizeArabic(input: string): string {
   return input
     .replace(RE_DIACRITICS, '')
