@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Users, Search, Building2, Briefcase, X, ListChecks, CalendarDays } from 'lucide-react';
 import { api } from '../services/api.js';
 import { CommitteeSummary, User } from '../types/erp.js';
@@ -41,17 +41,27 @@ export const UnionCommittees: React.FC<UnionCommitteesProps> = ({
     }
   };
 
-  const filtered = committees.filter((c) => {
-    if (filterCategory !== 'ALL' && c.category !== filterCategory) return false;
-    if (searchQuery.trim()) {
-      const q = searchQuery.trim();
-      if (!c.name.includes(q) && !c.rawName.includes(q)) return false;
+  // Optimization: Pre-compute category counts in a single O(N) pass, memoized against `committees`.
+  // Eliminates two separate array filter passes on every render pass.
+  const { countCompany, countProf } = useMemo(() => {
+    let company = 0;
+    let prof = 0;
+    for (let i = 0; i < committees.length; i++) {
+      if (committees[i].category === 'COMPANY') company++;
+      else if (committees[i].category === 'PROFESSIONAL') prof++;
     }
-    return true;
-  });
+    return { countCompany: company, countProf: prof };
+  }, [committees]);
 
-  const countCompany = committees.filter((c) => c.category === 'COMPANY').length;
-  const countProf = committees.filter((c) => c.category === 'PROFESSIONAL').length;
+  // Optimization: Memoize filtered list to avoid re-filtering on unrelated render events (e.g. modal state changes).
+  const filtered = useMemo(() => {
+    const q = searchQuery.trim();
+    return committees.filter((c) => {
+      if (filterCategory !== 'ALL' && c.category !== filterCategory) return false;
+      if (q && !c.name.includes(q) && !c.rawName.includes(q)) return false;
+      return true;
+    });
+  }, [committees, filterCategory, searchQuery]);
 
   return (
     <div className="p-6 max-w-7xl mx-auto">
