@@ -420,24 +420,26 @@ export const JournalEntries: React.FC<JournalEntriesProps> = ({
     }
   };
 
-  // Filtered Entries
-  const filteredEntries = entries.filter((e) => {
-    if (filterStatus !== 'ALL' && e.status !== filterStatus) return false;
-    if (filterJournal !== 'ALL') {
-      const j = e.journalName || 'يومية النقابة';
-      if (filterJournal === '__default' ? j !== 'يومية لجان الشركات' : j !== filterJournal) return false;
-    }
-    if (filterYear !== 'ALL' && !String(e.date).startsWith(filterYear)) return false;
-    if (searchQuery.trim()) {
-      const q = searchQuery.toLowerCase();
-      return (
-        e.entryNumber.toLowerCase().includes(q) ||
-        e.description.toLowerCase().includes(q) ||
-        e.lines.some((l) => l.accountName.toLowerCase().includes(q) || l.subledgerPartyName?.toLowerCase().includes(q))
-      );
-    }
-    return true;
-  });
+  // Memoized journal entries filtering to prevent expensive array & string search operations on modal/form re-renders
+  const filteredEntries = React.useMemo(() => {
+    return entries.filter((e) => {
+      if (filterStatus !== 'ALL' && e.status !== filterStatus) return false;
+      if (filterJournal !== 'ALL') {
+        const j = e.journalName || 'يومية النقابة';
+        if (filterJournal === '__default' ? j !== 'يومية لجان الشركات' : j !== filterJournal) return false;
+      }
+      if (filterYear !== 'ALL' && !String(e.date).startsWith(filterYear)) return false;
+      if (searchQuery.trim()) {
+        const q = searchQuery.trim().toLowerCase();
+        return (
+          e.entryNumber.toLowerCase().includes(q) ||
+          e.description.toLowerCase().includes(q) ||
+          e.lines.some((l) => l.accountName.toLowerCase().includes(q) || l.subledgerPartyName?.toLowerCase().includes(q))
+        );
+      }
+      return true;
+    });
+  }, [entries, filterStatus, filterJournal, filterYear, searchQuery]);
 
   // عند تغيير أي معيار تصفية/بحث، أعد العرض من أول دفعة لمنع تراكم آلاف الصفوف دفعة واحدة
   useEffect(() => {
