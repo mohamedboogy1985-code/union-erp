@@ -135,12 +135,17 @@ const ACTION_WORDS = new Set([
   'strategy', 'deliverable', 'priority', 'must', 'should', 'requirement'
 ]);
 
+// Pre-compiled regular expressions for optimal word classification performance
+const RE_CLEAN_WORD = /[^a-z0-9'\u0600-\u06FF]/g;
+const RE_NUMERIC_PATTERN = /^[0-9\u0660-\u0669$%]+$/;
+const RE_HAS_DIGIT = /\d/;
+
 export function classifyWord(rawWord: string): KeywordClassification | null {
-  const clean = rawWord.toLowerCase().replace(/[^a-z0-9'\u0600-\u06FF]/g, '').trim();
+  const clean = rawWord.toLowerCase().replace(RE_CLEAN_WORD, '').trim();
   if (!clean) return null;
 
   // Check for numeric patterns (e.g. 100, 2026, 50%, $10, ١٢٣)
-  if (/^(\d+|[٠-٩]+|\$|%)+$/.test(clean) || /\d+/.test(clean)) {
+  if (RE_NUMERIC_PATTERN.test(clean) || RE_HAS_DIGIT.test(clean)) {
     return KEYWORD_CATEGORIES.datetime;
   }
 
