@@ -73,11 +73,20 @@ for (const config of REGULATION_ACTIVATED_RULES) {
   rule.severity = config.severity ?? rule.severity;
 }
 
+// Pre-compiled regex and pre-cleaned keyword arrays for optimal matching performance in journal checks
+const RE_CLEAN_SPACES_TATWEEL = /\s|ـ/g;
+
+const KEYWORDS_TRAVEL = ['سفر', 'مأمورية', 'مدة سفر'].map((kw) => kw.replace(RE_CLEAN_SPACES_TATWEEL, '').toLowerCase());
+const KEYWORDS_TRANSPORT = ['بدل انتقال', 'انتقال', 'مواصلات'].map((kw) => kw.replace(RE_CLEAN_SPACES_TATWEEL, '').toLowerCase());
+const KEYWORDS_BURDEN = ['أعباء'].map((kw) => kw.replace(RE_CLEAN_SPACES_TATWEEL, '').toLowerCase());
+const KEYWORDS_GIFTS = ['هدايا', 'وفود', 'ضيافة'].map((kw) => kw.replace(RE_CLEAN_SPACES_TATWEEL, '').toLowerCase());
+const KEYWORDS_PROCUREMENT = ['شراء', 'توريد', 'مشتريات', 'لوازم', 'مهمات'].map((kw) => kw.replace(RE_CLEAN_SPACES_TATWEEL, '').toLowerCase());
+
 /** هل بيان السطر يطابق أي كلمة مفتاحية؟ */
-function keywordHit(description: string | undefined, keywords: string[]): boolean {
+function keywordHit(description: string | undefined, cleanedKeywords: string[]): boolean {
   if (!description) return false;
-  const d = description.replace(/\s|ـ/g, '').toLowerCase();
-  return keywords.some((kw) => d.includes(kw.replace(/\s|ـ/g, '').toLowerCase()));
+  const d = description.replace(RE_CLEAN_SPACES_TATWEEL, '').toLowerCase();
+  return cleanedKeywords.some((kw) => d.includes(kw));
 }
 
 export class RegulationService {
@@ -307,7 +316,7 @@ export class RegulationService {
       const desc = `${line.description ?? ''} ${line.accountName ?? ''}`;
 
       // مادة 37: القيمة في السطر قد تجمع عدة ليالٍ؛ لا تُقارن بحد الليلة إلا عند توفير عدد الليالي صراحةً.
-      if (keywordHit(desc, ['سفر', 'مأمورية', 'مدة سفر']) && Number.isInteger(line.travelNights) && (line.travelNights ?? 0) > 0) {
+      if (keywordHit(desc, KEYWORDS_TRAVEL) && Number.isInteger(line.travelNights) && (line.travelNights ?? 0) > 0) {
         const floor = input.entityLevel === 'OTHER'
           ? undefined
           : this.getRule(input.entityLevel === 'COMMITTEE' ? 'TRAVEL_ALLOWANCE_DAILY_CAP_BRANCH' : 'TRAVEL_ALLOWANCE_DAILY_CAP');
@@ -325,7 +334,7 @@ export class RegulationService {
       }
 
       // مادة 39: بدل الانتقال الشهري
-      if (keywordHit(desc, ['بدل انتقال', 'انتقال', 'مواصلات'])) {
+      if (keywordHit(desc, KEYWORDS_TRANSPORT)) {
         const transport = this.getRule('MONTHLY_TRANSPORT_ALLOWANCE_CAP');
         if (this.active(transport) && amount > Number(transport.value)) {
           violations.push(this.violate(transport, `بدل الانتقال (${amount.toLocaleString()} ج.م) يتجاوز الحد الشهري المقرر (${Number(transport.value).toLocaleString()} ج.م) إلا بقرار من مجلس الإدارة.`));
@@ -333,7 +342,7 @@ export class RegulationService {
       }
 
       // مادة 40: يوجد استثناء صريح لأعضاء هيئة المكتب؛ لا يُفحص الحد إلا إذا عُرفت الصفة صراحةً بأنها ليست عضو هيئة مكتب.
-      if (keywordHit(desc, ['أعباء']) && line.boardMember === false) {
+      if (keywordHit(desc, KEYWORDS_BURDEN) && line.boardMember === false) {
         const burden = this.getRule('MONTHLY_BURDEN_ALLOWANCE_CAP');
         if (this.active(burden) && amount > Number(burden.value)) {
           violations.push(this.violate(burden, `بدل الأعباء (${amount.toLocaleString()} ج.م) يتجاوز الحد الشهري المقرر (${Number(burden.value).toLocaleString()} ج.م)؛ تحقّق من انطباق استثناء عضو هيئة المكتب بالمادة 40.`));
@@ -342,7 +351,7 @@ export class RegulationService {
 
       // مادة 50: الحد 5,000 جنيه للوفد؛ الاستثناء حتى القيمة المذكورة بالمادة بقرار رئيس المنظمة.
       // صيغ المادة 51 الرقمية الملتبسة غير مفعلة ولا تُستخدم هنا.
-      if (keywordHit(desc, ['هدايا', 'وفود', 'ضيافة'])) {
+      if (keywordHit(desc, KEYWORDS_GIFTS)) {
         const exceptional = this.getRule('GIFTS_CEILING_EXCEPTIONAL');
         const regular = this.getRule('GIFTS_CEILING_REGULAR');
         if (this.active(exceptional) && amount > Number(exceptional.value)) {
@@ -354,7 +363,7 @@ export class RegulationService {
 
       // مادة 61: تمييز حدود اللجنة والنقابة العامة والتحقق من درجات الممارسة والمناقصات.
       // قيمة سطر القيد ليست بديلاً عن قيمة العملية التقديرية؛ لذلك تصدر هذه القاعدة تحذيراً فقط.
-      if (input.entityLevel !== 'OTHER' && keywordHit(desc, ['شراء', 'توريد', 'مشتريات', 'لوازم', 'مهمات'])) {
+      if (input.entityLevel !== 'OTHER' && keywordHit(desc, KEYWORDS_PROCUREMENT)) {
         const isCommittee = input.entityLevel === 'COMMITTEE';
         const direct = this.getRule(isCommittee ? 'PROC_DIRECT_ORDER_CEILING_BRANCH' : 'PROC_DIRECT_ORDER_CEILING');
         const practice = this.getRule(isCommittee ? 'PROC_TENDER_CEILING_BRANCH' : 'PROC_TENDER_CEILING');

@@ -9,3 +9,7 @@
 ## 2026-03-30 - Single-Row Typed Array Allocation & CodeQL Loop Bounding
 **Learning:** CodeQL static analysis flags dynamic array iteration loops over user-tainted strings unless string parameters are coerced to primitives (`String(str)`), sliced to a constant maximum length (`slice(0, 256)`), and loop guards explicitly enforce compound bounds (`i <= MAX_LEN`).
 **Action:** Always combine typed array allocation optimizations ($O(\min(N, M))$ space) with explicit constant integer upper bounds (`i <= MAX_LEN`) in loop conditions for user-supplied string processing functions.
+
+## 2026-03-31 - Module-Scoped Pre-Cleaned Keyword Arrays for Regulation Checks
+**Learning:** Performing `String.replace()` inside array iteration helpers like `Array.prototype.some()` across multiple line items per journal entry leads to high CPU overhead and unnecessary string allocations during financial regulation checks.
+**Action:** Pre-clean static keyword lists at module initialization and pass pre-normalized keyword arrays into matching helper functions.

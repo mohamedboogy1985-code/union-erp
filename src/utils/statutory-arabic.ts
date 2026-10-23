@@ -20,6 +20,25 @@ export const normalizeArabic = (input: string): string => {
     .replace(/\s+/g, ' ')
     .trim()
     .toLowerCase();
+}
+
+/** تطبيع النص العربي: إزالة التشكيل والتطويل، توحيد الألف والهمزات والهاء والياء، وتنظيف الرموز. */
+export const normalizeArabic = (input: string): string => {
+  if (!input) return '';
+  const cached = ARABIC_NORMALIZE_CACHE.get(input);
+  if (cached !== undefined) return cached;
+
+  const result = computeNormalizeArabic(input);
+
+  if (ARABIC_NORMALIZE_CACHE.size >= MAX_CACHE_ENTRIES) {
+    const oldestKey = ARABIC_NORMALIZE_CACHE.keys().next().value;
+    if (oldestKey !== undefined) {
+      ARABIC_NORMALIZE_CACHE.delete(oldestKey);
+    }
+  }
+  ARABIC_NORMALIZE_CACHE.set(input, result);
+  return result;
+};
 
   if (normalizeCache.size >= NORMALIZE_CACHE_LIMIT) {
     const firstKey = normalizeCache.keys().next().value;
