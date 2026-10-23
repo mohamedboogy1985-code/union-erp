@@ -1,30 +1,26 @@
-// Pre-compiled regular expressions for optimal Arabic normalization performance
-const RE_DIACRITICS = /[\u064B-\u0652\u0670\u0640]/g;
+/** Pre-compiled regular expressions for optimal string transformation performance */
+const RE_HARAKAT = /[\u064B-\u0652\u0670\u0640]/g;
 const RE_ALEF = /[أإآٱ]/g;
-const RE_ALEF_MAQSURA = /ى/g;
-const RE_YEH_HAMZA = /ئ/g;
-const RE_WAW_HAMZA = /ؤ/g;
-const RE_TEH_MARBUTA = /ة/g;
-const RE_NON_ALPHANUMERIC = /[^\u0600-\u06FF0-9a-zA-Z\s]/g;
+const RE_YAA = /ى/g;
+const RE_HAMZA_YAA = /ئ/g;
+const RE_WAW = /ؤ/g;
+const RE_TAA = /ة/g;
+const RE_NON_ALPHANUM = /[^\u0600-\u06FF0-9a-zA-Z\s]/g;
 const RE_MULTISPACE = /\s+/g;
 
-// Bounded LRU cache to memoize Arabic text normalization results for UI searches and filters
-const NORMALIZE_ARABIC_CACHE = new Map<string, string>();
+/** Bounded cache for Arabic text normalization to avoid redundant regex passes on search/filter loops */
+const ARABIC_NORMALIZE_CACHE = new Map<string, string>();
 const MAX_CACHE_ENTRIES = 500;
-
-export const clearNormalizeArabicCache = (): void => {
-  NORMALIZE_ARABIC_CACHE.clear();
-};
 
 function computeNormalizeArabic(input: string): string {
   return input
-    .replace(RE_DIACRITICS, '')
+    .replace(RE_HARAKAT, '')
     .replace(RE_ALEF, 'ا')
-    .replace(RE_ALEF_MAQSURA, 'ي')
-    .replace(RE_YEH_HAMZA, 'ي')
-    .replace(RE_WAW_HAMZA, 'و')
-    .replace(RE_TEH_MARBUTA, 'ه')
-    .replace(RE_NON_ALPHANUMERIC, ' ')
+    .replace(RE_YAA, 'ي')
+    .replace(RE_HAMZA_YAA, 'ي')
+    .replace(RE_WAW, 'و')
+    .replace(RE_TAA, 'ه')
+    .replace(RE_NON_ALPHANUM, ' ')
     .replace(RE_MULTISPACE, ' ')
     .trim()
     .toLowerCase();
@@ -33,18 +29,18 @@ function computeNormalizeArabic(input: string): string {
 /** تطبيع النص العربي: إزالة التشكيل والتطويل، توحيد الألف والهمزات والهاء والياء، وتنظيف الرموز. */
 export const normalizeArabic = (input: string): string => {
   if (!input) return '';
-  const cached = NORMALIZE_ARABIC_CACHE.get(input);
+  const cached = ARABIC_NORMALIZE_CACHE.get(input);
   if (cached !== undefined) return cached;
 
   const result = computeNormalizeArabic(input);
 
-  if (NORMALIZE_ARABIC_CACHE.size >= MAX_CACHE_ENTRIES) {
-    const oldestKey = NORMALIZE_ARABIC_CACHE.keys().next().value;
+  if (ARABIC_NORMALIZE_CACHE.size >= MAX_CACHE_ENTRIES) {
+    const oldestKey = ARABIC_NORMALIZE_CACHE.keys().next().value;
     if (oldestKey !== undefined) {
-      NORMALIZE_ARABIC_CACHE.delete(oldestKey);
+      ARABIC_NORMALIZE_CACHE.delete(oldestKey);
     }
   }
-  NORMALIZE_ARABIC_CACHE.set(input, result);
+  ARABIC_NORMALIZE_CACHE.set(input, result);
   return result;
 };
 
