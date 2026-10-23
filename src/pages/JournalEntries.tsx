@@ -420,7 +420,8 @@ export const JournalEntries: React.FC<JournalEntriesProps> = ({
     }
   };
 
-  // Memoized journal entries filtering to prevent expensive array & string search operations on modal/form re-renders
+  // Performance Optimization: Memoize filteredEntries calculation to prevent full array scans
+  // and line-item string matching on unrelated re-renders (modal toggles, form typing, etc.)
   const filteredEntries = React.useMemo(() => {
     return entries.filter((e) => {
       if (filterStatus !== 'ALL' && e.status !== filterStatus) return false;
@@ -430,7 +431,7 @@ export const JournalEntries: React.FC<JournalEntriesProps> = ({
       }
       if (filterYear !== 'ALL' && !String(e.date).startsWith(filterYear)) return false;
       if (searchQuery.trim()) {
-        const q = searchQuery.trim().toLowerCase();
+        const q = searchQuery.toLowerCase();
         return (
           e.entryNumber.toLowerCase().includes(q) ||
           e.description.toLowerCase().includes(q) ||
