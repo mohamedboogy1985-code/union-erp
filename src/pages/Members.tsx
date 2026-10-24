@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   Users,
   PlusCircle,
@@ -109,18 +109,18 @@ export const Members: React.FC<MembersProps> = ({
     }
   };
 
-  const filteredMembers = members.filter((m) => {
-    if (searchQuery.trim()) {
-      const q = searchQuery.toLowerCase();
-      return (
+  // Performance optimization: Memoize filtered members calculation to avoid redundant search operations on every render
+  const filteredMembers = useMemo(() => {
+    if (!searchQuery.trim()) return members;
+    const q = searchQuery.toLowerCase();
+    return members.filter(
+      (m) =>
         m.fullName.toLowerCase().includes(q) ||
         m.membershipNumber.toLowerCase().includes(q) ||
         m.companyName?.toLowerCase().includes(q) ||
-        m.nationalIdMasked.includes(q)
-      );
-    }
-    return true;
-  });
+        m.nationalIdMasked.includes(q),
+    );
+  }, [members, searchQuery]);
 
   return (
     <div className="space-y-6">
