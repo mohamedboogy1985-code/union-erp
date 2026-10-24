@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   ReceiptText,
   PlusCircle,
@@ -154,17 +154,17 @@ export const Receipts: React.FC<ReceiptsProps> = ({
     }
   };
 
-  const filteredReceipts = receipts.filter((r) => {
-    if (searchQuery.trim()) {
-      const q = searchQuery.toLowerCase();
-      return (
+  // Performance optimization: Memoize filtered receipts calculation to avoid redundant string search operations on every render
+  const filteredReceipts = useMemo(() => {
+    if (!searchQuery.trim()) return receipts;
+    const q = searchQuery.toLowerCase();
+    return receipts.filter(
+      (r) =>
         r.receiptNumber.toLowerCase().includes(q) ||
         r.payerName.toLowerCase().includes(q) ||
-        r.notes?.toLowerCase().includes(q)
-      );
-    }
-    return true;
-  });
+        r.notes?.toLowerCase().includes(q),
+    );
+  }, [receipts, searchQuery]);
 
   return (
     <div className="space-y-6">
