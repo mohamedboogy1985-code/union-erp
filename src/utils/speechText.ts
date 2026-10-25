@@ -348,9 +348,9 @@ const RE_PLUS = /\s*\+\s*/g;
 const RE_ELLIPSIS = /…/g;
 const RE_DASHES = /[-–—]{1,}/g;
 
-const RE_DATE_DMY = /\b(\d{1,2})[\/-](\d{1,2})[\/-](\d{4})\b/g;
-const RE_DATE_YMD = /\b(\d{4})[\/-](\d{1,2})[\/-](\d{1,2})\b/g;
-const RE_DATE_MY = /\b(\d{1,2})[\/-](\d{4})\b/g;
+const RE_DATE_DMY = /\b(\d{1,2})[-/](\d{1,2})[-/](\d{4})\b/g;
+const RE_DATE_YMD = /\b(\d{4})[-/](\d{1,2})[-/](\d{1,2})\b/g;
+const RE_DATE_MY = /\b(\d{1,2})[-/](\d{4})\b/g;
 
 const RE_IDENTIFIER = /\b([A-Z]{2,6})-(\d{2,4})-?(\d{1,4})\b/g;
 const RE_CODE_LABEL = /(كود|الكود|حساب|الحساب|قيد|القيد|رقم القيد|رقم المستند|بصمة رقم)[\s،]*(\d{2,})/g;

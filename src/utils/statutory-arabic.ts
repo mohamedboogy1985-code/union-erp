@@ -2,43 +2,34 @@
 const NORMALIZE_CACHE_LIMIT = 1000;
 const normalizeCache = new Map<string, string>();
 
+// Pre-compiled regular expressions to eliminate per-call object allocations & compilation overhead during normalization
+const HARAKAT_REGEX = /[\u064B-\u0652\u0670\u0640]/g;
+const ALEF_REGEX = /[أإآٱ]/g;
+const YAA_MAX_REGEX = /ى/g;
+const YAA_HAMZA_REGEX = /ئ/g;
+const WAW_HAMZA_REGEX = /ؤ/g;
+const TAA_MARBUTA_REGEX = /ة/g;
+const NON_ALPHANUM_REGEX = /[^\u0600-\u06FF0-9a-zA-Z\s]/g;
+const WHITESPACE_REGEX = /\s+/g;
+
 /** تطبيع النص العربي: إزالة التشكيل والتطويل، توحيد الألف والهمزات والهاء والياء، وتنظيف الرموز. */
 export const normalizeArabic = (input: string): string => {
   if (!input) return '';
   const cached = normalizeCache.get(input);
   if (cached !== undefined) return cached;
 
-  // Performance optimization: Avoid repeated regex passes on identical inputs during searches and UI renders
+  // Performance optimization: Pre-compiled regexes avoid repeated allocation on non-cached strings
   const normalized = input
-    .replace(/[\u064B-\u0652\u0670\u0640]/g, '')
-    .replace(/[أإآٱ]/g, 'ا')
-    .replace(/ى/g, 'ي')
-    .replace(/ئ/g, 'ي')
-    .replace(/ؤ/g, 'و')
-    .replace(/ة/g, 'ه')
-    .replace(/[^\u0600-\u06FF0-9a-zA-Z\s]/g, ' ')
-    .replace(/\s+/g, ' ')
+    .replace(HARAKAT_REGEX, '')
+    .replace(ALEF_REGEX, 'ا')
+    .replace(YAA_MAX_REGEX, 'ي')
+    .replace(YAA_HAMZA_REGEX, 'ي')
+    .replace(WAW_HAMZA_REGEX, 'و')
+    .replace(TAA_MARBUTA_REGEX, 'ه')
+    .replace(NON_ALPHANUM_REGEX, ' ')
+    .replace(WHITESPACE_REGEX, ' ')
     .trim()
     .toLowerCase();
-}
-
-/** تطبيع النص العربي: إزالة التشكيل والتطويل، توحيد الألف والهمزات والهاء والياء، وتنظيف الرموز. */
-export const normalizeArabic = (input: string): string => {
-  if (!input) return '';
-  const cached = ARABIC_NORMALIZE_CACHE.get(input);
-  if (cached !== undefined) return cached;
-
-  const result = computeNormalizeArabic(input);
-
-  if (ARABIC_NORMALIZE_CACHE.size >= MAX_CACHE_ENTRIES) {
-    const oldestKey = ARABIC_NORMALIZE_CACHE.keys().next().value;
-    if (oldestKey !== undefined) {
-      ARABIC_NORMALIZE_CACHE.delete(oldestKey);
-    }
-  }
-  ARABIC_NORMALIZE_CACHE.set(input, result);
-  return result;
-};
 
   if (normalizeCache.size >= NORMALIZE_CACHE_LIMIT) {
     const firstKey = normalizeCache.keys().next().value;
