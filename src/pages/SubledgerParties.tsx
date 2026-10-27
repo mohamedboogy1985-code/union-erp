@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   Users,
   PlusCircle,
@@ -134,19 +134,22 @@ export const SubledgerParties: React.FC<SubledgerPartiesProps> = ({
     }
   };
 
-  const filtered = parties.filter((p) => {
-    if (filterType !== 'ALL' && p.type !== filterType) return false;
-    if (searchQuery.trim()) {
-      const q = searchQuery.toLowerCase();
-      return (
-        p.name.toLowerCase().includes(q) ||
-        p.normalizedName.includes(q) ||
-        p.partyCode.toLowerCase().includes(q) ||
-        p.phone?.includes(q)
-      );
-    }
-    return true;
-  });
+  // Performance optimization: Memoize filtered subledger parties calculation to avoid re-filtering on unrelated state changes
+  const filtered = useMemo(() => {
+    return parties.filter((p) => {
+      if (filterType !== 'ALL' && p.type !== filterType) return false;
+      if (searchQuery.trim()) {
+        const q = searchQuery.toLowerCase();
+        return (
+          p.name.toLowerCase().includes(q) ||
+          p.normalizedName.includes(q) ||
+          p.partyCode.toLowerCase().includes(q) ||
+          p.phone?.includes(q)
+        );
+      }
+      return true;
+    });
+  }, [parties, filterType, searchQuery]);
 
   return (
     <div className="space-y-6">
