@@ -43,17 +43,38 @@ const num = (v: any): number => {
 
 const norm = (s: string) => normalizeArabicText(String(s ?? ''));
 
+// Pre-normalized Arabic month lookup list to avoid redundant normalizeArabicText calls per file scan
+const NORM_AR_MONTHS = Object.entries(AR_MONTHS).map(([arName, m]) => ({
+  normName: norm(arName),
+  month: m,
+}));
+
+// Pre-compiled regular expressions for payroll filename parsing to avoid dynamic RegExp re-allocations
+const RE_AR_MONTHS_PATTERN = new RegExp(
+  Object.keys(AR_MONTHS)
+    .map((ar) => norm(ar))
+    .join('|'),
+  'g'
+);
+const RE_YEAR_PATTERN = /(20\d{2})/;
+const RE_BAAD_TADEEL = /بعد\s*تعديل[^]*$/;
+const RE_TADEEL_DARAIB = /تعديل\s*الضرائب/g;
+const RE_YEAR_WORD_BOUND = /\b20\d{2}\b/g;
+const RE_CLEAN_PUNCTUATION = /[-_.]+/g;
+const RE_NUMBERS = /\d+/g;
+const RE_MULTISPACE = /\s+/g;
+
 /** استخراج الشهر من اسم مجلد/ملف عربي مثل «مرتبات يناير 2024» */
 function extractMonthFromName(name: string): { year?: number; month?: number } {
   const n = norm(name);
   let month: number | undefined;
-  for (const [arName, m] of Object.entries(AR_MONTHS)) {
-    if (n.includes(norm(arName))) {
-      month = m;
+  for (let i = 0; i < NORM_AR_MONTHS.length; i++) {
+    if (n.includes(NORM_AR_MONTHS[i].normName)) {
+      month = NORM_AR_MONTHS[i].month;
       break;
     }
   }
-  const yearMatch = n.match(/(20\d{2})/);
+  const yearMatch = n.match(RE_YEAR_PATTERN);
   const year = yearMatch ? Number(yearMatch[1]) : undefined;
   return { year, month };
 }
@@ -274,8 +295,8 @@ function isReferenceSheet(sheetName: string): boolean {
 /** مفتاح توحيد نسخ الملفات المكررة (إزالة الأرقام وعلامات ترقيم ولاحقة «بعد تعديل») */
 function dedupKey(fileName: string): string {
   let n = norm(fileName.split('/').pop() || fileName);
-  n = n.replace(/بعد\s*تعديل[^]*$/, '').replace(/تعديل\s*الضرائب/g, '');
-  n = n.replace(/\d+/g, ' ').replace(/[-_\-.]+/g, ' ').replace(/\s+/g, ' ').trim();
+  n = n.replace(RE_BAAD_TADEEL, '').replace(RE_TADEEL_DARAIB, '');
+  n = n.replace(RE_NUMBERS, ' ').replace(RE_CLEAN_PUNCTUATION, ' ').replace(RE_MULTISPACE, ' ').trim();
   return n;
 }
 
@@ -287,15 +308,13 @@ function dedupKey(fileName: string): string {
 function extractReportType(fileName: string): string {
   let n = norm(fileName.split('/').pop() || fileName);
   // إزالة اللاحقات المعرفة
-  n = n.replace(/بعد\s*تعديل[^]*$/, '').replace(/تعديل\s*الضرائب/g, '');
-  // إزالة أسماء الشهور
-  for (const ar of Object.keys(AR_MONTHS)) {
-    n = n.replace(new RegExp(norm(ar), 'g'), '');
-  }
+  n = n.replace(RE_BAAD_TADEEL, '').replace(RE_TADEEL_DARAIB, '');
+  // إزالة أسماء الشهور بـ RegExp مسبق التجميع في مجرى واحد
+  n = n.replace(RE_AR_MONTHS_PATTERN, '');
   // إزالة الأعوام (4 أرقام تبدأ بـ 20)
-  n = n.replace(/\b20\d{2}\b/g, '');
+  n = n.replace(RE_YEAR_WORD_BOUND, '');
   // إزالة الأرقام وعلامات الترقيم
-  n = n.replace(/\d+/g, ' ').replace(/[-_\.]+/g, ' ').replace(/\s+/g, ' ').trim();
+  n = n.replace(RE_NUMBERS, ' ').replace(RE_CLEAN_PUNCTUATION, ' ').replace(RE_MULTISPACE, ' ').trim();
   return n || 'عام';
 }
 
