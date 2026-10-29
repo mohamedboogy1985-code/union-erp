@@ -140,7 +140,12 @@ const RE_CLEAN_WORD = /[^a-z0-9'\u0600-\u06FF]/g;
 const RE_NUMERIC_PATTERN = /^[0-9\u0660-\u0669$%]+$/;
 const RE_HAS_DIGIT = /\d/;
 
-export function classifyWord(rawWord: string): KeywordClassification | null {
+// Bounded LRU cache to memoize entity classification lookups for live audio transcription streams.
+// Prevents repeated regex cleaning and Set lookups during frequent React render passes.
+const CLASSIFY_WORD_CACHE = new Map<string, KeywordClassification | null>();
+const MAX_CLASSIFY_CACHE_ENTRIES = 1000;
+
+function computeClassifyWord(rawWord: string): KeywordClassification | null {
   const clean = rawWord.toLowerCase().replace(RE_CLEAN_WORD, '').trim();
   if (!clean) return null;
 
@@ -169,4 +174,21 @@ export function classifyWord(rawWord: string): KeywordClassification | null {
   }
 
   return null;
+}
+
+export function classifyWord(rawWord: string): KeywordClassification | null {
+  if (!rawWord) return null;
+  const cached = CLASSIFY_WORD_CACHE.get(rawWord);
+  if (cached !== undefined) return cached;
+
+  const result = computeClassifyWord(rawWord);
+
+  if (CLASSIFY_WORD_CACHE.size >= MAX_CLASSIFY_CACHE_ENTRIES) {
+    const oldestKey = CLASSIFY_WORD_CACHE.keys().next().value;
+    if (oldestKey !== undefined) {
+      CLASSIFY_WORD_CACHE.delete(oldestKey);
+    }
+  }
+  CLASSIFY_WORD_CACHE.set(rawWord, result);
+  return result;
 }
