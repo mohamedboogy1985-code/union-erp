@@ -4,7 +4,26 @@
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { calculateSimilarity } from '../server/utils/arabic.js';
+import { calculateSimilarity, normalizeArabicText } from '../server/utils/arabic.js';
+
+test('تطبيع النص العربي وإزالة التشكيل والهمزات', () => {
+  assert.equal(normalizeArabicText('أَحْمَدُ مَحْمُودٌ'), 'احمد محمود');
+  assert.equal(normalizeArabicText('فَاطِمَةُ'), 'فاطمه');
+  assert.equal(normalizeArabicText('مُسْتَشْفَى'), 'مستشفي');
+});
+
+test('تكرار استدعاء التطبيع يسترجع النتيجة المخبأة من الـ Cache', () => {
+  const input = 'شركة الأمل للمقاولات والتطوير';
+  const firstPass = normalizeArabicText(input);
+  const secondPass = normalizeArabicText(input);
+  assert.equal(firstPass, 'شركه الامل للمقاولات والتطوير');
+  assert.equal(secondPass, firstPass);
+});
+
+test('تطبيع نص فارغ يُعيد نص فارغ', () => {
+  assert.equal(normalizeArabicText(''), '');
+  assert.equal(normalizeArabicText(null as unknown as string), '');
+});
 
 test('نصان متطابقان → 1', () => {
   assert.equal(calculateSimilarity('مصروفات صيانة', 'مصروفات صيانة'), 1);
