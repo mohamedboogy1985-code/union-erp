@@ -13,3 +13,7 @@
 ## 2026-03-31 - Module-Scoped Pre-Cleaned Keyword Arrays for Regulation Checks
 **Learning:** Performing `String.replace()` inside array iteration helpers like `Array.prototype.some()` across multiple line items per journal entry leads to high CPU overhead and unnecessary string allocations during financial regulation checks.
 **Action:** Pre-clean static keyword lists at module initialization and pass pre-normalized keyword arrays into matching helper functions.
+
+## 2026-04-01 - Bounded Map LRU Caching for Server-Side Arabic Text Normalization
+**Learning:** `normalizeArabicText` is called repeatedly across server-side search, entity matching, CSV importing, subledger party matching, and embedding vector generation. Running 7 sequential regex `.replace()` passes per invocation creates high CPU overhead and garbage collection pressure when processing repeated party or account queries.
+**Action:** Wrap string normalization functions in a bounded `Map` LRU cache (e.g. 1,000 entries max) to provide $O(1)$ lookups for previously normalized strings.

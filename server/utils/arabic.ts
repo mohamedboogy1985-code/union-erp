@@ -11,10 +11,18 @@ const RE_YAA = /ى/g;
 const RE_TASHKEEL = /[\u064B-\u065F\u0670]/g;
 const RE_TATWEEL = /\u0640/g;
 
+/** Bounded LRU cache size to prevent unbounded memory growth while speeding up frequent lookups */
+const NORMALIZE_CACHE_LIMIT = 1000;
+const normalizeCache = new Map<string, string>();
+
 export function normalizeArabicText(text: string): string {
   if (!text) return '';
 
-  return text
+  // Performance optimization: Avoid redundant regex transformations & string allocations on repeated lookups
+  const cached = normalizeCache.get(text);
+  if (cached !== undefined) return cached;
+
+  const normalized = text
     .trim()
     // Replace multiple spaces with a single space
     .replace(RE_MULTISPACE, ' ')
@@ -30,6 +38,16 @@ export function normalizeArabicText(text: string): string {
     .replace(RE_TATWEEL, '')
     // Lowercase for any Latin characters
     .toLowerCase();
+
+  if (normalizeCache.size >= NORMALIZE_CACHE_LIMIT) {
+    const firstKey = normalizeCache.keys().next().value;
+    if (firstKey !== undefined) {
+      normalizeCache.delete(firstKey);
+    }
+  }
+  normalizeCache.set(text, normalized);
+
+  return normalized;
 }
 
 /**
