@@ -11,10 +11,19 @@ const RE_YAA = /ى/g;
 const RE_TASHKEEL = /[\u064B-\u065F\u0670]/g;
 const RE_TATWEEL = /\u0640/g;
 
+// Performance optimization: Bounded LRU cache to memoize normalization passes
+// across repeated account names, party names, and search queries (130+ call sites across backend).
+// Avoids repeated regex iterations and string allocations for frequently encountered strings.
+const MAX_NORMALIZE_CACHE_SIZE = 2000;
+const normalizeCache = new Map<string, string>();
+
 export function normalizeArabicText(text: string): string {
   if (!text) return '';
 
-  return text
+  const cached = normalizeCache.get(text);
+  if (cached !== undefined) return cached;
+
+  const normalized = text
     .trim()
     // Replace multiple spaces with a single space
     .replace(RE_MULTISPACE, ' ')
@@ -30,6 +39,17 @@ export function normalizeArabicText(text: string): string {
     .replace(RE_TATWEEL, '')
     // Lowercase for any Latin characters
     .toLowerCase();
+
+  // Enforce bounded cache size using FIFO/LRU eviction
+  if (normalizeCache.size >= MAX_NORMALIZE_CACHE_SIZE) {
+    const oldestKey = normalizeCache.keys().next().value;
+    if (oldestKey !== undefined) {
+      normalizeCache.delete(oldestKey);
+    }
+  }
+
+  normalizeCache.set(text, normalized);
+  return normalized;
 }
 
 /**
