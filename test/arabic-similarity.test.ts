@@ -4,7 +4,23 @@
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { calculateSimilarity } from '../server/utils/arabic.js';
+import { calculateSimilarity, normalizeArabicText } from '../server/utils/arabic.js';
+
+test('normalizeArabicText memoization and cache eviction', () => {
+  // Test memoization identity and consistency
+  const input = '  شَركة الأَهْرامِ للمُقَاوَلَاتِ   ';
+  const first = normalizeArabicText(input);
+  const second = normalizeArabicText(input);
+  assert.equal(first, 'شركه الاهرام للمقاولات');
+  assert.equal(first, second);
+
+  // Exercise cache over limit to verify bounded eviction without errors
+  for (let i = 0; i < 1100; i++) {
+    normalizeArabicText(`عنصر تجريبي رقم ${i}`);
+  }
+  // Original normalization remains correct
+  assert.equal(normalizeArabicText(input), 'شركه الاهرام للمقاولات');
+});
 
 test('نصان متطابقان → 1', () => {
   assert.equal(calculateSimilarity('مصروفات صيانة', 'مصروفات صيانة'), 1);
