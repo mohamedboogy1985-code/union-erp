@@ -11,10 +11,19 @@ const RE_YAA = /ى/g;
 const RE_TASHKEEL = /[\u064B-\u065F\u0670]/g;
 const RE_TATWEEL = /\u0640/g;
 
+// Bolt: Bounded LRU cache to memoize idempotent Arabic text normalizations.
+// Avoids repeated regex passes and multi-string allocations across frequent
+// subledger lookups, CSV imports, AI suggestions, and journal validation loops.
+const MAX_NORMALIZE_CACHE_SIZE = 1000;
+const normalizeCache = new Map<string, string>();
+
 export function normalizeArabicText(text: string): string {
   if (!text) return '';
 
-  return text
+  const cached = normalizeCache.get(text);
+  if (cached !== undefined) return cached;
+
+  const normalized = text
     .trim()
     // Replace multiple spaces with a single space
     .replace(RE_MULTISPACE, ' ')
@@ -30,6 +39,16 @@ export function normalizeArabicText(text: string): string {
     .replace(RE_TATWEEL, '')
     // Lowercase for any Latin characters
     .toLowerCase();
+
+  if (normalizeCache.size >= MAX_NORMALIZE_CACHE_SIZE) {
+    const oldestKey = normalizeCache.keys().next().value;
+    if (oldestKey !== undefined) {
+      normalizeCache.delete(oldestKey);
+    }
+  }
+
+  normalizeCache.set(text, normalized);
+  return normalized;
 }
 
 /**
